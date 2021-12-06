@@ -9,13 +9,13 @@ public struct RefStructList<T> where T : struct
         get
         {
             // Following trick can reduce the range check by one
-            if (index >= _size) throw new ArgumentOutOfRangeException(nameof(index));
+            if (index >= Count) throw new ArgumentOutOfRangeException(nameof(index));
             return ref _data[index];
         }
     }
 
     public bool IsReadOnly => _data.IsReadOnly;
-    public int Count => (int)_size;
+    public ulong Count { get; private set; }
 
     // Gets and sets the capacity of this list.  The capacity is the size of
     // the internal array used to hold items.  When set, the internal
@@ -26,14 +26,14 @@ public struct RefStructList<T> where T : struct
         get => (ulong)_data.Length;
         set
         {
-            if (value < _size) throw new ArgumentOutOfRangeException(nameof(value));
+            if (value < Count) throw new ArgumentOutOfRangeException(nameof(value));
 
             if (value == (ulong)_data.Length) return;
 
             if (value > 0)
             {
                 var newItems = new T[value];
-                if (_size > 0) Array.Copy(_data, newItems, (long)_size);
+                if (Count > 0) Array.Copy(_data, newItems, (long)Count);
                 _data = newItems;
             }
             else
@@ -48,42 +48,40 @@ public struct RefStructList<T> where T : struct
     private static readonly T[] DefaultArray = new T[DefaultCapacity];
     private T[] _data;
 
-    private ulong _size;
-
     public RefStructList()
     {
-        _size = 0;
+        Count = 0;
         _data = DefaultArray;
         Capacity = DefaultCapacity;
     }
 
-    public void Add(ref T item)
+    public void Add(in T item)
     {
-        if (_size < (ulong)_data.LongLength)
+        if (Count < (ulong)_data.LongLength)
         {
-            _data[_size] = item;
-            _size++;
+            _data[Count] = item;
+            Count++;
         }
         else
         {
-            var size = _size;
+            var size = Count;
             Grow(size + 1);
-            _size = size + 1;
+            Count = size + 1;
             _data[size] = item;
         }
     }
 
     public void RemoveAt(ulong index)
     {
-        if (index >= _size) throw new ArgumentOutOfRangeException(nameof(index));
+        if (index >= Count) throw new ArgumentOutOfRangeException(nameof(index));
 
-        _size--;
-        if (index < _size) Array.Copy(_data, (long)index + 1, _data, (long)index, (long)(_size - index));
+        Count--;
+        if (index < Count) Array.Copy(_data, (long)index + 1, _data, (long)index, (long)(Count - index));
     }
 
     public void Clear()
     {
-        _size = 0;
+        Count = 0;
     }
 
     /// <summary>

@@ -2,7 +2,6 @@
 
 namespace Core.ECS;
 
-
 public readonly struct TypeId
 {
     public Guid Id { get; }
@@ -15,10 +14,8 @@ public readonly struct TypeId
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static TypeId Get<T>()
-    {
-        return new TypeId(typeof(T).GUID, typeof(T).Name);
-    }
+    public static TypeId Get<T>() =>
+        new(typeof(T).GUID, typeof(T).Name);
 }
 
 public static class TypeId<T>

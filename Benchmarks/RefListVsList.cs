@@ -16,7 +16,7 @@ public class RefListVsList
         for (var i = 0; i < IterationCount; i++)
         {
             var guid = Guid.NewGuid();
-            list.Add(ref guid);
+            list.Add(in guid);
         }
     }
 
