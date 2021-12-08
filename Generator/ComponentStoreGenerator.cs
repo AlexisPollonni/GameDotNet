@@ -72,6 +72,8 @@ namespace Core.ECS.Generated
 {{
     public class ComponentStore : {componentStoreInterface}
     {{
+{GenerateFields(components).AddTabulations(2).ConcatLines()}
+
         public ulong Add<T>() where T : struct, IComponent
         {{
             ref var l = ref GetList<T>();
@@ -92,8 +94,6 @@ namespace Core.ECS.Generated
 
         public ref T Get<T>(ulong index) where T : struct, IComponent =>
             ref GetList<T>()[index];
-
-{GenerateFields(components).AddTabulations(2).ConcatLines()}
 
 {GenerateListAccessor(components).AddTabulations(2).ConcatLines()}
     }}
