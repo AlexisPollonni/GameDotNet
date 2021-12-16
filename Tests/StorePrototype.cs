@@ -5,7 +5,7 @@ using Core.Physics;
 
 namespace Tests;
 
-internal class StoreTest : IComponentStore
+internal class StorePrototype : IComponentStore
 {
     private RefStructList<TestComponent> _comp = new();
     private RefStructList<Transform3DComponent> _3dComp = new();
