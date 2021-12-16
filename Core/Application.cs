@@ -1,49 +1,71 @@
+using Core.Graphics.Vulkan;
+using Silk.NET.Core;
 using Silk.NET.Input;
 using Silk.NET.Maths;
+using Silk.NET.Vulkan;
 using Silk.NET.Windowing;
+using ApplicationInfo = Core.Graphics.Vulkan.ApplicationInfo;
 
 namespace Core;
 
 public class Application
 {
-    public IWindow Window { get; }
+    private readonly VulkanContext _context;
+    private readonly IView _mainView;
 
     public Application()
     {
-        var options = WindowOptions.DefaultVulkan;
-        options.Size = new Vector2D<int>(800, 600);
-        options.Title = "Test";
+        _context = new VulkanContext();
+        Window.PrioritizeGlfw();
 
-        Window = Silk.NET.Windowing.Window.Create(options);
-        Window.Load += OnWindowLoad;
+        if (Window.IsViewOnly)
+        {
+            var opt = ViewOptions.DefaultVulkan;
+
+            _mainView = Window.GetView(opt);
+        }
+        else
+        {
+            var opt = WindowOptions.DefaultVulkan;
+            opt.VSync = true;
+            opt.Size = new Vector2D<int>(800, 600);
+            opt.Title = "Test";
+
+            _mainView = Window.Create(opt);
+        }
+
+        _mainView.Load += OnWindowLoad;
     }
 
     public int Run()
     {
-        Window.Run();
+        _mainView.Run();
 
         return 0;
     }
 
-    private void OnWindowLoad()
+    private unsafe void OnWindowLoad()
     {
-        var input = Window.CreateInput();
+        var input = _mainView.CreateInput();
         foreach (var kb in input.Keyboards)
         {
             kb.KeyUp += (keyboard, key, arg3) =>
             {
                 if (key == Key.Escape)
                 {
-                    Window.Close();
+                    _mainView.Close();
                 }
             };
         }
-
-        if (Window.VkSurface is not null)
+        
+        if (_mainView.VkSurface is not null)
         {
-            //var surface = Window.VkSurface.Create();
-            
-            //surface.
+            var instance = _context.CreateInstance(new ApplicationInfo("App", Vk.Version12, new Version32(0, 0, 1)));
+
+            var surfaceHandle = _mainView.VkSurface.Create<IntPtr>(instance.Instance.ToHandle(), null);
+            var surface = surfaceHandle.ToSurface();
+
+            var device = instance.PickPhysicalDeviceForSurface(surface);
         }
     }
 }
