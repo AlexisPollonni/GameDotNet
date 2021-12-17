@@ -8,14 +8,14 @@ namespace Core.Graphics.Vulkan;
 
 public class VulkanContext
 {
-    private static string[] DefaultValidationLayers => new[] {"VK_LAYER_KHRONOS_validation"};
-
     private Vk _vk;
 
     public VulkanContext()
     {
         _vk = Vk.GetApi();
     }
+
+    private static string[] DefaultValidationLayers => new[] { "VK_LAYER_KHRONOS_validation" };
 
     public VulkanInstance CreateInstance(ApplicationInfo info)
     {
@@ -36,11 +36,11 @@ public class VulkanContext
                 throw new NotSupportedException("Vulkan validation layers requested, but not available.");
 
             var enabledLayersPtr = Marshal.AllocHGlobal(Marshal.SizeOf<IntPtr>() * DefaultValidationLayers.Length);
-            Marshal.Copy(DefaultValidationLayers.Select(Marshal.StringToHGlobalAuto).ToArray(), 0, enabledLayersPtr,
-                DefaultValidationLayers.Length);
+            Marshal.Copy(DefaultValidationLayers.Select(Marshal.StringToHGlobalAnsi).ToArray(), 0, enabledLayersPtr,
+                         DefaultValidationLayers.Length);
 
-            vkInstanceInfo.EnabledLayerCount = (uint) DefaultValidationLayers.Length;
-            vkInstanceInfo.PpEnabledLayerNames = (byte**) enabledLayersPtr;
+            vkInstanceInfo.EnabledLayerCount = (uint)DefaultValidationLayers.Length;
+            vkInstanceInfo.PpEnabledLayerNames = (byte**)enabledLayersPtr;
 
             var res = _vk.CreateInstance(vkInstanceInfo, null, out var instance);
             if (res != Result.Success)
@@ -58,7 +58,7 @@ public class VulkanContext
             _vk = Vk.GetApi(vkInstanceInfo, out var instance);
 #endif
             ApplicationInfo.FreeVkAppInfo(vkAppInfo);
-            
+
             return new VulkanInstance(instance);
         }
     }
@@ -78,7 +78,7 @@ public class VulkanContext
             if (res != Result.Success)
                 return Array.Empty<string>();
 
-            return availableLayers.Select(properties => new string((sbyte*) properties.LayerName));
+            return availableLayers.Select(properties => new string((sbyte*)properties.LayerName));
         }
     }
 
@@ -87,7 +87,7 @@ public class VulkanContext
         // ReSharper disable once ConvertToConstant.Local
         uint count = 0;
         _vk.EnumerateInstanceExtensionProperties(ReadOnlySpan<byte>.Empty, count.ToSpan(),
-            Span<ExtensionProperties>.Empty);
+                                                 Span<ExtensionProperties>.Empty);
 
         var extensions = new ExtensionProperties[count];
         _vk.EnumerateInstanceExtensionProperties(Array.Empty<byte>(), count.ToSpan(), extensions);
@@ -101,7 +101,7 @@ public class VulkanContext
         Console.WriteLine($"Available validation layers : {layerNames.Aggregate((sl, sr) => sl + ", " + sr)}");
 
         return layerNames
-            .Intersect(validationLayers)
-            .Any();
+               .Intersect(validationLayers)
+               .Any();
     }
 }
