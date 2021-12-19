@@ -1,4 +1,3 @@
-using Core.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
 
@@ -6,35 +5,22 @@ namespace Core.Graphics.Vulkan;
 
 public class VulkanInstance
 {
-    internal Instance Instance { get; }
-
     private PhysicalDevice? _activePhysicalDevice;
-    
+
     internal VulkanInstance(Instance instance)
     {
         Instance = instance;
     }
 
-    public IEnumerable<PhysicalDevice> GetPhysicalDevices()
+    internal Instance Instance { get; }
+
+    unsafe ~VulkanInstance()
     {
-        unsafe
-        {
-            var vk = Vk.GetApi();
-        
-            uint deviceCount = 0;
-            var res = vk.EnumeratePhysicalDevices(Instance, ref deviceCount, null);
-
-            if (deviceCount == 0 || res != Result.Success)
-                throw new PlatformException("No vulkan supported device were found.", new VulkanException(res));
-            
-            var devices = new PhysicalDevice[deviceCount];
-            res = vk.EnumeratePhysicalDevices(Instance, deviceCount.ToSpan(), devices);
-            if (res != Result.Success)
-                throw new PlatformException("Failed to query vulkan physical devices.", new VulkanException(res));
-
-            return devices;
-        }
+        var vk = Vk.GetApi();
+        vk.DestroyInstance(Instance, null);
     }
+
+    public IReadOnlyCollection<PhysicalDevice> GetPhysicalDevices() => Vk.GetApi().GetPhysicalDevices(Instance);
 
     public PhysicalDevice PickPhysicalDeviceForSurface(SurfaceKHR surface)
     {
@@ -59,7 +45,7 @@ public class VulkanInstance
     public bool IsDeviceSuitableForSurface(PhysicalDevice device, SurfaceKHR surface)
     {
         var vk = Vk.GetApi();
-        
+
         //TODO: Device suitability check
 
         return true;

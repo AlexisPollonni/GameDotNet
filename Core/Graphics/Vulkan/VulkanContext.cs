@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Runtime.InteropServices;
 using Core.Extensions;
 using Silk.NET.Core;
@@ -8,14 +9,12 @@ namespace Core.Graphics.Vulkan;
 
 public class VulkanContext
 {
-    private Vk _vk;
+    private readonly Vk _vk;
 
     public VulkanContext()
     {
         _vk = Vk.GetApi();
     }
-
-    private static string[] DefaultValidationLayers => new[] { "VK_LAYER_KHRONOS_validation" };
 
     public VulkanInstance CreateInstance(ApplicationInfo info)
     {
@@ -32,21 +31,23 @@ public class VulkanContext
                 EnabledExtensionCount = countExt, PpEnabledExtensionNames = extensions
             };
 #if DEBUG
-            if (!CheckValidationLayersSupport(DefaultValidationLayers))
+            if (!CheckValidationLayersSupport(Constants.DefaultValidationLayers))
                 throw new NotSupportedException("Vulkan validation layers requested, but not available.");
 
-            var enabledLayersPtr = Marshal.AllocHGlobal(Marshal.SizeOf<IntPtr>() * DefaultValidationLayers.Length);
-            Marshal.Copy(DefaultValidationLayers.Select(Marshal.StringToHGlobalAnsi).ToArray(), 0, enabledLayersPtr,
-                         DefaultValidationLayers.Length);
+            var enabledLayersPtr =
+                Marshal.AllocHGlobal(Marshal.SizeOf<IntPtr>() * Constants.DefaultValidationLayers.Length);
+            Marshal.Copy(Constants.DefaultValidationLayers.Select(Marshal.StringToHGlobalAnsi).ToArray(), 0,
+                         enabledLayersPtr,
+                         Constants.DefaultValidationLayers.Length);
 
-            vkInstanceInfo.EnabledLayerCount = (uint)DefaultValidationLayers.Length;
+            vkInstanceInfo.EnabledLayerCount = (uint)Constants.DefaultValidationLayers.Length;
             vkInstanceInfo.PpEnabledLayerNames = (byte**)enabledLayersPtr;
 
             var res = _vk.CreateInstance(vkInstanceInfo, null, out var instance);
             if (res != Result.Success)
                 throw new PlatformException("Vulkan instance creation failed.", new VulkanException(res));
 
-            for (var i = 0; i < DefaultValidationLayers.Length; i++)
+            for (var i = 0; i < Constants.DefaultValidationLayers.Length; i++)
             {
                 var ptr = Marshal.ReadIntPtr(enabledLayersPtr + i * Marshal.SizeOf<IntPtr>());
                 Marshal.FreeHGlobal(ptr);
@@ -63,7 +64,7 @@ public class VulkanContext
         }
     }
 
-    public IEnumerable<string> GetAvailableValidationLayers()
+    public IReadOnlyCollection<string> GetAvailableValidationLayers()
     {
         unsafe
         {
@@ -75,10 +76,11 @@ public class VulkanContext
 
             var availableLayers = new LayerProperties[layerCount];
             res = _vk.EnumerateInstanceLayerProperties(layerCount.ToSpan(), availableLayers);
-            if (res != Result.Success)
-                return Array.Empty<string>();
 
-            return availableLayers.Select(properties => new string((sbyte*)properties.LayerName));
+            return res != Result.Success
+                       ? ImmutableArray<string>.Empty
+                       : availableLayers.Select(properties => new string((sbyte*)properties.LayerName))
+                                        .ToImmutableArray();
         }
     }
 
