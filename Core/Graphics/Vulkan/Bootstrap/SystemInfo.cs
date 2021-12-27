@@ -23,10 +23,10 @@ public class SystemInfo
         {
             unsafe
             {
-                var layerExtensions = FetchExtensions(Marshal.PtrToStringAuto((IntPtr)layer.LayerName));
+                var layerExtensions = FetchExtensions(Marshal.PtrToStringAnsi((IntPtr)layer.LayerName));
 
                 IsDebugUtilsAvailable = !IsDebugUtilsAvailable && layerExtensions.Any(properties =>
-                                            Marshal.PtrToStringAuto((IntPtr)properties
+                                            Marshal.PtrToStringAnsi((IntPtr)properties
                                                                         .ExtensionName) ==
                                             Constants.DebugUtilsExtensionName);
             }
@@ -45,7 +45,7 @@ public class SystemInfo
         {
             unsafe
             {
-                return Marshal.PtrToStringAuto((IntPtr)properties.LayerName) == name;
+                return Marshal.PtrToStringAnsi((IntPtr)properties.LayerName) == name;
             }
         });
     }
@@ -56,7 +56,7 @@ public class SystemInfo
         {
             unsafe
             {
-                return Marshal.PtrToStringAuto((IntPtr)properties.ExtensionName) == name;
+                return Marshal.PtrToStringAnsi((IntPtr)properties.ExtensionName) == name;
             }
         });
     }
