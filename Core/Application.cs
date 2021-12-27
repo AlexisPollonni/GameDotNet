@@ -1,4 +1,5 @@
 using Core.Graphics.Vulkan;
+using Core.Graphics.Vulkan.Bootstrap;
 using Silk.NET.Core;
 using Silk.NET.Input;
 using Silk.NET.Maths;
@@ -16,6 +17,14 @@ public class Application
     public Application()
     {
         _context = new VulkanContext();
+
+        var instance = new InstanceBuilder
+        {
+            EngineName = "GamesDotNet",
+            EngineVersion = new Version32(0, 0, 1),
+            DesiredApiVersion = Vk.Version11
+        }.Build();
+
         Window.PrioritizeGlfw();
 
         if (Window.IsViewOnly)
@@ -57,7 +66,7 @@ public class Application
                 }
             };
         }
-        
+
         if (_mainView.VkSurface is not null)
         {
             var instance = _context.CreateInstance(new ApplicationInfo("App", Vk.Version12, new Version32(0, 0, 1)));
