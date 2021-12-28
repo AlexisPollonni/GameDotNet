@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices;
 using Core.Graphics.Vulkan;
 using Core.Graphics.Vulkan.Bootstrap;
 using Silk.NET.Core;
+using Silk.NET.GLFW;
 using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.Vulkan;
@@ -18,11 +20,20 @@ public class Application
     {
         _context = new VulkanContext();
 
+        var glfw = Glfw.GetApi();
+
+        var res = glfw.Init();
+        if (!res)
+            throw new PlatformException("Couldn't initialize GLFW");
+
         var instance = new InstanceBuilder
         {
             EngineName = "GamesDotNet",
             EngineVersion = new Version32(0, 0, 1),
-            DesiredApiVersion = Vk.Version11
+            DesiredApiVersion = Vk.Version11,
+            Extensions = GetGlfwRequiredVulkanExtensions(),
+            IsValidationLayersRequested = true,
+            IsHeadless = false
         }.Build();
 
         Window.PrioritizeGlfw();
@@ -76,5 +87,27 @@ public class Application
 
             var device = instance.PickPhysicalDeviceForSurface(surface);
         }
+    }
+
+    private IEnumerable<string> GetGlfwRequiredVulkanExtensions()
+    {
+        var windowExts = new List<string>();
+        unsafe
+        {
+            var ppExts = Glfw.GetApi().GetRequiredInstanceExtensions(out var count);
+
+            if (ppExts is null)
+                throw new PlatformException("GLFW vulkan extensions for windowing not available");
+
+            for (var i = 0; i < count; i++)
+            {
+                var p = Marshal.ReadIntPtr((nint)ppExts, i * Marshal.SizeOf<nint>());
+                var extStr = Marshal.PtrToStringAnsi(p);
+                if (extStr != null)
+                    windowExts.Add(extStr);
+            }
+        }
+
+        return windowExts;
     }
 }
