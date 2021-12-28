@@ -49,6 +49,9 @@ public sealed class ApplicationInfo
 
     internal static unsafe void FreeVkAppInfo(VkAppInfo* info)
     {
+        if (info is null)
+            return;
+
         Marshal.DestroyStructure<VkAppInfo>((IntPtr)info);
         Marshal.FreeHGlobal((IntPtr)info);
     }
