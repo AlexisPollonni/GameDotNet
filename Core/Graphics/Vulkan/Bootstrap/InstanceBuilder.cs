@@ -1,9 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Core.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Core.Loader;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.KHR;
+using MemoryExtensions = Core.Extensions.MemoryExtensions;
 
 namespace Core.Graphics.Vulkan.Bootstrap;
 
@@ -124,28 +126,41 @@ public class InstanceBuilder
                     throw new PlatformException("Couldn't load windowing extensions");
             }
 
+            extensions = extensions.Distinct().ToList();
             var notSupported = extensions.Where(name => !sysInfo.IsExtensionAvailable(name)).ToArray();
             if (notSupported.Any())
                 throw new
                     PlatformException($"Current platform doesn't support these extensions: {string.Join(",", notSupported)}");
 
+
             var layers = Layers.ToList();
             if (IsValidationLayersEnabled || IsValidationLayersRequested && sysInfo.IsValidationLayersEnabled)
                 layers.AddRange(Constants.DefaultValidationLayers);
 
+            layers = layers.Distinct().ToList();
             notSupported = layers.Where(name => !sysInfo.IsLayerAvailable(name)).ToArray();
             if (notSupported.Any())
                 throw new
                     PlatformException($"These requested layers are not available : {string.Join(",", notSupported)}");
 
+
             var vkInstanceInfo = new InstanceCreateInfo
             {
                 SType = StructureType.InstanceCreateInfo,
-                PApplicationInfo = appInfo.ToVkAppInfo()
+                PNext = null,
+                PApplicationInfo = appInfo.ToVkAppInfo(),
+                EnabledExtensionCount = (uint)extensions.Count,
+                EnabledLayerCount = (uint)layers.Count,
+                PpEnabledExtensionNames = extensions.ToPtrStrArray(),
+                PpEnabledLayerNames = layers.ToPtrStrArray()
             };
 
-
             var res2 = vk.CreateInstance(in vkInstanceInfo, null, out var instance);
+
+            MemoryExtensions.FreePtrStrArray(vkInstanceInfo.PpEnabledExtensionNames,
+                                             vkInstanceInfo.EnabledExtensionCount);
+            MemoryExtensions.FreePtrStrArray(vkInstanceInfo.PpEnabledLayerNames, vkInstanceInfo.EnabledLayerCount);
+
             if (res2 != Result.Success)
                 throw new PlatformException("Failed to bootstrap vulkan instance", new VulkanException(res2));
 

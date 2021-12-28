@@ -1,5 +1,5 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using Core.Extensions;
 using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Vulkan;
 
@@ -19,17 +19,15 @@ public class SystemInfo
         IsValidationLayersEnabled = Constants.DefaultValidationLayers.All(IsLayerAvailable);
         IsDebugUtilsAvailable = IsExtensionAvailable(Constants.DebugUtilsExtensionName);
 
+        Console.WriteLine($"Available Vulkan layers : {string.Join(",", AvailableLayers.Select(p => p.GetLayerName()).WhereNotNull())}");
+        Console.WriteLine($"Available Vulkan extensions : {string.Join(",", AvailableExtensions.Select(p => p.GetExtensionName()).WhereNotNull())}");
+
         foreach (var layer in AvailableLayers)
         {
-            unsafe
-            {
-                var layerExtensions = FetchExtensions(Marshal.PtrToStringAnsi((IntPtr)layer.LayerName));
+            var layerExtensions = FetchExtensions(layer.GetLayerName());
 
-                IsDebugUtilsAvailable = !IsDebugUtilsAvailable && layerExtensions.Any(properties =>
-                                            Marshal.PtrToStringAnsi((IntPtr)properties
-                                                                        .ExtensionName) ==
-                                            Constants.DebugUtilsExtensionName);
-            }
+            IsDebugUtilsAvailable = IsDebugUtilsAvailable || layerExtensions.Any(properties =>
+                                        properties.GetExtensionName() == Constants.DebugUtilsExtensionName);
         }
     }
 
@@ -39,27 +37,10 @@ public class SystemInfo
     public bool IsValidationLayersEnabled { get; }
     public bool IsDebugUtilsAvailable { get; }
 
-    public bool IsLayerAvailable(string name)
-    {
-        return AvailableLayers.Any(properties =>
-        {
-            unsafe
-            {
-                return Marshal.PtrToStringAnsi((IntPtr)properties.LayerName) == name;
-            }
-        });
-    }
+    public bool IsLayerAvailable(string name) => AvailableLayers.Any(properties => properties.GetLayerName() == name);
 
-    public bool IsExtensionAvailable(string name)
-    {
-        return AvailableExtensions.Any(properties =>
-        {
-            unsafe
-            {
-                return Marshal.PtrToStringAnsi((IntPtr)properties.ExtensionName) == name;
-            }
-        });
-    }
+    public bool IsExtensionAvailable(string name) =>
+        AvailableExtensions.Any(properties => properties.GetExtensionName() == name);
 
     private IEnumerable<LayerProperties> FetchLayers()
     {
