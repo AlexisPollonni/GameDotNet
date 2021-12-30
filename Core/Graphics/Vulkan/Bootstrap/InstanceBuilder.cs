@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using Core.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Core.Loader;
@@ -11,6 +13,47 @@ namespace Core.Graphics.Vulkan.Bootstrap;
 
 public class InstanceBuilder
 {
+    public static unsafe DebugUtilsMessengerCallbackFunctionEXT DefaultDebugMessenger =
+        (severity, types, data, userData) =>
+        {
+            var s = severity switch
+            {
+                DebugUtilsMessageSeverityFlagsEXT
+                    .DebugUtilsMessageSeverityErrorBitExt => "ERROR",
+                DebugUtilsMessageSeverityFlagsEXT
+                    .DebugUtilsMessageSeverityWarningBitExt => "WARNING",
+                DebugUtilsMessageSeverityFlagsEXT
+                    .DebugUtilsMessageSeverityInfoBitExt => "INFO",
+                DebugUtilsMessageSeverityFlagsEXT
+                    .DebugUtilsMessageSeverityVerboseBitExt => "VERBOSE",
+                _ => "UNKNOWN"
+            };
+
+            var t = types switch
+            {
+                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt |
+                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt |
+                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt =>
+                    "General | Validation | Performance",
+                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt |
+                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt => "Validation | Performance",
+                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt |
+                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt => "General | Performance",
+                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt => "Performance",
+                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt |
+                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt => "General | Validation",
+                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt => "Validation",
+                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt => "General",
+                _ => "Unknown"
+            };
+
+            var msg = Marshal.PtrToStringAnsi((nint)data->PMessage);
+
+            Debug.WriteLine($"[{s}: {t}]\n{msg}\n");
+
+            return Vk.False;
+        };
+
     public InstanceBuilder()
     {
         Layers = Enumerable.Empty<string>();
@@ -43,6 +86,12 @@ public class InstanceBuilder
     public DebugUtilsMessengerCallbackFunctionEXT? DebugCallback { get; set; }
     public DebugUtilsMessageSeverityFlagsEXT? DebugMessageSeverity { get; set; }
     public DebugUtilsMessageTypeFlagsEXT? DebugMessageType { get; set; }
+
+    public InstanceBuilder UseDefaultDebugMessenger()
+    {
+        DebugCallback = DefaultDebugMessenger;
+        return this;
+    }
 
     [SuppressMessage("ReSharper", "RedundantCast")]
     public VulkanInstance Build()
