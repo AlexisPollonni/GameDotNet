@@ -1,6 +1,6 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
-using Core.Extensions;
+using Core.Tools.Extensions;
 using Silk.NET.Core;
 using Silk.NET.GLFW;
 using Silk.NET.Vulkan;

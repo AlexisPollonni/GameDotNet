@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Core.Graphics.Vulkan;
 using Core.Graphics.Vulkan.Bootstrap;
 using Silk.NET.Core;
@@ -7,7 +6,7 @@ using Silk.NET.Input;
 using Silk.NET.Maths;
 using Silk.NET.Vulkan;
 using Silk.NET.Windowing;
-using ApplicationInfo = Core.Graphics.Vulkan.ApplicationInfo;
+using MemoryExtensions = Core.Tools.Extensions.MemoryExtensions;
 
 namespace Core;
 
@@ -19,22 +18,6 @@ public class Application
     public Application()
     {
         _context = new VulkanContext();
-
-        var glfw = Glfw.GetApi();
-
-        var res = glfw.Init();
-        if (!res)
-            throw new PlatformException("Couldn't initialize GLFW");
-
-        var instance = new InstanceBuilder
-        {
-            EngineName = "GamesDotNet",
-            EngineVersion = new Version32(0, 0, 1),
-            DesiredApiVersion = Vk.Version11,
-            Extensions = GetGlfwRequiredVulkanExtensions(),
-            IsValidationLayersRequested = true,
-            IsHeadless = false
-        }.Build();
 
         Window.PrioritizeGlfw();
 
@@ -80,7 +63,17 @@ public class Application
 
         if (_mainView.VkSurface is not null)
         {
-            var instance = _context.CreateInstance(new ApplicationInfo("App", Vk.Version12, new Version32(0, 0, 1)));
+            var instance = new InstanceBuilder
+                {
+                    ApplicationName = "App",
+                    EngineName = "GamesDotNet",
+                    EngineVersion = new Version32(0, 0, 1),
+                    DesiredApiVersion = Vk.Version11,
+                    Extensions = GetGlfwRequiredVulkanExtensions(),
+                    IsValidationLayersRequested = true,
+                    IsHeadless = false
+                }.UseDefaultDebugMessenger()
+                 .Build();
 
             var surfaceHandle = _mainView.VkSurface.Create<IntPtr>(instance.Instance.ToHandle(), null);
             var surface = surfaceHandle.ToSurface();
@@ -91,7 +84,6 @@ public class Application
 
     private IEnumerable<string> GetGlfwRequiredVulkanExtensions()
     {
-        var windowExts = new List<string>();
         unsafe
         {
             var ppExts = Glfw.GetApi().GetRequiredInstanceExtensions(out var count);
@@ -99,15 +91,7 @@ public class Application
             if (ppExts is null)
                 throw new PlatformException("GLFW vulkan extensions for windowing not available");
 
-            for (var i = 0; i < count; i++)
-            {
-                var p = Marshal.ReadIntPtr((nint)ppExts, i * Marshal.SizeOf<nint>());
-                var extStr = Marshal.PtrToStringAnsi(p);
-                if (extStr != null)
-                    windowExts.Add(extStr);
-            }
+            return MemoryExtensions.FromPtrStrArray(ppExts, count);
         }
-
-        return windowExts;
     }
 }
