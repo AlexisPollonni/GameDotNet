@@ -8,6 +8,7 @@ using Silk.NET.Core;
 using Silk.NET.Core.Loader;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
+using Silk.NET.Vulkan.Extensions.EXT;
 using Silk.NET.Vulkan.Extensions.KHR;
 
 namespace Core.Graphics.Vulkan.Bootstrap;
@@ -15,7 +16,7 @@ namespace Core.Graphics.Vulkan.Bootstrap;
 public class InstanceBuilder
 {
     public static readonly unsafe DebugUtilsMessengerCallbackFunctionEXT DefaultDebugMessenger =
-        (severity, types, data, userData) =>
+        (severity, types, data, _) =>
         {
             var s = severity switch
             {
@@ -139,7 +140,7 @@ public class InstanceBuilder
 
                 var extensions = Extensions.ToList();
                 if (DebugCallback is not null && sysInfo.IsDebugUtilsAvailable)
-                    extensions.Add(Constants.DebugUtilsExtensionName);
+                    extensions.Add(ExtDebugUtils.ExtensionName);
 
                 if (apiVersion < Vk.Version11 &&
                     sysInfo.IsExtensionAvailable(KhrGetPhysicalDeviceProperties2.ExtensionName))
@@ -156,31 +157,32 @@ public class InstanceBuilder
 
                     var khrSurfaceAdded = checkAddWindow(KhrSurface.ExtensionName);
 
-                    bool addedWindowExts;
+                    bool addedWindowExtension;
                     switch (SearchPathContainer.Platform)
                     {
                         case UnderlyingPlatform.Windows64:
                         case UnderlyingPlatform.Windows86:
-                            addedWindowExts = checkAddWindow(KhrWin32Surface.ExtensionName);
+                            addedWindowExtension = checkAddWindow(KhrWin32Surface.ExtensionName);
                             break;
                         case UnderlyingPlatform.Linux:
-                            addedWindowExts = checkAddWindow(KhrXcbSurface.ExtensionName);
-                            addedWindowExts = checkAddWindow(KhrXlibSurface.ExtensionName) || addedWindowExts;
-                            addedWindowExts = checkAddWindow(KhrWaylandSurface.ExtensionName) || addedWindowExts;
+                            addedWindowExtension = checkAddWindow(KhrXcbSurface.ExtensionName);
+                            addedWindowExtension = checkAddWindow(KhrXlibSurface.ExtensionName) || addedWindowExtension;
+                            addedWindowExtension =
+                                checkAddWindow(KhrWaylandSurface.ExtensionName) || addedWindowExtension;
                             break;
                         case UnderlyingPlatform.Android:
-                            addedWindowExts = checkAddWindow(KhrAndroidSurface.ExtensionName);
+                            addedWindowExtension = checkAddWindow(KhrAndroidSurface.ExtensionName);
                             break;
                         case UnderlyingPlatform.MacOS:
                         case UnderlyingPlatform.IOS:
-                            addedWindowExts = checkAddWindow("VK_EXT_metal_surface");
+                            addedWindowExtension = checkAddWindow("VK_EXT_metal_surface");
                             break;
                         case UnderlyingPlatform.Unknown:
                         default:
                             throw new ArgumentOutOfRangeException();
                     }
 
-                    if (!khrSurfaceAdded || !addedWindowExts)
+                    if (!khrSurfaceAdded || !addedWindowExtension)
                         throw new PlatformException("Couldn't load windowing extensions");
                 }
 
@@ -209,6 +211,18 @@ public class InstanceBuilder
 
                 if (res2 != Result.Success)
                     throw new PlatformException("Failed to bootstrap vulkan instance", new VulkanException(res2));
+
+                if (DebugCallback is not null)
+                {
+                    CreateDebugMessengerInfo(out var messengerInfo);
+
+                    var info = messengerInfo!.Value;
+                    vk.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
+
+                    var res = debugUtilsExt.CreateDebugUtilsMessenger(instance, in info, null, out _);
+                    if (res != Result.Success)
+                        throw new PlatformException("Couldn't load Vulkan debug messenger", new VulkanException(res));
+                }
 
                 return new(instance);
             }
