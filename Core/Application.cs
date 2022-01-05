@@ -1,5 +1,7 @@
 using Core.Graphics.Vulkan;
 using Core.Graphics.Vulkan.Bootstrap;
+using Serilog;
+using Serilog.Events;
 using Silk.NET.Core;
 using Silk.NET.GLFW;
 using Silk.NET.Input;
@@ -15,8 +17,14 @@ public class Application
     private readonly VulkanContext _context;
     private readonly IView _mainView;
 
-    public Application()
+    public Application(string appName)
     {
+        if (string.IsNullOrWhiteSpace(appName))
+            throw new ArgumentException("Application name can't be null or empty", nameof(appName));
+        ApplicationName = appName;
+
+        CreateLogger();
+
         _context = new VulkanContext();
 
         Window.PrioritizeGlfw();
@@ -39,6 +47,8 @@ public class Application
 
         _mainView.Load += OnWindowLoad;
     }
+
+    public string ApplicationName { get; }
 
     public int Run()
     {
@@ -93,5 +103,25 @@ public class Application
 
             return MemoryExtensions.FromPtrStrArray(ppExts, count);
         }
+    }
+
+    private void CreateLogger()
+    {
+        Log.Logger = new LoggerConfiguration()
+                     .MinimumLevel.Verbose()
+                     .WriteTo.Console(LogEventLevel.Information)
+                     .WriteTo.Debug(LogEventLevel.Debug)
+                     .WriteTo.File(Path.Combine(Constants.LogsDirectoryPath, ApplicationName, "game.log"),
+                                   rollingInterval: RollingInterval.Minute, retainedFileCountLimit: 10)
+                     .CreateLogger();
+
+        Log.Information("Log started for {ApplicationName}", ApplicationName);
+        Log.Information(@"
+Is 64 bit: {Is64Bit}
+Running directory: {RunningDirectory}
+.NET version: {NetVersion}",
+                        Environment.Is64BitProcess,
+                        Environment.CurrentDirectory,
+                        Environment.Version);
     }
 }
