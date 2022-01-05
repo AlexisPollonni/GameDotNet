@@ -7,6 +7,6 @@ Console.WriteLine("Hello, World!");
 
 var p = Window.Platforms;
 
-var app = new Application();
+var app = new Application("SampleGame");
 
 return app.Run();
