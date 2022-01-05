@@ -1,9 +1,8 @@
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Core.Tools;
 using Core.Tools.Extensions;
+using Serilog;
 using Silk.NET.Core;
 using Silk.NET.Core.Loader;
 using Silk.NET.Core.Native;
@@ -18,20 +17,7 @@ public class InstanceBuilder
     public static readonly unsafe DebugUtilsMessengerCallbackFunctionEXT DefaultDebugMessenger =
         (severity, types, data, _) =>
         {
-            var s = severity switch
-            {
-                DebugUtilsMessageSeverityFlagsEXT
-                    .DebugUtilsMessageSeverityErrorBitExt => "ERROR",
-                DebugUtilsMessageSeverityFlagsEXT
-                    .DebugUtilsMessageSeverityWarningBitExt => "WARNING",
-                DebugUtilsMessageSeverityFlagsEXT
-                    .DebugUtilsMessageSeverityInfoBitExt => "INFO",
-                DebugUtilsMessageSeverityFlagsEXT
-                    .DebugUtilsMessageSeverityVerboseBitExt => "VERBOSE",
-                _ => "UNKNOWN"
-            };
-
-            var t = types switch
+            var msgType = types switch
             {
                 DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt |
                     DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt |
@@ -51,13 +37,34 @@ public class InstanceBuilder
 
             var msg = Marshal.PtrToStringAnsi((nint)data->PMessage);
 
-            Debug.WriteLine($"[{s}: {t}]\n{msg}\n");
+            const string template = "<Vulkan || {MessageType}> {Message}";
+            switch (severity)
+            {
+                case DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityVerboseBitExt:
+                    Log.Debug(template, msgType, msg);
+                    break;
+                case DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityInfoBitExt:
+                    Log.Information(template, msgType, msg);
+                    break;
+                case DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityWarningBitExt:
+                    Log.Warning(template, msgType, msg);
+                    break;
+                case DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityErrorBitExt:
+                    Log.Error(template, msgType, msg);
+                    break;
+                default:
+                    Log.Warning(template, msgType, msg);
+                    break;
+            }
 
             return Vk.False;
         };
 
+    private readonly ILogger _logger;
+
     public InstanceBuilder()
     {
+        _logger = Log.ForContext<InstanceBuilder>();
         Layers = Enumerable.Empty<string>();
         Extensions = Enumerable.Empty<string>();
         DisabledValidationChecks = new List<ValidationCheckEXT>();
@@ -101,7 +108,6 @@ public class InstanceBuilder
         return this;
     }
 
-    [SuppressMessage("ReSharper", "RedundantCast")]
     public VulkanInstance Build()
     {
         var disposables = new CompositeDisposable();
@@ -136,7 +142,7 @@ public class InstanceBuilder
                     }
                 }
 
-                Console.WriteLine($"Chose Vulkan version {(Version)apiVersion}"); //TODO: add proper logging
+                _logger.Information("Bootstrapper chose Vulkan version {VulkanVersion}", (Version)apiVersion);
 
                 var extensions = Extensions.ToList();
                 if (DebugCallback is not null && sysInfo.IsDebugUtilsAvailable)

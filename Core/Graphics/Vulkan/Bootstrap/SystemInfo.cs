@@ -1,7 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
-using Core.Tools.Extensions;
 using Microsoft.Toolkit.HighPerformance;
+using Serilog;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 
@@ -9,11 +9,13 @@ namespace Core.Graphics.Vulkan.Bootstrap;
 
 public class SystemInfo
 {
+    private readonly ILogger _logger;
     private readonly Vk _vk;
 
     public SystemInfo()
     {
         _vk = Vk.GetApi();
+        _logger = Log.ForContext<SystemInfo>();
 
         AvailableLayers = FetchLayers().ToImmutableArray();
         AvailableExtensions = FetchExtensions().ToImmutableArray();
@@ -21,8 +23,6 @@ public class SystemInfo
         IsValidationLayersEnabled = Constants.DefaultValidationLayers.All(IsLayerAvailable);
         IsDebugUtilsAvailable = _vk.IsInstanceExtensionPresent(ExtDebugUtils.ExtensionName);
 
-        Console.WriteLine($"Available Vulkan layers : {string.Join(",", AvailableLayers.Select(p => p.GetLayerName()).WhereNotNull())}");
-        Console.WriteLine($"Available Vulkan extensions : {string.Join(",", AvailableExtensions.Select(p => p.GetExtensionName()).WhereNotNull())}");
 
         foreach (var layer in AvailableLayers)
         {
@@ -31,6 +31,12 @@ public class SystemInfo
             IsDebugUtilsAvailable = IsDebugUtilsAvailable || layerExtensions.Any(properties =>
                                         properties.GetExtensionName() == ExtDebugUtils.ExtensionName);
         }
+
+        _logger.Information("Available Vulkan layers: {VulkanLayers}", AvailableLayers.Select(p => p.GetLayerName()));
+        _logger.Information("Available Vulkan extensions: {VulkanExtensions}",
+                            AvailableExtensions.Select(e => e.GetExtensionName()));
+        _logger.Information("Vulkan validation layers available: {ValidationAvailable}", IsValidationLayersEnabled);
+        _logger.Information("Vulkan debug utils available: {UtilsAvailable}", IsDebugUtilsAvailable);
     }
 
     public IReadOnlyList<LayerProperties> AvailableLayers { get; }
