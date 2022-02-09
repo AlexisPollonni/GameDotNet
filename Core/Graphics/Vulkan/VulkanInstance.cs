@@ -1,53 +1,53 @@
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
+using Silk.NET.Vulkan.Extensions.EXT;
 
 namespace Core.Graphics.Vulkan;
 
-public class VulkanInstance
+public class VulkanInstance : IDisposable
 {
-    private PhysicalDevice? _activePhysicalDevice;
+    private readonly DebugUtilsMessengerEXT? _messenger;
+    internal readonly Instance Instance;
 
-    internal VulkanInstance(Instance instance)
+    internal readonly Vk Vk;
+    internal PhysicalDevice? ActivePhysicalDevice;
+
+    internal VulkanInstance(Vk context, Instance instance, Version32 vkVersion, bool supportsProperties2Ext,
+                            DebugUtilsMessengerEXT? messenger = null)
     {
+        Vk = context;
+        Vk.CurrentInstance = instance;
         Instance = instance;
+        VkVersion = vkVersion;
+        SupportsProperties2Ext = supportsProperties2Ext;
+        _messenger = messenger;
     }
 
-    internal Instance Instance { get; }
+    public bool IsHeadless { get; internal set; }
+    public bool SupportsProperties2Ext { get; }
+    public Version32 VkVersion { get; }
 
-    unsafe ~VulkanInstance()
+    public void Dispose()
     {
-        var vk = Vk.GetApi();
-        vk.DestroyInstance(Instance, null);
+        ReleaseUnmanagedResources();
+        GC.SuppressFinalize(this);
+    }
+
+    ~VulkanInstance()
+    {
+        ReleaseUnmanagedResources();
+    }
+
+    private unsafe void ReleaseUnmanagedResources()
+    {
+        if (_messenger is not null)
+        {
+            Vk.TryGetInstanceExtension<ExtDebugUtils>(Instance, out var utils);
+            utils.DestroyDebugUtilsMessenger(Instance, _messenger.Value, null);
+        }
+
+        Vk.DestroyInstance(Instance, null);
     }
 
     public IReadOnlyCollection<PhysicalDevice> GetPhysicalDevices() => Vk.GetApi().GetPhysicalDevices(Instance);
-
-    public PhysicalDevice PickPhysicalDeviceForSurface(SurfaceKHR surface)
-    {
-        var devices = GetPhysicalDevices();
-
-        //TODO: Smarter device picking, currently only picks the first compatible available. Points system ?
-        foreach (var physicalDevice in devices)
-        {
-            if (IsDeviceSuitableForSurface(physicalDevice, surface))
-            {
-                _activePhysicalDevice = physicalDevice;
-                break;
-            }
-        }
-
-        if (_activePhysicalDevice is null)
-            throw new PlatformException("Couldn't find suitable physical device for vulkan surface.");
-
-        return _activePhysicalDevice.Value;
-    }
-
-    public bool IsDeviceSuitableForSurface(PhysicalDevice device, SurfaceKHR surface)
-    {
-        var vk = Vk.GetApi();
-
-        //TODO: Device suitability check
-
-        return true;
-    }
 }

@@ -1,11 +1,9 @@
-using Core.Graphics.Vulkan;
 using Core.Graphics.Vulkan.Bootstrap;
 using Serilog;
 using Serilog.Events;
 using Silk.NET.Core;
 using Silk.NET.GLFW;
 using Silk.NET.Input;
-using Silk.NET.Maths;
 using Silk.NET.Vulkan;
 using Silk.NET.Windowing;
 using MemoryExtensions = Core.Tools.Extensions.MemoryExtensions;
@@ -14,7 +12,6 @@ namespace Core;
 
 public class Application
 {
-    private readonly VulkanContext _context;
     private readonly IView _mainView;
 
     public Application(string appName)
@@ -24,8 +21,6 @@ public class Application
         ApplicationName = appName;
 
         CreateLogger();
-
-        _context = new VulkanContext();
 
         Window.PrioritizeGlfw();
 
@@ -39,7 +34,7 @@ public class Application
         {
             var opt = WindowOptions.DefaultVulkan;
             opt.VSync = true;
-            opt.Size = new Vector2D<int>(800, 600);
+            opt.Size = new(800, 600);
             opt.Title = "Test";
 
             _mainView = Window.Create(opt);
@@ -80,6 +75,13 @@ public class Application
                     EngineVersion = new Version32(0, 0, 1),
                     DesiredApiVersion = Vk.Version11,
                     Extensions = GetGlfwRequiredVulkanExtensions(),
+                    EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
+                    {
+                        ValidationFeatureEnableEXT.ValidationFeatureEnableBestPracticesExt,
+                        ValidationFeatureEnableEXT.ValidationFeatureEnableSynchronizationValidationExt,
+                        ValidationFeatureEnableEXT.ValidationFeatureEnableGpuAssistedExt,
+                        ValidationFeatureEnableEXT.ValidationFeatureEnableDebugPrintfExt
+                    },
                     IsValidationLayersRequested = true,
                     IsHeadless = false
                 }.UseDefaultDebugMessenger()

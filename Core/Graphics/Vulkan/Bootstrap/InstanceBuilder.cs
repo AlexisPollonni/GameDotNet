@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Core.Tools;
@@ -12,6 +13,10 @@ using Silk.NET.Vulkan.Extensions.KHR;
 
 namespace Core.Graphics.Vulkan.Bootstrap;
 
+[SuppressMessage("ReSharper", "CollectionNeverUpdated.Global")]
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
+[SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
+[SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
 public class InstanceBuilder
 {
     public static readonly unsafe DebugUtilsMessengerCallbackFunctionEXT DefaultDebugMessenger =
@@ -110,132 +115,126 @@ public class InstanceBuilder
 
     public VulkanInstance Build()
     {
-        var disposables = new CompositeDisposable();
-        try
+        using var disposables = new CompositeDisposable();
+
+        unsafe
         {
-            unsafe
+            var vk = Vk.GetApi();
+            var sysInfo = new SystemInfo();
+
+            var apiVersion = Vk.Version10;
+
+            if (RequiredApiVersion > Vk.Version10 || DesiredApiVersion > Vk.Version10)
             {
-                var vk = Vk.GetApi();
-                var sysInfo = new SystemInfo();
+                var queriedApiVersion = Vk.Version10;
+                var res = vk.EnumerateInstanceVersion(ref Unsafe.As<Version32, uint>(ref queriedApiVersion));
+                if (res != Result.Success && RequiredApiVersion is not null)
+                    throw new PlatformException("Couldn't find vulkan api version", new VulkanException(res));
 
-                var apiVersion = Vk.Version10;
+                if (queriedApiVersion < RequiredApiVersion)
+                    throw new PlatformException($"Vulkan version {(Version)RequiredApiVersion!} unavailable");
 
-                if (RequiredApiVersion > Vk.Version10 || DesiredApiVersion > Vk.Version10)
+                if (RequiredApiVersion > Vk.Version10)
                 {
-                    var queriedApiVersion = Vk.Version10;
-                    var res = vk.EnumerateInstanceVersion(ref Unsafe.As<Version32, uint>(ref queriedApiVersion));
-                    if (res != Result.Success && RequiredApiVersion is not null)
-                        throw new PlatformException("Couldn't find vulkan api version", new VulkanException(res));
-
-                    if (queriedApiVersion < RequiredApiVersion)
-                        throw new PlatformException($"Vulkan version {(Version)RequiredApiVersion!} unavailable");
-
-                    if (RequiredApiVersion > Vk.Version10)
-                    {
-                        apiVersion = queriedApiVersion;
-                    }
-                    else if (DesiredApiVersion > Vk.Version10)
-                    {
-                        apiVersion = queriedApiVersion >= DesiredApiVersion
-                                         ? DesiredApiVersion.Value
-                                         : queriedApiVersion;
-                    }
+                    apiVersion = queriedApiVersion;
                 }
-
-                _logger.Information("Bootstrapper chose Vulkan version {VulkanVersion}", (Version)apiVersion);
-
-                var extensions = Extensions.ToList();
-                if (DebugCallback is not null && sysInfo.IsDebugUtilsAvailable)
-                    extensions.Add(ExtDebugUtils.ExtensionName);
-
-                if (apiVersion < Vk.Version11 &&
-                    sysInfo.IsExtensionAvailable(KhrGetPhysicalDeviceProperties2.ExtensionName))
-                    extensions.Add(KhrGetPhysicalDeviceProperties2.ExtensionName);
-
-                if (!IsHeadless)
+                else if (DesiredApiVersion > Vk.Version10)
                 {
-                    var checkAddWindow = (string name) =>
-                    {
-                        if (!sysInfo.IsExtensionAvailable(name)) return false;
-                        extensions.Add(name);
-                        return true;
-                    };
-
-                    var khrSurfaceAdded = checkAddWindow(KhrSurface.ExtensionName);
-
-                    bool addedWindowExtension;
-                    switch (SearchPathContainer.Platform)
-                    {
-                        case UnderlyingPlatform.Windows64:
-                        case UnderlyingPlatform.Windows86:
-                            addedWindowExtension = checkAddWindow(KhrWin32Surface.ExtensionName);
-                            break;
-                        case UnderlyingPlatform.Linux:
-                            addedWindowExtension = checkAddWindow(KhrXcbSurface.ExtensionName);
-                            addedWindowExtension = checkAddWindow(KhrXlibSurface.ExtensionName) || addedWindowExtension;
-                            addedWindowExtension =
-                                checkAddWindow(KhrWaylandSurface.ExtensionName) || addedWindowExtension;
-                            break;
-                        case UnderlyingPlatform.Android:
-                            addedWindowExtension = checkAddWindow(KhrAndroidSurface.ExtensionName);
-                            break;
-                        case UnderlyingPlatform.MacOS:
-                        case UnderlyingPlatform.IOS:
-                            addedWindowExtension = checkAddWindow("VK_EXT_metal_surface");
-                            break;
-                        case UnderlyingPlatform.Unknown:
-                        default:
-                            throw new ArgumentOutOfRangeException();
-                    }
-
-                    if (!khrSurfaceAdded || !addedWindowExtension)
-                        throw new PlatformException("Couldn't load windowing extensions");
+                    apiVersion = queriedApiVersion >= DesiredApiVersion
+                                     ? DesiredApiVersion.Value
+                                     : queriedApiVersion;
                 }
-
-                extensions = extensions.Distinct().ToList();
-                var notSupported = extensions.Where(name => !sysInfo.IsExtensionAvailable(name)).ToArray();
-                if (notSupported.Any())
-                    throw new
-                        PlatformException($"Current platform doesn't support these extensions: {string.Join(",", notSupported)}");
-
-
-                var layers = Layers.ToList();
-                if (IsValidationLayersEnabled || IsValidationLayersRequested && sysInfo.IsValidationLayersEnabled)
-                    layers.AddRange(Constants.DefaultValidationLayers);
-
-                layers = layers.Distinct().ToList();
-                notSupported = layers.Where(name => !sysInfo.IsLayerAvailable(name)).ToArray();
-                if (notSupported.Any())
-                    throw new
-                        PlatformException($"These requested layers are not available : {string.Join(",", notSupported)}");
-
-                CreateAppInfo(out var appInfo, apiVersion).DisposeWith(disposables);
-
-                CreateInstanceInfo(out var vkInstanceInfo, extensions, layers, appInfo).DisposeWith(disposables);
-
-                var res2 = vk.CreateInstance(in vkInstanceInfo, null, out var instance);
-
-                if (res2 != Result.Success)
-                    throw new PlatformException("Failed to bootstrap vulkan instance", new VulkanException(res2));
-
-                if (DebugCallback is not null)
-                {
-                    CreateDebugMessengerInfo(out var messengerInfo);
-
-                    var info = messengerInfo!.Value;
-                    vk.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
-
-                    var res = debugUtilsExt.CreateDebugUtilsMessenger(instance, in info, null, out _);
-                    if (res != Result.Success)
-                        throw new PlatformException("Couldn't load Vulkan debug messenger", new VulkanException(res));
-                }
-
-                return new(instance);
             }
-        }
-        finally
-        {
-            disposables.Dispose();
+
+            _logger.Information("Bootstrapper chose Vulkan version {VulkanVersion}", (Version)apiVersion);
+
+            var supportsProperties2Ext = sysInfo.IsExtensionAvailable(KhrGetPhysicalDeviceProperties2.ExtensionName);
+
+            var extensions = Extensions.ToList();
+            if (DebugCallback is not null && sysInfo.IsDebugUtilsAvailable)
+                extensions.Add(ExtDebugUtils.ExtensionName);
+
+            if (apiVersion < Vk.Version11 && supportsProperties2Ext)
+                extensions.Add(KhrGetPhysicalDeviceProperties2.ExtensionName);
+
+            if (!IsHeadless)
+            {
+                bool CheckAddWindow(string name)
+                {
+                    if (!sysInfo.IsExtensionAvailable(name)) return false;
+                    extensions.Add(name);
+                    return true;
+                }
+
+                var khrSurfaceAdded = CheckAddWindow(KhrSurface.ExtensionName);
+
+                bool addedWindowExtension;
+                switch (SearchPathContainer.Platform)
+                {
+                    case UnderlyingPlatform.Windows64:
+                    case UnderlyingPlatform.Windows86:
+                        addedWindowExtension = CheckAddWindow(KhrWin32Surface.ExtensionName);
+                        break;
+                    case UnderlyingPlatform.Linux:
+                        addedWindowExtension = CheckAddWindow(KhrXcbSurface.ExtensionName);
+                        addedWindowExtension = CheckAddWindow(KhrXlibSurface.ExtensionName) || addedWindowExtension;
+                        addedWindowExtension =
+                            CheckAddWindow(KhrWaylandSurface.ExtensionName) || addedWindowExtension;
+                        break;
+                    case UnderlyingPlatform.Android:
+                        addedWindowExtension = CheckAddWindow(KhrAndroidSurface.ExtensionName);
+                        break;
+                    case UnderlyingPlatform.MacOS:
+                    case UnderlyingPlatform.IOS:
+                        addedWindowExtension = CheckAddWindow("VK_EXT_metal_surface");
+                        break;
+                    case UnderlyingPlatform.Unknown:
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+
+                if (!khrSurfaceAdded || !addedWindowExtension)
+                    throw new PlatformException("Couldn't load windowing extensions");
+            }
+
+            extensions = extensions.Distinct().ToList();
+            var notSupported = extensions.Where(name => !sysInfo.IsExtensionAvailable(name)).ToArray();
+            if (notSupported.Any())
+                throw new
+                    PlatformException($"Current platform doesn't support these extensions: {string.Join(",", notSupported)}");
+
+
+            var layers = Layers.ToList();
+            if (IsValidationLayersEnabled || IsValidationLayersRequested && sysInfo.IsValidationLayersEnabled)
+                layers.AddRange(Constants.DefaultValidationLayers);
+
+            layers = layers.Distinct().ToList();
+            notSupported = layers.Where(name => !sysInfo.IsLayerAvailable(name)).ToArray();
+            if (notSupported.Any())
+                throw new
+                    PlatformException($"These requested layers are not available : {string.Join(",", notSupported)}");
+
+            CreateAppInfo(out var appInfo, apiVersion).DisposeWith(disposables);
+
+            CreateInstanceInfo(out var vkInstanceInfo, extensions, layers, appInfo).DisposeWith(disposables);
+
+            var res2 = vk.CreateInstance(in vkInstanceInfo, null, out var instance);
+            if (res2 != Result.Success)
+                throw new PlatformException("Failed to bootstrap vulkan instance", new VulkanException(res2));
+
+            if (DebugCallback is null)
+                return new(vk, instance, apiVersion, supportsProperties2Ext);
+
+            CreateDebugMessengerInfo(out var messengerInfo);
+
+            var info = messengerInfo!.Value;
+            vk.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
+
+            res2 = debugUtilsExt.CreateDebugUtilsMessenger(instance, in info, null, out var debugMessenger);
+            if (res2 != Result.Success)
+                throw new PlatformException("Couldn't create Vulkan debug messenger", new VulkanException(res2));
+
+            return new(vk, instance, apiVersion, supportsProperties2Ext, debugMessenger);
         }
     }
 
