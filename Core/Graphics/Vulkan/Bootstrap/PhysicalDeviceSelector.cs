@@ -148,23 +148,16 @@ public class PhysicalDeviceSelector
         }
         else if (!_instance.IsHeadless)
         {
-            if (!_vk.TryGetInstanceExtension(_instance.Instance, out KhrSurface surfaceExt))
-                swapChainAdequate = false;
+            if (_vk.TryGetInstanceExtension(_instance.Instance, out KhrSurface surfaceExt))
+            {
+                uint formatCounts = 0;
+                surfaceExt.GetPhysicalDeviceSurfaceFormats(dsc.Device, Surface, ref formatCounts, out _);
 
-            uint formatCounts = 0;
-            surfaceExt.GetPhysicalDeviceSurfaceFormats(dsc.Device, Surface, ref formatCounts, out _);
-            var formats = new SurfaceFormatKHR[formatCounts];
-            var res1 = surfaceExt.GetPhysicalDeviceSurfaceFormats(dsc.Device, Surface, formatCounts.ToSpan(), formats);
+                uint presentModeCounts = 0;
+                surfaceExt.GetPhysicalDeviceSurfacePresentModes(dsc.Device, Surface, ref presentModeCounts, out _);
 
-            uint presentModeCounts = 0;
-            surfaceExt.GetPhysicalDeviceSurfacePresentModes(dsc.Device, Surface, ref presentModeCounts,
-                                                            out _);
-            var presentModes = new PresentModeKHR[presentModeCounts];
-            var res2 = surfaceExt.GetPhysicalDeviceSurfacePresentModes(dsc.Device, Surface, presentModeCounts.ToSpan(),
-                                                                       presentModes);
-
-            if (res1 == Result.Success && res2 == Result.Success)
                 swapChainAdequate = formatCounts > 0 && presentModeCounts > 0;
+            }
         }
 
         if (Criteria.RequirePresent && !swapChainAdequate) return Suitable.No;
