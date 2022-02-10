@@ -1,7 +1,7 @@
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
 
-namespace Core.Graphics.Vulkan.Bootstrap;
+namespace Core.Graphics.Vulkan;
 
 public class VulkanPhysDevice
 {
