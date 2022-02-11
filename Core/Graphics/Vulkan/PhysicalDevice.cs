@@ -1,3 +1,4 @@
+using Core.Graphics.Vulkan.Bootstrap;
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
 
@@ -5,6 +6,7 @@ namespace Core.Graphics.Vulkan;
 
 public class VulkanPhysDevice
 {
+    //My kingdom for C#11 required !!
     public PhysicalDevice Device { get; init; }
     public SurfaceKHR Surface { get; init; }
 
@@ -13,8 +15,12 @@ public class VulkanPhysDevice
     public PhysicalDeviceMemoryProperties MemoryProperties { get; init; }
 
     internal Version32 InstanceVersion { get; init; }
-    internal IReadOnlyList<string> ExtensionsToEnable { get; init; } = null!; //My kingdom for C#11 required !!
-    internal IReadOnlyList<QueueFamilyProperties> QueueFamilies { get; init; } = null!;
+    internal IReadOnlyList<string> ExtensionsToEnable { get; init; } = Array.Empty<string>();
+    internal IReadOnlyList<QueueFamilyProperties> QueueFamilies { get; init; } = Array.Empty<QueueFamilyProperties>();
+
+    internal IReadOnlyList<GenericFeaturesNextNode> ExtendedFeaturesChain { get; init; } =
+        Array.Empty<GenericFeaturesNextNode>();
+
     internal bool DeferSurfaceInit { get; init; }
 
 

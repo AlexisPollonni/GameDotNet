@@ -34,7 +34,8 @@ public class PhysicalDeviceSelector
         if (devices.Count == 0)
             throw new PlatformException("Couldn't find any physical devices");
 
-        var physDeviceDescriptions = devices.Select(device => PopulateDeviceDetails(device)).ToArray();
+        var physDeviceDescriptions =
+            devices.Select(device => PopulateDeviceDetails(device, Criteria.ExtendedFeaturesChain)).ToArray();
         PhysicalDeviceDesc? selectedDevice = null;
 
         if (Criteria.UseFirstGpuUnconditionally)
@@ -72,6 +73,7 @@ public class PhysicalDeviceSelector
             MemoryProperties = selectedDevice.Value.MemProperties,
             QueueFamilies = selectedDevice.Value.QueueFamilies.ToList(),
             DeferSurfaceInit = Criteria.DeferSurfaceInit,
+            ExtendedFeaturesChain = Criteria.ExtendedFeaturesChain,
             ExtensionsToEnable = Criteria.RequiredExtensions
                                          .Concat(CheckDeviceExtSupport(selectedDevice.Value.Device,
                                                                        Criteria.DesiredExtensions))
@@ -79,7 +81,9 @@ public class PhysicalDeviceSelector
         };
     }
 
-    private unsafe PhysicalDeviceDesc PopulateDeviceDetails(in PhysicalDevice device)
+    private unsafe PhysicalDeviceDesc PopulateDeviceDetails(in PhysicalDevice device,
+                                                            IEnumerable<GenericFeaturesNextNode>
+                                                                srcExtendedFeaturesChain)
     {
         uint familyCount = 0;
         _vk.GetPhysicalDeviceQueueFamilyProperties(device, ref familyCount, null);
@@ -90,7 +94,26 @@ public class PhysicalDeviceSelector
         _vk.GetPhysicalDeviceFeatures(device, out var deviceFeatures);
         _vk.GetPhysicalDeviceMemoryProperties(device, out var deviceMemoryProperties);
 
+
+        var fillChain = srcExtendedFeaturesChain.ToArray();
+        if (fillChain.Length > 0 && (_instance.VkVersion >= Vk.Version11 || _instance.SupportsProperties2Ext))
+        {
+            GenericFeaturesNextNode* prev = null;
+            foreach (var extension in fillChain)
+            {
+                if (prev is not null)
+                {
+                    prev->pNext = &extension;
+                }
+
+                prev = &extension;
+            }
+        }
+
         var localFeatures = new PhysicalDeviceFeatures2();
+        fixed (void* p = fillChain)
+            localFeatures.PNext = p;
+
         if (_instance.VkVersion >= Vk.Version11 && deviceProperties.ApiVersion >= Vk.Version11)
         {
             _vk.GetPhysicalDeviceFeatures2(device, out localFeatures);
@@ -105,7 +128,7 @@ public class PhysicalDeviceSelector
         {
             Device = device, DeviceFeatures = deviceFeatures, DeviceFeatures2 = localFeatures,
             DeviceProperties = deviceProperties, MemProperties = deviceMemoryProperties,
-            QueueFamilies = familyProperties
+            QueueFamilies = familyProperties, ExtendedFeaturesChain = fillChain
         };
     }
 
@@ -150,13 +173,16 @@ public class PhysicalDeviceSelector
         {
             if (_vk.TryGetInstanceExtension(_instance.Instance, out KhrSurface surfaceExt))
             {
-                uint formatCounts = 0;
-                surfaceExt.GetPhysicalDeviceSurfaceFormats(dsc.Device, Surface, ref formatCounts, out _);
+                unsafe
+                {
+                    uint formatCounts = 0;
+                    surfaceExt.GetPhysicalDeviceSurfaceFormats(dsc.Device, Surface, ref formatCounts, null);
 
-                uint presentModeCounts = 0;
-                surfaceExt.GetPhysicalDeviceSurfacePresentModes(dsc.Device, Surface, ref presentModeCounts, out _);
+                    uint presentModeCounts = 0;
+                    surfaceExt.GetPhysicalDeviceSurfacePresentModes(dsc.Device, Surface, ref presentModeCounts, null);
 
-                swapChainAdequate = formatCounts > 0 && presentModeCounts > 0;
+                    swapChainAdequate = formatCounts > 0 && presentModeCounts > 0;
+                }
             }
         }
 
@@ -170,7 +196,8 @@ public class PhysicalDeviceSelector
         }
 
         var requiredFeaturesSupported = Criteria.RequiredFeatures == null ||
-                                        SupportsFeature(dsc.DeviceFeatures, Criteria.RequiredFeatures.Value);
+                                        SupportsFeature(dsc.DeviceFeatures, Criteria.RequiredFeatures.Value,
+                                                        dsc.ExtendedFeaturesChain, Criteria.ExtendedFeaturesChain);
         if (!requiredFeaturesSupported) return Suitable.No;
 
         var hasRequiredMemory = false;
@@ -251,7 +278,9 @@ public class PhysicalDeviceSelector
         return null;
     }
 
-    private static bool SupportsFeature(PhysicalDeviceFeatures supported, PhysicalDeviceFeatures requested)
+    private static bool SupportsFeature(PhysicalDeviceFeatures supported, PhysicalDeviceFeatures requested,
+                                        IList<GenericFeaturesNextNode> extensionSupported,
+                                        IList<GenericFeaturesNextNode> extensionRequested)
     {
         if (requested.RobustBufferAccess && !supported.RobustBufferAccess) return false;
         if (requested.FullDrawIndexUint32 && !supported.FullDrawIndexUint32) return false;
@@ -316,7 +345,12 @@ public class PhysicalDeviceSelector
         if (requested.VariableMultisampleRate && !supported.VariableMultisampleRate) return false;
         if (requested.InheritedQueries && !supported.InheritedQueries) return false;
 
-        //TODO: Add generic features checking and extended features chain
+        // ReSharper disable once LoopCanBeConvertedToQuery
+        for (var i = 0; i < extensionRequested.Count; i++)
+        {
+            var res = GenericFeaturesNextNode.Match(extensionRequested[i], extensionSupported[i]);
+            if (!res) return false;
+        }
 
         return true;
     }
@@ -335,6 +369,9 @@ public class PhysicalDeviceSelector
         public List<string> DesiredExtensions;
         public ulong DesiredMemSize = 0;
         public Version32 DesiredVersion = Vk.Version10;
+
+        public List<GenericFeaturesNextNode> ExtendedFeaturesChain;
+
         public PhysicalDeviceType PreferredType = PhysicalDeviceType.DiscreteGpu;
         public bool RequireDedicatedComputeQueue = false;
         public bool RequireDedicatedTransferQueue = false;
@@ -345,7 +382,6 @@ public class PhysicalDeviceSelector
         public PhysicalDeviceFeatures2? RequiredFeatures2;
 
         public ulong RequiredMemSize = 0;
-
         public Version32 RequiredVersion = Vk.Version10;
         public bool RequirePresent = true;
         public bool RequireSeparateComputeQueue = false;
@@ -356,9 +392,13 @@ public class PhysicalDeviceSelector
         {
             RequiredExtensions = new();
             DesiredExtensions = new();
+            ExtendedFeaturesChain = new();
             RequiredFeatures = null;
             RequiredFeatures2 = null;
         }
+
+        public void AddFeature()
+        { }
     }
 }
 
@@ -381,4 +421,5 @@ internal struct PhysicalDeviceDesc
 
     //If vulkan version is 1.1 the variant uses PhysicalDeviceFeatures2
     public PhysicalDeviceFeatures2Variant DeviceFeatures2 { get; set; }
+    public IList<GenericFeaturesNextNode> ExtendedFeaturesChain { get; set; }
 }
