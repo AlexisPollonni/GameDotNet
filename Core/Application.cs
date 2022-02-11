@@ -90,7 +90,9 @@ public class Application
             var surfaceHandle = _mainView.VkSurface.Create<IntPtr>(instance.Instance.ToHandle(), null);
             var surface = surfaceHandle.ToSurface();
 
-            var device = new PhysicalDeviceSelector(instance, surface).Select();
+            var physDevice = new PhysicalDeviceSelector(instance, surface).Select();
+
+            var device = new DeviceBuilder(instance.Vk, physDevice).Build();
         }
     }
 

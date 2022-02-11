@@ -346,7 +346,7 @@ public class InstanceBuilder
         var memChecks = checks?.ToGlobalMemory();
 
         var pNextChain = new[] { memMessengerInfo, memFeatures, memChecks }.WhereNotNull().ToArray();
-        SetupPNextChain(pNextChain);
+        SilkExtensions.SetupPNextChain(pNextChain);
 
         if (pNextChain.Length > 0)
             info.PNext = (void*)pNextChain[0].Handle;
@@ -355,16 +355,5 @@ public class InstanceBuilder
         {
             memAppInfo, memExtensions, memLayers, d1, d2, memMessengerInfo, memFeatures, memChecks
         }.WhereNotNull());
-    }
-
-    private static unsafe void SetupPNextChain(params GlobalMemory[] structs)
-    {
-        if (structs.Length <= 1)
-            return;
-
-        for (var i = 0; i < structs.Length - 1; i++)
-        {
-            structs[i].AsRef<BaseOutStructure>().PNext = structs[i + 1].AsPtr<BaseOutStructure>();
-        }
     }
 }

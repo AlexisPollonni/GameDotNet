@@ -19,6 +19,11 @@ public static class MemoryExtensions
         return SilkMarshal.HGlobalToMemory(ptr, Marshal.SizeOf<T>());
     }
 
+    public static GlobalMemory ToGlobalMemory(this IEnumerable<string> s)
+    {
+        return SilkMarshal.StringArrayToMemory(s.ToArray());
+    }
+
     public static GlobalMemory ToGlobalMemory<T>(this IEnumerable<T> enumerable) where T : unmanaged
     {
         unsafe
@@ -34,6 +39,8 @@ public static class MemoryExtensions
             return mem;
         }
     }
+
+    public static unsafe byte** AsByteDoublePtr(this GlobalMemory mem) => (byte**)mem.AsPtr<byte>();
 
     public static unsafe IEnumerable<string> FromPtrStrArray(byte** ppArray, uint count)
     {
