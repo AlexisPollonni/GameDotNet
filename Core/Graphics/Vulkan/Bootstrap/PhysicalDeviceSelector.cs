@@ -195,7 +195,7 @@ public class PhysicalDeviceSelector
             else return Suitable.No;
         }
 
-        var requiredFeaturesSupported = Criteria.RequiredFeatures == null ||
+        var requiredFeaturesSupported = Criteria.RequiredFeatures is null ||
                                         SupportsFeature(dsc.DeviceFeatures, Criteria.RequiredFeatures.Value,
                                                         dsc.ExtendedFeaturesChain, Criteria.ExtendedFeaturesChain);
         if (!requiredFeaturesSupported) return Suitable.No;

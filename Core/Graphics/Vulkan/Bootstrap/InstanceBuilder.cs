@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Core.Tools;
 using Core.Tools.Extensions;
 using Serilog;
@@ -40,7 +39,7 @@ public class InstanceBuilder
                 _ => "Unknown"
             };
 
-            var msg = Marshal.PtrToStringAnsi((nint)data->PMessage);
+            var msg = SilkMarshal.PtrToString((nint)data->PMessage);
 
             const string template = "<Vulkan || {MessageType}> {Message}";
             switch (severity)
@@ -65,6 +64,7 @@ public class InstanceBuilder
             return Vk.False;
         };
 
+
     private readonly ILogger _logger;
 
     public InstanceBuilder()
@@ -76,6 +76,7 @@ public class InstanceBuilder
         EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>();
         DisabledValidationFeatures = new List<ValidationFeatureDisableEXT>();
     }
+
 
     public bool IsHeadless { get; set; }
 
@@ -122,30 +123,7 @@ public class InstanceBuilder
             var vk = Vk.GetApi();
             var sysInfo = new SystemInfo();
 
-            var apiVersion = Vk.Version10;
-
-            if (RequiredApiVersion > Vk.Version10 || DesiredApiVersion > Vk.Version10)
-            {
-                var queriedApiVersion = Vk.Version10;
-                var res = vk.EnumerateInstanceVersion(ref Unsafe.As<Version32, uint>(ref queriedApiVersion));
-                if (res != Result.Success && RequiredApiVersion is not null)
-                    throw new PlatformException("Couldn't find vulkan api version", new VulkanException(res));
-
-                if (queriedApiVersion < RequiredApiVersion)
-                    throw new PlatformException($"Vulkan version {(Version)RequiredApiVersion!} unavailable");
-
-                if (RequiredApiVersion > Vk.Version10)
-                {
-                    apiVersion = queriedApiVersion;
-                }
-                else if (DesiredApiVersion > Vk.Version10)
-                {
-                    apiVersion = queriedApiVersion >= DesiredApiVersion
-                                     ? DesiredApiVersion.Value
-                                     : queriedApiVersion;
-                }
-            }
-
+            var apiVersion = ChooseApiVersion(vk);
             _logger.Information("Bootstrapper chose Vulkan version {VulkanVersion}", (Version)apiVersion);
 
             var supportsProperties2Ext = sysInfo.IsExtensionAvailable(KhrGetPhysicalDeviceProperties2.ExtensionName);
@@ -215,7 +193,6 @@ public class InstanceBuilder
                     PlatformException($"These requested layers are not available : {string.Join(",", notSupported)}");
 
             CreateAppInfo(out var appInfo, apiVersion).DisposeWith(disposables);
-
             CreateInstanceInfo(out var vkInstanceInfo, extensions, layers, appInfo).DisposeWith(disposables);
 
             var res2 = vk.CreateInstance(in vkInstanceInfo, null, out var instance);
@@ -238,10 +215,38 @@ public class InstanceBuilder
         }
     }
 
+    private Version32 ChooseApiVersion(Vk vk)
+    {
+        var apiVersion = Vk.Version10;
+
+        if (RequiredApiVersion <= Vk.Version10 && DesiredApiVersion <= Vk.Version10)
+            return apiVersion;
+
+        var queriedApiVersion = Vk.Version10;
+        var res = vk.EnumerateInstanceVersion(ref Unsafe.As<Version32, uint>(ref queriedApiVersion));
+        if (res != Result.Success && RequiredApiVersion is not null)
+            throw new PlatformException("Couldn't find vulkan api version", new VulkanException(res));
+
+        if (queriedApiVersion < RequiredApiVersion)
+            throw new PlatformException($"Vulkan version {(Version)RequiredApiVersion!} unavailable");
+
+        if (RequiredApiVersion > Vk.Version10)
+        {
+            apiVersion = queriedApiVersion;
+        }
+        else if (DesiredApiVersion > Vk.Version10)
+        {
+            apiVersion = queriedApiVersion >= DesiredApiVersion
+                             ? DesiredApiVersion.Value
+                             : queriedApiVersion;
+        }
+
+        return apiVersion;
+    }
+
     private unsafe IDisposable CreateAppInfo(out Silk.NET.Vulkan.ApplicationInfo info, Version32 apiVersion)
     {
-        var appName = SilkMarshal.StringToMemory(ApplicationName);
-        var engineName = SilkMarshal.StringToMemory(EngineName);
+        var d = new CompositeDisposable();
 
         info = new()
         {
@@ -250,11 +255,11 @@ public class InstanceBuilder
             ApiVersion = apiVersion,
             ApplicationVersion = ApplicationVersion ?? new Version32(0, 0, 1),
             EngineVersion = Constants.EngineVersion,
-            PApplicationName = appName.AsPtr<byte>(),
-            PEngineName = engineName.AsPtr<byte>()
+            PApplicationName = (ApplicationName ?? "").ToGlobalMemory().DisposeWith(d).AsPtr<byte>(),
+            PEngineName = (EngineName ?? "").ToGlobalMemory().DisposeWith(d).AsPtr<byte>()
         };
 
-        return new CompositeDisposable(appName, engineName);
+        return d;
     }
 
     private void CreateDebugMessengerInfo(out DebugUtilsMessengerCreateInfoEXT? messenger)
@@ -279,12 +284,11 @@ public class InstanceBuilder
 
     private unsafe IDisposable? CreateValidationFeatures(out ValidationFeaturesEXT? features)
     {
+        var d = new CompositeDisposable();
+
         features = null;
         if (EnabledValidationFeatures.Count == 0 && DisabledValidationFeatures.Count == 0)
             return null;
-
-        var enabled = EnabledValidationFeatures.ToGlobalMemory();
-        var disabled = DisabledValidationFeatures.ToGlobalMemory();
 
         features = new()
         {
@@ -292,11 +296,13 @@ public class InstanceBuilder
             PNext = null,
             EnabledValidationFeatureCount = (uint)EnabledValidationFeatures.Count,
             DisabledValidationFeatureCount = (uint)DisabledValidationFeatures.Count,
-            PEnabledValidationFeatures = enabled.AsPtr<ValidationFeatureEnableEXT>(),
-            PDisabledValidationFeatures = disabled.AsPtr<ValidationFeatureDisableEXT>()
+            PEnabledValidationFeatures = EnabledValidationFeatures.ToGlobalMemory().DisposeWith(d)
+                                                                  .AsPtr<ValidationFeatureEnableEXT>(),
+            PDisabledValidationFeatures = DisabledValidationFeatures.ToGlobalMemory().DisposeWith(d)
+                                                                    .AsPtr<ValidationFeatureDisableEXT>()
         };
 
-        return new CompositeDisposable(enabled, disabled);
+        return d;
     }
 
     private unsafe IDisposable? CreateValidationFlags(out ValidationFlagsEXT? checks)
@@ -321,39 +327,34 @@ public class InstanceBuilder
     private unsafe IDisposable CreateInstanceInfo(out InstanceCreateInfo info, IReadOnlyList<string> extensions,
                                                   IReadOnlyList<string> layers, Silk.NET.Vulkan.ApplicationInfo appInfo)
     {
-        var memAppInfo = appInfo.ToGlobalMemory();
-        var memExtensions = SilkMarshal.StringArrayToMemory(extensions);
-        var memLayers = SilkMarshal.StringArrayToMemory(layers);
+        var d = new CompositeDisposable();
 
         info = new()
         {
             SType = StructureType.InstanceCreateInfo,
             PNext = null,
-            PApplicationInfo = memAppInfo.AsPtr<Silk.NET.Vulkan.ApplicationInfo>(),
+            PApplicationInfo = appInfo.ToGlobalMemory().DisposeWith(d).AsPtr<Silk.NET.Vulkan.ApplicationInfo>(),
             EnabledExtensionCount = (uint)extensions.Count,
             EnabledLayerCount = (uint)layers.Count,
-            PpEnabledExtensionNames = (byte**)memExtensions.Handle,
-            PpEnabledLayerNames = (byte**)memLayers.Handle,
+            PpEnabledExtensionNames = extensions.ToGlobalMemory().DisposeWith(d).AsByteDoublePtr(),
+            PpEnabledLayerNames = layers.ToGlobalMemory().DisposeWith(d).AsByteDoublePtr(),
             Flags = 0
         };
 
         CreateDebugMessengerInfo(out var messengerInfo);
-        var d1 = CreateValidationFeatures(out var features);
-        var d2 = CreateValidationFlags(out var checks);
+        CreateValidationFeatures(out var features)?.DisposeWith(d);
+        CreateValidationFlags(out var checks)?.DisposeWith(d);
 
-        var memMessengerInfo = messengerInfo?.ToGlobalMemory();
-        var memFeatures = features?.ToGlobalMemory();
-        var memChecks = checks?.ToGlobalMemory();
-
-        var pNextChain = new[] { memMessengerInfo, memFeatures, memChecks }.WhereNotNull().ToArray();
-        SilkExtensions.SetupPNextChain(pNextChain);
+        var pNextChain = new[]
+        {
+            messengerInfo?.ToGlobalMemory(),
+            features?.ToGlobalMemory(),
+            checks?.ToGlobalMemory()
+        }.WhereNotNull().Select(memory => memory.DisposeWith(d)).SetupPNextChain().ToArray();
 
         if (pNextChain.Length > 0)
             info.PNext = (void*)pNextChain[0].Handle;
 
-        return new CompositeDisposable(new[]
-        {
-            memAppInfo, memExtensions, memLayers, d1, d2, memMessengerInfo, memFeatures, memChecks
-        }.WhereNotNull());
+        return d;
     }
 }

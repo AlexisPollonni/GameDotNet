@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 
@@ -6,6 +5,13 @@ namespace Core.Graphics.Vulkan;
 
 public static class SilkExtensions
 {
+    internal static IEnumerable<GlobalMemory> SetupPNextChain(this IEnumerable<GlobalMemory> nextNodesChain)
+    {
+        var arr = nextNodesChain.ToArray();
+        SetupPNextChain(arr);
+        return arr;
+    }
+
     internal static unsafe void SetupPNextChain(params GlobalMemory[] structs)
     {
         if (structs.Length <= 1)
@@ -21,7 +27,7 @@ public static class SilkExtensions
     {
         unsafe
         {
-            return Marshal.PtrToStringAnsi((nint)properties.LayerName);
+            return SilkMarshal.PtrToString((nint)properties.LayerName);
         }
     }
 
@@ -29,7 +35,7 @@ public static class SilkExtensions
     {
         unsafe
         {
-            return Marshal.PtrToStringAnsi((nint)properties.ExtensionName);
+            return SilkMarshal.PtrToString((nint)properties.ExtensionName);
         }
     }
 }

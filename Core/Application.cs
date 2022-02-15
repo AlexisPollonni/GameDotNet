@@ -2,11 +2,11 @@ using Core.Graphics.Vulkan.Bootstrap;
 using Serilog;
 using Serilog.Events;
 using Silk.NET.Core;
+using Silk.NET.Core.Native;
 using Silk.NET.GLFW;
 using Silk.NET.Input;
 using Silk.NET.Vulkan;
 using Silk.NET.Windowing;
-using MemoryExtensions = Core.Tools.Extensions.MemoryExtensions;
 
 namespace Core;
 
@@ -96,16 +96,15 @@ public class Application
         }
     }
 
-    private IEnumerable<string> GetGlfwRequiredVulkanExtensions()
+    private static IEnumerable<string> GetGlfwRequiredVulkanExtensions()
     {
         unsafe
         {
-            var ppExts = Glfw.GetApi().GetRequiredInstanceExtensions(out var count);
+            var ppExtensions = Glfw.GetApi().GetRequiredInstanceExtensions(out var count);
 
-            if (ppExts is null)
+            if (ppExtensions is null)
                 throw new PlatformException("GLFW vulkan extensions for windowing not available");
-
-            return MemoryExtensions.FromPtrStrArray(ppExts, count);
+            return SilkMarshal.PtrToStringArray((nint)ppExtensions, (int)count);
         }
     }
 

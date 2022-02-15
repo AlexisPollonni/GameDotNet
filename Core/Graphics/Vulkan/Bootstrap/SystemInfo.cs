@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Microsoft.Toolkit.HighPerformance;
 using Serilog;
@@ -17,24 +16,16 @@ public class SystemInfo
         _vk = Vk.GetApi();
         _logger = Log.ForContext<SystemInfo>();
 
-        AvailableLayers = FetchLayers().ToImmutableArray();
-        AvailableExtensions = FetchExtensions().ToImmutableArray();
+        AvailableLayers = FetchLayers().ToList();
+        AvailableExtensions = FetchExtensions().ToList();
 
         IsValidationLayersEnabled = Constants.DefaultValidationLayers.All(IsLayerAvailable);
-        IsDebugUtilsAvailable = _vk.IsInstanceExtensionPresent(ExtDebugUtils.ExtensionName);
+        IsDebugUtilsAvailable = IsExtensionAvailable(ExtDebugUtils.ExtensionName);
 
-
-        foreach (var layer in AvailableLayers)
-        {
-            var layerExtensions = FetchExtensions(layer.GetLayerName());
-
-            IsDebugUtilsAvailable = IsDebugUtilsAvailable || layerExtensions.Any(properties =>
-                                        properties.GetExtensionName() == ExtDebugUtils.ExtensionName);
-        }
-
-        _logger.Information("Available Vulkan layers: {VulkanLayers}", AvailableLayers.Select(p => p.GetLayerName()));
+        _logger.Information("Available Vulkan layers: {VulkanLayers}",
+                            AvailableLayers.Select(SilkExtensions.GetLayerName));
         _logger.Information("Available Vulkan extensions: {VulkanExtensions}",
-                            AvailableExtensions.Select(e => e.GetExtensionName()));
+                            AvailableExtensions.Select(SilkExtensions.GetExtensionName));
         _logger.Information("Vulkan validation layers available: {ValidationAvailable}", IsValidationLayersEnabled);
         _logger.Information("Vulkan debug utils available: {UtilsAvailable}", IsDebugUtilsAvailable);
     }
@@ -47,8 +38,7 @@ public class SystemInfo
 
     public bool IsLayerAvailable(string name) => AvailableLayers.Any(properties => properties.GetLayerName() == name);
 
-    public bool IsExtensionAvailable(string name) =>
-        AvailableExtensions.Any(properties => properties.GetExtensionName() == name);
+    public bool IsExtensionAvailable(string name) => _vk.IsInstanceExtensionPresent(name);
 
     private IEnumerable<LayerProperties> FetchLayers()
     {
