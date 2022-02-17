@@ -15,19 +15,21 @@ public class SwapchainBuilder
     private readonly Vk _vk;
 
     public SwapchainBuilder(VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device,
-                            VulkanSurface surface, Info? info = default)
+                            VulkanSurface surface) : this(instance, physDevice, device, new Info(surface))
+    { }
+
+    public SwapchainBuilder(VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device, Info info)
     {
         _vk = instance.Vk;
         _instance = instance;
         _physDevice = physDevice;
         _device = device;
-        _info = info ?? new(surface);
+        _info = info;
 
         _info.GraphicsQueueIndex = device.GetQueueIndex(QueueType.Graphics)
                                    ?? throw new ArgumentException("Couldn't find graphics queue of Vulkan device");
         _info.PresentQueueIndex = device.GetQueueIndex(QueueType.Present)
                                   ?? throw new ArgumentException("Couldn't find present queue of Vulkan device");
-
 
         if (!instance.Vk.TryGetDeviceExtension(instance, _device, out _extension))
         {

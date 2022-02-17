@@ -45,7 +45,7 @@ public sealed class VulkanRenderer : IDisposable
                 ApplicationName = "App",
                 EngineName = "GamesDotNet",
                 EngineVersion = new Version32(0, 0, 1),
-                DesiredApiVersion = Vk.Version11,
+                RequiredApiVersion = Vk.Version11,
                 Extensions = GetGlfwRequiredVulkanExtensions(),
                 EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
                 {
@@ -65,7 +65,10 @@ public sealed class VulkanRenderer : IDisposable
 
         _device = new DeviceBuilder(_instance, _physDevice).Build();
 
-        _swapchain = new SwapchainBuilder(_instance, _physDevice, _device, _surface)
+        _swapchain = new SwapchainBuilder(_instance, _physDevice, _device, new SwapchainBuilder.Info(_surface)
+            {
+                DesiredPresentModes = new() { PresentModeKHR.PresentModeFifoKhr }
+            })
             .Build();
     }
 
