@@ -1,19 +1,16 @@
 using Core.Graphics.Vulkan;
-using Core.Graphics.Vulkan.Bootstrap;
 using Serilog;
 using Serilog.Events;
-using Silk.NET.Core;
-using Silk.NET.Core.Native;
-using Silk.NET.GLFW;
 using Silk.NET.Input;
-using Silk.NET.Vulkan;
 using Silk.NET.Windowing;
 
 namespace Core;
 
-public class Application
+public class Application : IDisposable
 {
     private readonly IView _mainView;
+
+    private readonly VulkanRenderer _renderer;
 
     public Application(string appName)
     {
@@ -42,9 +39,18 @@ public class Application
         }
 
         _mainView.Load += OnWindowLoad;
+        _renderer = new(_mainView);
     }
 
     public string ApplicationName { get; }
+
+    public void Dispose()
+    {
+        _renderer.Dispose();
+        _mainView.Dispose();
+
+        GC.SuppressFinalize(this);
+    }
 
     public int Run()
     {
@@ -53,12 +59,12 @@ public class Application
         return 0;
     }
 
-    private unsafe void OnWindowLoad()
+    private void OnWindowLoad()
     {
         var input = _mainView.CreateInput();
         foreach (var kb in input.Keyboards)
         {
-            kb.KeyUp += (keyboard, key, arg3) =>
+            kb.KeyUp += (_, key, _) =>
             {
                 if (key == Key.Escape)
                 {
@@ -66,51 +72,8 @@ public class Application
                 }
             };
         }
-
-        if (_mainView.VkSurface is not null)
-        {
-            var instance = new InstanceBuilder
-                {
-                    ApplicationName = "App",
-                    EngineName = "GamesDotNet",
-                    EngineVersion = new Version32(0, 0, 1),
-                    DesiredApiVersion = Vk.Version11,
-                    Extensions = GetGlfwRequiredVulkanExtensions(),
-                    EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
-                    {
-                        ValidationFeatureEnableEXT.ValidationFeatureEnableBestPracticesExt,
-                        ValidationFeatureEnableEXT.ValidationFeatureEnableSynchronizationValidationExt,
-                        ValidationFeatureEnableEXT.ValidationFeatureEnableGpuAssistedExt,
-                        ValidationFeatureEnableEXT.ValidationFeatureEnableDebugPrintfExt
-                    },
-                    IsValidationLayersRequested = true,
-                    IsHeadless = false
-                }.UseDefaultDebugMessenger()
-                 .Build();
-
-            var surfaceHandle = _mainView.VkSurface.Create<IntPtr>(instance.Instance.ToHandle(), null);
-            var surface = new VulkanSurface(instance, surfaceHandle.ToSurface());
-
-            var physDevice = new PhysicalDeviceSelector(instance, surface).Select();
-
-            var device = new DeviceBuilder(instance, physDevice).Build();
-
-            var swapchain = new SwapchainBuilder(instance, physDevice, device, surface)
-                .Build();
-        }
     }
 
-    private static IEnumerable<string> GetGlfwRequiredVulkanExtensions()
-    {
-        unsafe
-        {
-            var ppExtensions = Glfw.GetApi().GetRequiredInstanceExtensions(out var count);
-
-            if (ppExtensions is null)
-                throw new PlatformException("GLFW vulkan extensions for windowing not available");
-            return SilkMarshal.PtrToStringArray((nint)ppExtensions, (int)count);
-        }
-    }
 
     private void CreateLogger()
     {
