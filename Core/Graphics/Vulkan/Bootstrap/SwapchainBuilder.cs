@@ -38,7 +38,7 @@ public class SwapchainBuilder
 
     public VulkanSwapchain Build()
     {
-        if (((SurfaceKHR)_info.Surface).Handle is 0)
+        if (_info.Surface.AsSurfaceKhr().Handle is 0)
             throw new ArgumentException("Surface is not initialized", nameof(_info.Surface));
 
         var desiredFormats = _info.DesiredFormats;

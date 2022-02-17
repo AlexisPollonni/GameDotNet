@@ -26,7 +26,9 @@ public sealed class VulkanSurface : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public static implicit operator SurfaceKHR(VulkanSurface surface) => surface._surface;
+    public static implicit operator SurfaceKHR(VulkanSurface surface) => surface.AsSurfaceKhr();
+
+    internal SurfaceKHR AsSurfaceKhr() => _surface;
 
     public SurfaceCapabilitiesKHR GetCapabilities(VulkanPhysDevice device)
     {

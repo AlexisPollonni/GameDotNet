@@ -12,7 +12,7 @@ public class PhysicalDeviceSelector
     private readonly VulkanInstance _instance;
     private readonly Vk _vk;
 
-    public PhysicalDeviceSelector(VulkanInstance instance, SurfaceKHR surface,
+    public PhysicalDeviceSelector(VulkanInstance instance, VulkanSurface surface,
                                   SelectionCriteria? selectionCriteria = default)
     {
         Surface = surface;
@@ -21,17 +21,18 @@ public class PhysicalDeviceSelector
         _vk = instance.Vk;
     }
 
-    public SurfaceKHR Surface { get; }
+    public VulkanSurface Surface { get; }
+
     public SelectionCriteria Criteria { get; }
 
     public VulkanPhysDevice Select()
     {
-        if (!_instance.IsHeadless && !Criteria.DeferSurfaceInit && Surface.Handle == 0)
+        if (!_instance.IsHeadless && !Criteria.DeferSurfaceInit && Surface.AsSurfaceKhr().Handle is 0)
             throw new ArgumentException("No initialized vulkan surface provided.");
 
         var devices = _instance.GetPhysicalDevices();
 
-        if (devices.Count == 0)
+        if (devices.Count is 0)
             throw new PlatformException("Couldn't find any physical devices");
 
         var physDeviceDescriptions =
