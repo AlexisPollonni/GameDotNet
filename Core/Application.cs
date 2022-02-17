@@ -1,3 +1,4 @@
+using Core.Graphics.Vulkan;
 using Core.Graphics.Vulkan.Bootstrap;
 using Serilog;
 using Serilog.Events;
@@ -88,11 +89,14 @@ public class Application
                  .Build();
 
             var surfaceHandle = _mainView.VkSurface.Create<IntPtr>(instance.Instance.ToHandle(), null);
-            var surface = surfaceHandle.ToSurface();
+            var surface = new VulkanSurface(instance, surfaceHandle.ToSurface());
 
             var physDevice = new PhysicalDeviceSelector(instance, surface).Select();
 
-            var device = new DeviceBuilder(instance.Vk, physDevice).Build();
+            var device = new DeviceBuilder(instance, physDevice).Build();
+
+            var swapchain = new SwapchainBuilder(instance, physDevice, device, surface)
+                .Build();
         }
     }
 

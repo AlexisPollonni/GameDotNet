@@ -10,13 +10,15 @@ namespace Core.Graphics.Vulkan.Bootstrap;
 public class DeviceBuilder
 {
     private readonly DeviceInfo _info;
+    private readonly VulkanInstance _instance;
     private readonly VulkanPhysDevice _physDevice;
-
     private readonly Vk _vk;
 
-    public DeviceBuilder(Vk vk, VulkanPhysDevice physDevice)
+
+    public DeviceBuilder(VulkanInstance instance, VulkanPhysDevice physDevice)
     {
-        _vk = vk;
+        _vk = instance.Vk;
+        _instance = instance;
         _physDevice = physDevice;
         _info = new();
     }
@@ -132,7 +134,7 @@ public class DeviceBuilder
         if (res != Result.Success)
             throw new VulkanException(res);
 
-        return new(_vk, device, _physDevice, _physDevice.Surface, _physDevice.QueueFamilies, AllocationCallbacks);
+        return new(_instance, _physDevice, device, _physDevice.Surface, _physDevice.QueueFamilies, AllocationCallbacks);
     }
 
     public struct CustomQueueDescription

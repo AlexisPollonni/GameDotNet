@@ -33,6 +33,10 @@ public class VulkanInstance : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    public static implicit operator Instance(VulkanInstance instance) => instance.Instance;
+
+    public IReadOnlyCollection<PhysicalDevice> GetPhysicalDevices() => Vk.GetPhysicalDevices(Instance);
+
     ~VulkanInstance()
     {
         ReleaseUnmanagedResources();
@@ -48,6 +52,4 @@ public class VulkanInstance : IDisposable
 
         Vk.DestroyInstance(Instance, null);
     }
-
-    public IReadOnlyCollection<PhysicalDevice> GetPhysicalDevices() => Vk.GetApi().GetPhysicalDevices(Instance);
 }

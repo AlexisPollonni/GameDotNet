@@ -141,16 +141,20 @@ public class PhysicalDeviceSelector
             suitable = Suitable.Partial;
 
         var dedicatedCompute =
-            GetDedicatedQueue(dsc.QueueFamilies, QueueFlags.QueueComputeBit, QueueFlags.QueueTransferBit);
+            QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.QueueComputeBit,
+                                              QueueFlags.QueueTransferBit);
         var dedicatedTransfer =
-            GetDedicatedQueue(dsc.QueueFamilies, QueueFlags.QueueTransferBit, QueueFlags.QueueComputeBit);
+            QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.QueueTransferBit,
+                                              QueueFlags.QueueComputeBit);
 
         var separateCompute =
-            GetSeparateQueue(dsc.QueueFamilies, QueueFlags.QueueComputeBit, QueueFlags.QueueTransferBit);
+            QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.QueueComputeBit,
+                                             QueueFlags.QueueTransferBit);
         var separateTransfer =
-            GetSeparateQueue(dsc.QueueFamilies, QueueFlags.QueueTransferBit, QueueFlags.QueueComputeBit);
+            QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.QueueTransferBit,
+                                             QueueFlags.QueueComputeBit);
 
-        var presentQueue = GetPresentQueue(dsc.Device, Surface, dsc.QueueFamilies);
+        var presentQueue = QueueTools.GetPresentQueueIndex(_instance, dsc.Device, Surface, dsc.QueueFamilies);
 
         if (Criteria.RequireDedicatedComputeQueue && dedicatedCompute is null) return Suitable.No;
         if (Criteria.RequireDedicatedTransferQueue && dedicatedTransfer is null) return Suitable.No;
@@ -218,64 +222,6 @@ public class PhysicalDeviceSelector
     private IEnumerable<string> CheckDeviceExtSupport(PhysicalDevice device, IEnumerable<string> extensions)
     {
         return extensions.Where(extension => _vk.IsDeviceExtensionPresent(device, extension)).ToList();
-    }
-
-    private static QueueFamilyProperties? GetDedicatedQueue(IEnumerable<QueueFamilyProperties> families,
-                                                            QueueFlags desiredFlags, QueueFlags undesiredFlags)
-    {
-        foreach (var family in families)
-        {
-            if (family.QueueFlags.HasFlag(desiredFlags)
-                && !family.QueueFlags.HasFlag(undesiredFlags)
-                && !family.QueueFlags.HasFlag(QueueFlags.QueueGraphicsBit))
-            {
-                return family;
-            }
-        }
-
-        return null;
-    }
-
-    private static QueueFamilyProperties? GetSeparateQueue(IEnumerable<QueueFamilyProperties> families,
-                                                           QueueFlags desiredFlags, QueueFlags undesiredFlags)
-    {
-        QueueFamilyProperties? prop = null;
-        foreach (var family in families)
-        {
-            if (!family.QueueFlags.HasFlag(desiredFlags) || family.QueueFlags.HasFlag(QueueFlags.QueueGraphicsBit))
-                continue;
-
-            if (!family.QueueFlags.HasFlag(undesiredFlags))
-            {
-                return family;
-            }
-
-            prop = family;
-        }
-
-        return prop;
-    }
-
-    private QueueFamilyProperties? GetPresentQueue(PhysicalDevice device, SurfaceKHR surface,
-                                                   IReadOnlyList<QueueFamilyProperties> families)
-    {
-        if (surface.Handle == 0)
-            return null;
-
-        if (!_vk.TryGetInstanceExtension(_instance.Instance, out KhrSurface ext))
-            return null;
-
-        for (var i = 0; i < families.Count; i++)
-        {
-            var res = ext.GetPhysicalDeviceSurfaceSupport(device, (uint)i, surface, out var presentSupport);
-            if (res != Result.Success)
-                return null;
-
-            if (presentSupport == true)
-                return families[i];
-        }
-
-        return null;
     }
 
     private static bool SupportsFeature(PhysicalDeviceFeatures supported, PhysicalDeviceFeatures requested,
