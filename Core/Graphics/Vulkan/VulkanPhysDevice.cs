@@ -4,7 +4,7 @@ using Silk.NET.Vulkan;
 
 namespace Core.Graphics.Vulkan;
 
-public class VulkanPhysDevice
+public sealed class VulkanPhysDevice
 {
     //My kingdom for C#11 required !!
     public PhysicalDevice Device { get; init; }
