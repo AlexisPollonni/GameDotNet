@@ -1,3 +1,4 @@
+using Core.Tools.Extensions;
 using Silk.NET.Vulkan;
 
 namespace Core.Graphics.Vulkan;
@@ -11,8 +12,8 @@ public sealed class VulkanDevice : IDisposable
     private readonly IReadOnlyList<QueueFamilyProperties> _queueFamilies;
     private readonly SurfaceKHR _surface;
 
-    public VulkanDevice(VulkanInstance instance, VulkanPhysDevice physDevice, Device device, SurfaceKHR surface,
-                        IReadOnlyList<QueueFamilyProperties> queueFamilies, AllocationCallbacks? allocationCallbacks)
+    internal VulkanDevice(VulkanInstance instance, VulkanPhysDevice physDevice, Device device, SurfaceKHR surface,
+                          IReadOnlyList<QueueFamilyProperties> queueFamilies, AllocationCallbacks? allocationCallbacks)
     {
         _instance = instance;
         _physDevice = physDevice;
@@ -44,6 +45,16 @@ public sealed class VulkanDevice : IDisposable
         };
 
         return (uint?)index;
+    }
+
+    public Queue? GetQueue(QueueType type)
+    {
+        var i = GetQueueIndex(type);
+        if (i is null)
+            return null;
+
+        _instance.Vk.GetDeviceQueue(_device, i.Value, 0, out var queue);
+        return queue;
     }
 
     ~VulkanDevice() => ReleaseUnmanagedResources();
