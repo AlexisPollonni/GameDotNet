@@ -1,15 +1,31 @@
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Microsoft.Toolkit.HighPerformance.Extensions;
 using Silk.NET.Core.Native;
 
 namespace Core.Tools.Extensions;
 
 public static class MemoryExtensions
 {
-    public static Span<T> ToSpan<T>(ref this T t) where T : struct
+    public static Span<T> AsSpan<T>(ref this T t) where T : unmanaged
     {
         return MemoryMarshal.CreateSpan(ref t, 1);
     }
+
+    public static ref T AsRefOrNull<T>(ref this T? nullable) where T : unmanaged
+    {
+        return ref nullable is null ? ref Unsafe.NullRef<T>() : ref nullable.DangerousGetValueOrDefaultReference();
+    }
+
+    public static ref readonly T AsReadOnlyRefOrNull<T>(in this T? nullable) where T : unmanaged
+    {
+        if (nullable is null)
+            return ref Unsafe.NullRef<T>();
+
+        return ref Unsafe.AsRef(nullable).DangerousGetValueOrDefaultReference();
+    }
+
 
     public static GlobalMemory ToGlobalMemory<T>(this T s) where T : unmanaged
     {

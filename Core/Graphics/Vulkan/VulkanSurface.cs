@@ -42,9 +42,9 @@ public sealed class VulkanSurface : IDisposable
     public IReadOnlyList<SurfaceFormatKHR> GetSurfaceFormats(VulkanPhysDevice device)
     {
         var count = 0U;
-        _surfaceExt.GetPhysicalDeviceSurfaceFormats(device, _surface, count.ToSpan(), Span<SurfaceFormatKHR>.Empty);
+        _surfaceExt.GetPhysicalDeviceSurfaceFormats(device, _surface, count.AsSpan(), Span<SurfaceFormatKHR>.Empty);
         var formats = new SurfaceFormatKHR[count];
-        _surfaceExt.GetPhysicalDeviceSurfaceFormats(device, _surface, count.ToSpan(), formats);
+        _surfaceExt.GetPhysicalDeviceSurfaceFormats(device, _surface, count.AsSpan(), formats);
 
         return formats;
     }
@@ -52,9 +52,9 @@ public sealed class VulkanSurface : IDisposable
     public IReadOnlyList<PresentModeKHR> GetPresentModes(VulkanPhysDevice device)
     {
         var count = 0U;
-        _surfaceExt.GetPhysicalDeviceSurfacePresentModes(device, _surface, count.ToSpan(), Span<PresentModeKHR>.Empty);
+        _surfaceExt.GetPhysicalDeviceSurfacePresentModes(device, _surface, count.AsSpan(), Span<PresentModeKHR>.Empty);
         var modes = new PresentModeKHR[count];
-        _surfaceExt.GetPhysicalDeviceSurfacePresentModes(device, _surface, count.ToSpan(), modes);
+        _surfaceExt.GetPhysicalDeviceSurfacePresentModes(device, _surface, count.AsSpan(), modes);
 
         return modes;
     }

@@ -32,7 +32,7 @@ public unsafe struct GenericFeaturesNextNode : IStructuredType
     public static GenericFeaturesNextNode FromFeature<T>(ref T feature) where T : unmanaged, IStructuredType
     {
         var node = new GenericFeaturesNextNode();
-        var nSpan = node.ToSpan().AsBytes();
+        var nSpan = node.AsSpan().AsBytes();
 
         MemoryMarshal.Write(nSpan, ref feature);
 

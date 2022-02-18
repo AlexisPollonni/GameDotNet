@@ -12,23 +12,17 @@ public sealed class VulkanSwapchain : IDisposable
 
     private readonly VulkanInstance _instance;
 
-    private readonly SwapchainKHR _swapchain;
-
-    internal VulkanSwapchain(VulkanInstance instance, VulkanDevice device, SwapchainKHR swapchain,
-                             AllocationCallbacks? alloc = null)
+    public IReadOnlyList<Image> GetImages()
     {
-        _instance = instance;
-        _device = device;
-        _swapchain = swapchain;
-        _alloc = alloc;
+        if (_images is not null && _images.Length == ImageCount)
+            return _images;
 
-        if (!instance.Vk.TryGetDeviceExtension(_instance, _device, out _extension))
-        {
-            throw new
-                InvalidOperationException("Can't create Vulkan Swapchain, VK_KHR_swapchain device extension not available");
-        }
+        var count = 0U;
+        _extension.GetSwapchainImages(_device, Swapchain, count.AsSpan(), Span<Image>.Empty);
+        var images = new Image[count];
+        _extension.GetSwapchainImages(_device, Swapchain, count.AsSpan(), images);
 
-        ImageCount = (uint)GetImages().Count;
+        return _images = images;
     }
 
     public uint ImageCount { get; }

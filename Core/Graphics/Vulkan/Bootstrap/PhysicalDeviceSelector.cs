@@ -89,7 +89,7 @@ public class PhysicalDeviceSelector
         uint familyCount = 0;
         _vk.GetPhysicalDeviceQueueFamilyProperties(device, ref familyCount, null);
         var familyProperties = new QueueFamilyProperties[familyCount];
-        _vk.GetPhysicalDeviceQueueFamilyProperties(device, familyCount.ToSpan(), familyProperties);
+        _vk.GetPhysicalDeviceQueueFamilyProperties(device, familyCount.AsSpan(), familyProperties);
 
         _vk.GetPhysicalDeviceProperties(device, out var deviceProperties);
         _vk.GetPhysicalDeviceFeatures(device, out var deviceFeatures);
