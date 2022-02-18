@@ -51,5 +51,6 @@ public class VulkanInstance : IDisposable
         }
 
         Vk.DestroyInstance(Instance, null);
+        Vk.Dispose();
     }
 }

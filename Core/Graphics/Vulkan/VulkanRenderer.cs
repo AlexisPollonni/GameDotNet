@@ -29,8 +29,8 @@ public sealed class VulkanRenderer : IDisposable
     {
         _swapchain.Dispose();
         _device.Dispose();
-        _instance.Dispose();
         _surface.Dispose();
+        _instance.Dispose();
     }
 
     private void Initialize()

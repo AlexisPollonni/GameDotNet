@@ -48,11 +48,8 @@ public sealed class VulkanDevice : IDisposable
 
     ~VulkanDevice() => ReleaseUnmanagedResources();
 
-    private unsafe void ReleaseUnmanagedResources()
+    private void ReleaseUnmanagedResources()
     {
-        if (_allocationCallbacks is null)
-            _instance.Vk.DestroyDevice(_device, null);
-        else
-            _instance.Vk.DestroyDevice(_device, _allocationCallbacks.Value);
+        _instance.Vk.DestroyDevice(_device, _allocationCallbacks.AsReadOnlyRefOrNull());
     }
 }

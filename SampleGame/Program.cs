@@ -4,6 +4,6 @@ using Core;
 
 Console.WriteLine("Hello, World!");
 
-var app = new Application("SampleGame");
+using var app = new Application("SampleGame");
 
 return app.Run();
