@@ -8,8 +8,20 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <None Remove="triangle.frag"/>
+        <None Remove="triangle.vert"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="triangle.vert"/>
+        <AdditionalFiles Include="triangle.frag"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\Core\Core.csproj"/>
+
         <ProjectReference Include="..\Generator\Generator.csproj" OutputItemType="Analyser"/>
+        <ProjectReference Include="..\Generator.Shader\Generator.Shader.csproj" OutputItemType="Analyser" ReferenceOutputAssembly="false"/>
     </ItemGroup>
 
     <ItemGroup>
