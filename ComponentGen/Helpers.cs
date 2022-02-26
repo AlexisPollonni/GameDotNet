@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 
-namespace Generator
+namespace Generator.Component
 {
     public static class Helpers
     {

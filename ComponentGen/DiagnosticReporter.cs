@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 
-namespace Analysers
+namespace Generator.Component
 {
     public class DiagnosticReporter : IDiagnosticReporter
     {

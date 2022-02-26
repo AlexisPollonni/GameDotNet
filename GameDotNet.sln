@@ -7,15 +7,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core", "Core\Core.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Benchmarks", "Benchmarks\Benchmarks.csproj", "{1E9121D0-4782-4D55-9D8B-D6BAA96A77D1}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Generator", "Generator\Generator.csproj", "{6A81D83F-E2D5-4E8C-814F-EC5F58EE6436}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Tests", "Tests\Tests.csproj", "{71DE0E94-2960-4A62-A8FA-A9C21CFAE610}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleGame", "SampleGame\SampleGame.csproj", "{8B8D7BCF-FEB2-4848-9DB1-55589875E447}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "CodeGen", "CodeGen", "{DE1E45DA-98FB-4EA7-808A-2FF15B003E64}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Generator.Shader", "Generator.Shader\Generator.Shader.csproj", "{2D02BA3B-2F78-4A2E-97A4-D450878C760E}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ShaderGen", "ShaderGen\ShaderGen.csproj", "{2D02BA3B-2F78-4A2E-97A4-D450878C760E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ComponentGen", "ComponentGen\ComponentGen.csproj", "{05DB94D8-781E-4F0B-8342-5F502704E41D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -31,10 +31,6 @@ Global
 		{1E9121D0-4782-4D55-9D8B-D6BAA96A77D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1E9121D0-4782-4D55-9D8B-D6BAA96A77D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1E9121D0-4782-4D55-9D8B-D6BAA96A77D1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6A81D83F-E2D5-4E8C-814F-EC5F58EE6436}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6A81D83F-E2D5-4E8C-814F-EC5F58EE6436}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6A81D83F-E2D5-4E8C-814F-EC5F58EE6436}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6A81D83F-E2D5-4E8C-814F-EC5F58EE6436}.Release|Any CPU.Build.0 = Release|Any CPU
 		{71DE0E94-2960-4A62-A8FA-A9C21CFAE610}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{71DE0E94-2960-4A62-A8FA-A9C21CFAE610}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{71DE0E94-2960-4A62-A8FA-A9C21CFAE610}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -47,13 +43,17 @@ Global
 		{2D02BA3B-2F78-4A2E-97A4-D450878C760E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2D02BA3B-2F78-4A2E-97A4-D450878C760E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2D02BA3B-2F78-4A2E-97A4-D450878C760E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{05DB94D8-781E-4F0B-8342-5F502704E41D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{05DB94D8-781E-4F0B-8342-5F502704E41D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{05DB94D8-781E-4F0B-8342-5F502704E41D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{05DB94D8-781E-4F0B-8342-5F502704E41D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{6A81D83F-E2D5-4E8C-814F-EC5F58EE6436} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
 		{2D02BA3B-2F78-4A2E-97A4-D450878C760E} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
+		{05DB94D8-781E-4F0B-8342-5F502704E41D} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {051079D1-B2BB-4FF3-99C6-EE9B3D05E696}

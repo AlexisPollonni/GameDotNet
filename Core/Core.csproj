@@ -22,11 +22,7 @@
         <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947"/>
     </ItemGroup>
 
-    <!--<ItemGroup>
-      <ProjectReference Include="..\Analysers\Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    </ItemGroup>-->
-
-    <ItemGroup>
+  <ItemGroup>
         <Folder Include="Physics\"/>
     </ItemGroup>
 

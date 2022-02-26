@@ -1,4 +1,4 @@
-﻿namespace Analysers
+﻿namespace Generator.Component
 {
     public interface IDiagnosticReporter
     {

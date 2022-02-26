@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Generator\Generator.csproj" OutputItemType="Analyzer" />
+    <ProjectReference Include="..\ComponentGen\ComponentGen.csproj" OutputItemType="Analyzer" />
   </ItemGroup>
 
   <ItemGroup>

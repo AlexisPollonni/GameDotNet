@@ -1,6 +1,6 @@
 ﻿using Microsoft.CodeAnalysis;
 
-namespace Generator
+namespace Generator.Component
 {
     internal class Component
     {

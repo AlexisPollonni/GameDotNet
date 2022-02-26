@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -6,6 +6,11 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\ComponentGen\ComponentGen.csproj" OutputItemType="Analyser"/>
+        <ProjectReference Include="..\ShaderGen\ShaderGen.csproj" OutputItemType="Analyser" FromFramework="netstandard2.0"/>
+    </ItemGroup>
 
     <ItemGroup>
         <None Remove="triangle.frag"/>
@@ -19,13 +24,10 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Core\Core.csproj"/>
-
-        <ProjectReference Include="..\Generator\Generator.csproj" OutputItemType="Analyser"/>
-        <ProjectReference Include="..\Generator.Shader\Generator.Shader.csproj" OutputItemType="Analyser" ReferenceOutputAssembly="false"/>
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-*"/>
+        <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-rc.1.21420.1"/>
     </ItemGroup>
 
 </Project>

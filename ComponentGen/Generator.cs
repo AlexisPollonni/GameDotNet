@@ -1,7 +1,6 @@
-﻿using Analysers;
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 
-namespace Generator
+namespace Generator.Component
 {
     [Generator]
     public class Generator : ISourceGenerator
