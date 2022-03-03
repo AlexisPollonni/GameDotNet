@@ -20,7 +20,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\ComponentGen\ComponentGen.csproj" />
+        <ProjectReference Include="..\Generators.Component\Generators.Component.csproj"/>
         <ProjectReference Include="..\Core\Core.csproj" />
     </ItemGroup>
 

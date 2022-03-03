@@ -5,16 +5,17 @@
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\ComponentGen\ComponentGen.csproj" OutputItemType="Analyser"/>
-        <ProjectReference Include="..\ShaderGen\ShaderGen.csproj" OutputItemType="Analyser" FromFramework="netstandard2.0"/>
+        <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-rc.1.21420.1"/>
     </ItemGroup>
 
     <ItemGroup>
-        <None Remove="triangle.frag"/>
-        <None Remove="triangle.vert"/>
+        <ProjectReference Include="..\Generators.Component\Generators.Component.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\Generators.Shader\Generators.Shader.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
     </ItemGroup>
 
     <ItemGroup>
@@ -24,10 +25,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Core\Core.csproj"/>
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-rc.1.21420.1"/>
     </ItemGroup>
 
 </Project>

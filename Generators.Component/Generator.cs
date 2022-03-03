@@ -5,7 +5,8 @@ namespace Generator.Component
     [Generator]
     public class Generator : ISourceGenerator
     {
-        public void Initialize(GeneratorInitializationContext context) { }
+        public void Initialize(GeneratorInitializationContext context)
+        { }
 
         public void Execute(GeneratorExecutionContext context)
         {

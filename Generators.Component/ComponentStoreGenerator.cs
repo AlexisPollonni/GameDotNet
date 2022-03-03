@@ -103,7 +103,8 @@ namespace Core.ECS.Generated
 
         private static IEnumerable<string> GenerateFields(IEnumerable<Component> components) =>
             components.Select(
-                component => $"private RefStructList<{component.ComponentType}> {component.VariableName} = new ();");
+                              component =>
+                                  $"private RefStructList<{component.ComponentType}> {component.VariableName} = new ();");
 
         private static IEnumerable<string> GenerateListAccessor(IReadOnlyCollection<Component> components)
         {
@@ -116,7 +117,7 @@ namespace Core.ECS.Generated
                                  .SelectMany(e => e)
                                  .Append(Environment.NewLine)
                                  .Append(
-                                     "throw new InvalidOperationException($\"Type {typeof(T).FullName} was not found in the component store, this shouldn't happen.\");");
+                                         "throw new InvalidOperationException($\"Type {typeof(T).FullName} was not found in the component store, this shouldn't happen.\");");
 
             return Enumerable.Empty<string>()
                              .Append("private ref RefStructList<T> GetList<T>() where T : struct, IComponent")

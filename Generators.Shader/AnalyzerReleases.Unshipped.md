@@ -5,4 +5,5 @@
 
 Rule ID | Category | Severity | Notes
 --------|----------|----------|-------
-SHAGEN001 | ShaderGenerator | Warning | Generator
+SHAGEN001 | ShaderGenerator | Info | Generator
+SHAGEN002 | ShaderGenerator | Info | Generator

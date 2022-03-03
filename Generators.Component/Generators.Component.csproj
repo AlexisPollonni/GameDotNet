@@ -3,8 +3,6 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <IsRoslynComponent>true</IsRoslynComponent>
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
-    <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
     <IncludeBuildOutput>false</IncludeBuildOutput>
     <RootNamespace>Generator.Component</RootNamespace> <!-- Do not include the generator as a lib dependency -->
   </PropertyGroup>
