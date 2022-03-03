@@ -102,36 +102,12 @@ public class Generator : ISourceGenerator
 
     private static MemberDeclarationSyntax CreateShaderCountConstField(string name, int count) =>
         ParseMemberDeclaration($"public const int {name} = {count};");
-    // ROSLYN GEN CODE :
-    // IntFieldWithInit(name, count)
-    //     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.ConstKeyword))
-    //     .WithLeadingTrivia(LineFeed, LineFeed);
 
     private static MemberDeclarationSyntax CreateShaderStringField(string fieldName, string code)
         => ParseMemberDeclaration($"private const string {fieldName} = \"{code}\";");
-    // ROSLYN GEN CODE :
-    // FieldDeclaration(VariableDeclaration(PredefinedType(Token(SyntaxKind.StringKeyword)))
-    //                      .AddVariables(VariableDeclarator(Identifier(fieldName))
-    //                                        .WithInitializer(EqualsValueClause(
-    //                                                          LiteralExpression(SyntaxKind.StringLiteralExpression,
-    //                                                              Literal(code))))))
-    //     .AddModifiers(Token(SyntaxKind.PrivateKeyword),
-    //                   Token(SyntaxKind.ConstKeyword));
 
     private static MemberDeclarationSyntax CreateShaderByteArrayProperty(string propertyName, string fieldName) =>
         ParseMemberDeclaration($"public static byte[] {propertyName} {{ get; }} = Convert.FromBase64String({fieldName});");
-    // ROSLYN GEN CODE :
-    // PropertyDeclaration(ArrayType(PredefinedType(Token(SyntaxKind.ByteKeyword)))
-    //                         .AddRankSpecifiers(ArrayRankSpecifier().AddSizes(OmittedArraySizeExpression())),
-    //                     Identifier(propertyName))
-    //     .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.StaticKeyword))
-    //     .AddAccessorListAccessors(AccessorDeclaration(SyntaxKind.GetAccessorDeclaration).WithSemicolonToken(Token(SyntaxKind.SemicolonToken)))
-    //     .WithInitializer(EqualsValueClause(InvocationExpression(MemberAccessExpression(
-    //                                                              SyntaxKind.SimpleMemberAccessExpression,
-    //                                                              IdentifierName("Convert"),
-    //                                                              IdentifierName("FromBase64String")))
-    //                                            .AddArgumentListArguments(Argument(IdentifierName(Identifier(fieldName))))))
-    //     .WithSemicolonToken(Token(SyntaxKind.SemicolonToken));
 }
 
 internal sealed class Shader
