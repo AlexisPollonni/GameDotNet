@@ -1,0 +1,30 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+        <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="6.0.0-rc.1.21420.1"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\GameDotNet.Generators.Component\GameDotNet.Generators.Component.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="triangle.vert"/>
+        <AdditionalFiles Include="triangle.frag"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
+    </ItemGroup>
+
+</Project>
