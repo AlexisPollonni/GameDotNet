@@ -89,7 +89,7 @@ public class Generator : ISourceGenerator
         var tree = SyntaxTree(CompilationUnit()
                               .AddMembers(UsingFileScoped("GameDotNet", "Core", "Shaders", "Generated"),
                                           ClassDeclaration("CompiledShaders")
-                                              .AddModifiers(Token(SyntaxKind.PublicKeyword),
+                                              .AddModifiers(Token(SyntaxKind.InternalKeyword),
                                                             Token(SyntaxKind.StaticKeyword))
                                               .AddMembers(CreateShaderCountConstField("ShaderCount", spirV.Count))
                                               .AddMembers(shaderProperties)
@@ -117,7 +117,7 @@ internal sealed class Shader
     public string Code { get; }
 
     public string FieldName => $"ShaderStr_{Name}_{Kind}";
-    public string PropertyName => $"Shader_{Name}_{Kind}";
+    public string PropertyName => $"{Name}{Kind}";
 
     public Shader(string name, ShaderKind kind, string code)
     {

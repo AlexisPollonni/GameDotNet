@@ -19,11 +19,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <AdditionalFiles Include="triangle.vert"/>
-        <AdditionalFiles Include="triangle.frag"/>
-    </ItemGroup>
-
-    <ItemGroup>
         <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
     </ItemGroup>
 

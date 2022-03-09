@@ -11,6 +11,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="dotVariant" Version="0.5.0"/>
         <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2"/>
         <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.1-dev-00944"/>
@@ -22,8 +26,13 @@
         <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947"/>
     </ItemGroup>
 
-  <ItemGroup>
-      <Folder Include="Physics\"/>
+    <ItemGroup>
+        <Folder Include="Physics\"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <AdditionalFiles Include="Graphics\Shaders\triangle.frag"/>
+        <AdditionalFiles Include="Graphics\Shaders\triangle.vert"/>
     </ItemGroup>
 
 </Project>

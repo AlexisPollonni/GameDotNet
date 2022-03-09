@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Graphics.Vulkan.Bootstrap;
+using GameDotNet.Core.Shaders.Generated;
 using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
@@ -16,19 +17,21 @@ public sealed class VulkanRenderer : IDisposable
 {
     private readonly IView _window;
     private CommandPool _commandPool;
-    private VulkanDevice _device = null!;
     private Framebuffer[] _framebuffers;
     private ulong _frameNumber;
 
-    private Queue _graphicsQueue;
     private VulkanInstance _instance = null!;
-    private CommandBuffer _mainCommandBuffer;
+    private VulkanDevice _device = null!;
     private VulkanPhysDevice _physDevice = null!;
+    private VulkanSurface _surface = null!;
+    private VulkanSwapchain _swapchain = null!;
+    private VulkanPipeline _trianglePipeline = null!;
+
+    private Queue _graphicsQueue;
+    private CommandBuffer _mainCommandBuffer;
     private Semaphore _presentSemaphore, _renderSemaphore;
     private Fence _renderFence;
     private RenderPass _renderPass;
-    private VulkanSurface _surface = null!;
-    private VulkanSwapchain _swapchain = null!;
 
     public VulkanRenderer(IView window)
     {
@@ -64,6 +67,7 @@ public sealed class VulkanRenderer : IDisposable
         CreateRenderPass();
         CreateFramebuffers();
         CreateSyncStructures();
+        CreatePipeline();
     }
 
     private void InitVulkan()
@@ -179,6 +183,28 @@ public sealed class VulkanRenderer : IDisposable
         _instance.Vk.CreateSemaphore(_device, semaphoreInfo, NullAlloc, out _renderSemaphore);
     }
 
+    private void CreatePipeline()
+    {
+        var triangleFragShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.ShaderStageFragmentBit,
+                                                  CompiledShaders.triangleFragmentShader);
+        var triangleVertShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.ShaderStageVertexBit,
+                                                  CompiledShaders.triangleVertexShader);
+
+        _trianglePipeline = new PipelineBuilder(_instance, _device)
+            .Build(
+                   new()
+                   {
+                       Shaders = new[] { triangleFragShader, triangleVertShader },
+                       RenderPass = _renderPass,
+                       Viewport = new(0, 0,
+                                      _window.Size.X, _window.Size.Y, 0, 1f),
+                       Scissor =
+                           new(new(0, 0),
+                               new Extent2D((uint)_window.Size.X,
+                                            (uint)_window.Size.Y))
+                   });
+    }
+
     private unsafe void Draw(double d)
     {
         var vk = _instance.Vk;
@@ -205,6 +231,10 @@ public sealed class VulkanRenderer : IDisposable
                                              pClearValues: &clearValue);
 
         vk.CmdBeginRenderPass(_mainCommandBuffer, rpInfo, SubpassContents.Inline);
+
+        //RENDERING COMMANDS
+        vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _trianglePipeline);
+        vk.CmdDraw(_mainCommandBuffer, 3, 1, 0, 0);
 
         vk.CmdEndRenderPass(_mainCommandBuffer);
         vk.EndCommandBuffer(_mainCommandBuffer);
