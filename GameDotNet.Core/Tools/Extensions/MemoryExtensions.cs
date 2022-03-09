@@ -61,5 +61,15 @@ public static class MemoryExtensions
         }
     }
 
+    public static unsafe T* AsPtr<T>(this T s, CompositeDisposable dispose) where T : unmanaged
+    {
+        return new Pinned<T>(s).DisposeWith(dispose).AsPtr();
+    }
+
+    public static unsafe T* AsPtr<T>(this IEnumerable<T> enumerable, CompositeDisposable dispose) where T : unmanaged
+    {
+        return (T*)new Memory<T>(enumerable.ToArray()).Pin().DisposeWith(dispose).Pointer;
+    }
+
     public static unsafe byte** AsByteDoublePtr(this GlobalMemory mem) => (byte**)mem.AsPtr<byte>();
 }
