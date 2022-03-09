@@ -1,3 +1,4 @@
+using Serilog;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 
@@ -5,6 +6,32 @@ namespace GameDotNet.Core.Graphics.Vulkan;
 
 public static class SilkExtensions
 {
+    internal static Result LogWarning(this Result res, string message = "Unexpected Vulkan API error")
+    {
+        if (res is not Result.Success)
+            Log.Warning("{Message} : {VulkanResult}", message, res);
+
+        return res;
+    }
+
+    internal static Result LogError(this Result res, string message = "Unexpected Vulkan API error")
+    {
+        if (res is not Result.Success)
+            Log.Error("{Message} : {VulkanResult}", message, res);
+
+        return res;
+    }
+
+    internal static Result ThrowOnError(this Result res,
+                                        string message = "Vulkan API function call failed when it wasn't expected to")
+    {
+        if (res is Result.Success)
+            return res;
+
+        Log.Fatal("{Message} : {VulkanResult}", message, res);
+        throw new VulkanException(res);
+    }
+
     internal static IEnumerable<GlobalMemory> SetupPNextChain(this IEnumerable<GlobalMemory> nextNodesChain)
     {
         var arr = nextNodesChain.ToArray();
