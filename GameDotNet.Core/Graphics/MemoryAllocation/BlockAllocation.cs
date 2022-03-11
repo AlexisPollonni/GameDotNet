@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Silk.NET.Vulkan;
 
-namespace VMASharp
+namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     public sealed class BlockAllocation : Allocation
     {
@@ -14,79 +14,70 @@ namespace VMASharp
             base(allocator, currentFrameIndex)
         { }
 
-        public override DeviceMemory DeviceMemory
-        {
-            get => this.Block.DeviceMemory;
-        }
+        public override DeviceMemory DeviceMemory => Block.DeviceMemory;
 
         public override long Offset
         {
-            get => this.offset;
-            internal set => this.offset = value;
+            get => offset;
+            internal set => offset = value;
         }
 
         public override IntPtr MappedData
         {
             get
             {
-                if (this.mapCount != 0)
-                {
-                    IntPtr mapdata = this.Block.MappedData;
+                if (mapCount == 0) return default;
+                var mapdata = Block.MappedData;
 
-                    Debug.Assert(mapdata != default);
+                Debug.Assert(mapdata != default);
 
-                    return new IntPtr(mapdata.ToInt64() + this.offset);
-                }
-                else
-                {
-                    return default;
-                }
+                return new(mapdata.ToInt64() + offset);
             }
         }
 
-        internal override bool CanBecomeLost => this.canBecomeLost;
+        internal override bool CanBecomeLost => canBecomeLost;
 
         internal void InitBlockAllocation(VulkanMemoryBlock block, long offset, long alignment, long size,
                                           int memoryTypeIndex, SuballocationType subType, bool mapped,
                                           bool canBecomeLost)
         {
-            this.Block = block;
+            Block = block;
             this.offset = offset;
             this.alignment = alignment;
             this.size = size;
             this.memoryTypeIndex = memoryTypeIndex;
-            this.mapCount = mapped ? int.MinValue : 0;
-            this.suballocationType = subType;
+            mapCount = mapped ? int.MinValue : 0;
+            suballocationType = subType;
             this.canBecomeLost = canBecomeLost;
         }
 
         internal void ChangeAllocation(VulkanMemoryBlock block, long offset)
         {
-            Debug.Assert(block != null && offset >= 0);
+            Debug.Assert(block is not null && offset >= 0);
 
-            if (!object.ReferenceEquals(block, this.Block))
+            if (!ReferenceEquals(block, Block))
             {
-                int mapRefCount = this.mapCount & int.MaxValue;
+                var mapRefCount = mapCount & int.MaxValue;
 
-                if (this.IsPersistantMapped)
+                if (IsPersistantMapped)
                 {
                     mapRefCount += 1;
                 }
 
-                this.Block.Unmap(mapRefCount);
+                Block.Unmap(mapRefCount);
                 block.Map(mapRefCount);
 
-                this.Block = block;
+                Block = block;
             }
 
-            this.Offset = offset;
+            Offset = offset;
         }
 
         private void BlockAllocMap()
         {
-            if ((this.mapCount & int.MaxValue) < int.MaxValue)
+            if ((mapCount & int.MaxValue) < int.MaxValue)
             {
-                this.mapCount += 1;
+                mapCount += 1;
             }
             else
             {
@@ -96,9 +87,9 @@ namespace VMASharp
 
         private void BlockAllocUnmap()
         {
-            if ((this.mapCount & int.MaxValue) > 0)
+            if ((mapCount & int.MaxValue) > 0)
             {
-                this.mapCount -= 1;
+                mapCount -= 1;
             }
             else
             {
@@ -108,24 +99,24 @@ namespace VMASharp
 
         public override IntPtr Map()
         {
-            if (this.CanBecomeLost)
+            if (CanBecomeLost)
             {
                 throw new InvalidOperationException("Cannot map an allocation that can become lost");
             }
 
-            var data = this.Block.Map(1);
+            var data = Block.Map(1);
 
-            data = new IntPtr(data.ToInt64() + this.Offset);
+            data = new(data.ToInt64() + Offset);
 
-            this.BlockAllocMap();
+            BlockAllocMap();
 
             return data;
         }
 
         public override void Unmap()
         {
-            this.BlockAllocUnmap();
-            this.Block.Unmap(1);
+            BlockAllocUnmap();
+            Block.Unmap(1);
         }
     }
 }

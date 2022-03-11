@@ -1,4 +1,4 @@
-﻿namespace VMASharp
+﻿namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     internal struct Suballocation
     {

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
-namespace VMASharp.Metadata
+namespace GameDotNet.Core.Graphics.MemoryAllocation.Metadata
 {
     internal sealed class BlockMetadata_Generic : IBlockMetadata
     {
@@ -11,10 +11,9 @@ namespace VMASharp.Metadata
 
         private long sumFreeSize;
 
-        private readonly LinkedList<Suballocation> suballocations = new LinkedList<Suballocation>();
+        private readonly LinkedList<Suballocation> suballocations = new();
 
-        private readonly List<LinkedListNode<Suballocation>> freeSuballocationsBySize =
-            new List<LinkedListNode<Suballocation>>();
+        private readonly List<LinkedListNode<Suballocation>> freeSuballocationsBySize = new();
 
         public int AllocationCount => suballocations.Count - freeCount;
 
@@ -24,30 +23,25 @@ namespace VMASharp.Metadata
         {
             get
             {
-                var count = this.freeSuballocationsBySize.Count;
+                var count = freeSuballocationsBySize.Count;
 
-                if (count != 0)
-                {
-                    return this.freeSuballocationsBySize[count - 1].ValueRef.Size;
-                }
-
-                return 0;
+                return count != 0 ? freeSuballocationsBySize[count - 1].ValueRef.Size : 0;
             }
         }
 
-        public bool IsEmpty => (this.suballocations.Count == 1) && (this.freeCount == 1);
+        public bool IsEmpty => (suballocations.Count == 1) && (freeCount == 1);
 
         public BlockMetadata_Generic(long blockSize)
         {
-            this.Size = blockSize;
-            this.freeCount = 1;
-            this.sumFreeSize = blockSize;
+            Size = blockSize;
+            freeCount = 1;
+            sumFreeSize = blockSize;
 
             Debug.Assert(blockSize > Helpers.MinFreeSuballocationSizeToRegister);
 
-            var node = this.suballocations.AddLast(new Suballocation(0, blockSize));
+            var node = suballocations.AddLast(new Suballocation(0, blockSize));
 
-            this.freeSuballocationsBySize.Add(node);
+            freeSuballocationsBySize.Add(node);
         }
 
         public void Alloc(in AllocationRequest request, SuballocationType type, long allocSize,
@@ -61,18 +55,18 @@ namespace VMASharp.Metadata
                 throw new InvalidOperationException();
             }
 
-            Debug.Assert(object.ReferenceEquals(requestNode.List, this.suballocations));
+            Debug.Assert(ReferenceEquals(requestNode.List, suballocations));
 
-            ref Suballocation suballoc = ref requestNode.ValueRef;
+            ref var suballoc = ref requestNode.ValueRef;
 
             Debug.Assert(suballoc.Type == SuballocationType.Free);
             Debug.Assert(request.Offset >= suballoc.Offset);
 
-            long paddingBegin = request.Offset - suballoc.Offset;
+            var paddingBegin = request.Offset - suballoc.Offset;
 
             Debug.Assert(suballoc.Size >= paddingBegin + allocSize);
 
-            long paddingEnd = suballoc.Size - paddingBegin - allocSize;
+            var paddingEnd = suballoc.Size - paddingBegin - allocSize;
 
             UnregisterFreeSuballocation(requestNode);
 
@@ -84,16 +78,16 @@ namespace VMASharp.Metadata
             if (paddingEnd > 0)
             {
                 var newNode =
-                    this.suballocations.AddAfter(requestNode,
-                                                 new Suballocation(request.Offset + allocSize, paddingEnd));
+                    suballocations.AddAfter(requestNode,
+                                            new Suballocation(request.Offset + allocSize, paddingEnd));
                 RegisterFreeSuballocation(newNode);
             }
 
             if (paddingBegin > 0)
             {
                 var newNode =
-                    this.suballocations.AddBefore(requestNode,
-                                                  new Suballocation(request.Offset - paddingBegin, paddingBegin));
+                    suballocations.AddBefore(requestNode,
+                                             new Suballocation(request.Offset - paddingBegin, paddingBegin));
                 RegisterFreeSuballocation(newNode);
             }
 
@@ -101,15 +95,15 @@ namespace VMASharp.Metadata
             {
                 if (paddingEnd > 0)
                 {
-                    this.freeCount += 1;
+                    freeCount += 1;
                 }
             }
             else if (paddingEnd <= 0)
             {
-                this.freeCount -= 1;
+                freeCount -= 1;
             }
 
-            this.sumFreeSize -= allocSize;
+            sumFreeSize -= allocSize;
         }
 
         public void CheckCorruption(nuint blockDataPointer)
@@ -124,7 +118,7 @@ namespace VMASharp.Metadata
             request.Type = AllocationRequestType.Normal;
 
             if (context.CanMakeOtherLost == false &&
-                this.sumFreeSize < context.AllocationSize + 2 * Helpers.DebugMargin)
+                sumFreeSize < context.AllocationSize + 2 * Helpers.DebugMargin)
             {
                 return false;
             }
@@ -132,97 +126,92 @@ namespace VMASharp.Metadata
             var contextCopy = context;
             contextCopy.CanMakeOtherLost = false;
 
-            int freeSuballocCount = this.freeSuballocationsBySize.Count;
+            var freeSuballocCount = freeSuballocationsBySize.Count;
             if (freeSuballocCount > 0)
             {
-                if (context.Strategy == AllocationStrategyFlags.BestFit)
+                switch (context.Strategy)
                 {
-                    var index =
-                        this.freeSuballocationsBySize.FindIndex(context.AllocationSize + 2 * Helpers.DebugMargin,
-                                                                (node, size) => node.ValueRef.Size >= size);
-
-                    for (; index < freeSuballocCount; ++index)
+                    case AllocationStrategyFlags.BestFit:
                     {
-                        var suballocNode = this.freeSuballocationsBySize[index];
+                        var index =
+                            freeSuballocationsBySize.FindIndex(context.AllocationSize + 2 * Helpers.DebugMargin,
+                                                               (node, size) => node.ValueRef.Size >= size);
 
-                        if (this.CheckAllocation(in contextCopy, suballocNode, ref request))
+                        for (; index < freeSuballocCount; ++index)
                         {
+                            var suballocNode = freeSuballocationsBySize[index];
+
+                            if (!CheckAllocation(in contextCopy, suballocNode, ref request)) continue;
                             request.Item = suballocNode;
                             return true;
                         }
+
+                        break;
                     }
-                }
-                else if (context.Strategy == Helpers.InternalAllocationStrategy_MinOffset)
-                {
-                    for (var node = this.suballocations.First; node != null; node = node.Next)
+                    case Helpers.InternalAllocationStrategyMinOffset:
                     {
-                        if (node.Value.Type == SuballocationType.Free
-                            && this.CheckAllocation(in contextCopy, node, ref request))
+                        for (var node = suballocations.First; node != null; node = node.Next)
                         {
+                            if (node.Value.Type != SuballocationType.Free ||
+                                !CheckAllocation(in contextCopy, node, ref request)) continue;
                             request.Item = node;
                             return true;
                         }
-                    }
-                }
-                else //Worst Fit, First Fit
-                {
-                    for (int i = freeSuballocCount; i >= 0; --i)
-                    {
-                        var item = this.freeSuballocationsBySize[i];
 
-                        if (this.CheckAllocation(in contextCopy, item, ref request))
+                        break;
+                    }
+                    //Worst Fit, First Fit
+                    default:
+                    {
+                        for (var i = freeSuballocCount; i >= 0; --i)
                         {
+                            var item = freeSuballocationsBySize[i];
+
+                            if (!CheckAllocation(in contextCopy, item, ref request)) continue;
                             request.Item = item;
                             return true;
                         }
+
+                        break;
                     }
                 }
             }
 
-            if (context.CanMakeOtherLost)
+            if (!context.CanMakeOtherLost) return false;
+
+            var found = false;
+            AllocationRequest tmpRequest = default;
+
+            for (var tNode = suballocations.First;
+                 tNode != null;
+                 tNode = tNode.Next)
             {
-                bool found = false;
-                AllocationRequest tmpRequest = default;
-
-                for (LinkedListNode<Suballocation>? tNode = this.suballocations.First;
-                     tNode != null;
-                     tNode = tNode.Next)
+                if (!CheckAllocation(in context, tNode, ref tmpRequest)) continue;
+                if (context.Strategy == AllocationStrategyFlags.FirstFit)
                 {
-                    if (this.CheckAllocation(in context, tNode, ref tmpRequest))
-                    {
-                        if (context.Strategy == AllocationStrategyFlags.FirstFit)
-                        {
-                            request = tmpRequest;
-                            request.Item = tNode;
-                            break;
-                        }
-
-                        if (!found || tmpRequest.CalcCost() < request.CalcCost())
-                        {
-                            request = tmpRequest;
-                            request.Item = tNode;
-                            found = true;
-                        }
-                    }
+                    request = tmpRequest;
+                    request.Item = tNode;
+                    break;
                 }
 
-                return found;
+                if (found && tmpRequest.CalcCost() >= request.CalcCost()) continue;
+                request = tmpRequest;
+                request.Item = tNode;
+                found = true;
             }
 
-            return false;
+            return found;
         }
 
         public void Free(BlockAllocation allocation)
         {
-            for (LinkedListNode<Suballocation>? node = this.suballocations.First; node != null; node = node.Next)
+            for (var node = suballocations.First; node != null; node = node.Next)
             {
                 ref var suballoc = ref node.ValueRef;
 
-                if (object.ReferenceEquals(suballoc.Allocation, allocation))
-                {
-                    this.FreeSuballocation(node);
-                    return;
-                }
+                if (!ReferenceEquals(suballoc.Allocation, allocation)) continue;
+                FreeSuballocation(node);
+                return;
             }
 
             throw new InvalidOperationException("Allocation not found!");
@@ -230,15 +219,13 @@ namespace VMASharp.Metadata
 
         public void FreeAtOffset(long offset)
         {
-            for (LinkedListNode<Suballocation>? node = this.suballocations.First; node != null; node = node.Next)
+            for (var node = suballocations.First; node != null; node = node.Next)
             {
                 ref var suballoc = ref node.ValueRef;
 
-                if (suballoc.Offset == offset)
-                {
-                    this.FreeSuballocation(node);
-                    return;
-                }
+                if (suballoc.Offset != offset) continue;
+                FreeSuballocation(node);
+                return;
             }
 
             throw new InvalidOperationException("Allocation not found!");
@@ -246,19 +233,16 @@ namespace VMASharp.Metadata
 
         public int MakeAllocationsLost(int currentFrame, int frameInUseCount)
         {
-            int lost = 0;
+            var lost = 0;
 
-            for (var node = this.suballocations.First; node != null; node = node.Next)
+            for (var node = suballocations.First; node != null; node = node.Next)
             {
                 ref var suballoc = ref node.ValueRef;
 
-                if (suballoc.Type != SuballocationType.Free &&
-                    suballoc.Allocation!.CanBecomeLost &&
-                    suballoc.Allocation.MakeLost(currentFrame, frameInUseCount))
-                {
-                    node = FreeSuballocation(node);
-                    lost += 1;
-                }
+                if (suballoc.Type == SuballocationType.Free || !suballoc.Allocation!.CanBecomeLost ||
+                    !suballoc.Allocation.MakeLost(currentFrame, frameInUseCount)) continue;
+                node = FreeSuballocation(node);
+                lost += 1;
             }
 
             return lost;
@@ -271,7 +255,7 @@ namespace VMASharp.Metadata
                 throw new ArgumentException("Allocation Request Type was not normal");
             }
 
-            LinkedListNode<Suballocation>? tNode =
+            var tNode =
                 request.Item as LinkedListNode<Suballocation> ?? throw new InvalidOperationException();
 
             while (request.ItemsToMakeLostCount > 0)
@@ -308,18 +292,18 @@ namespace VMASharp.Metadata
 
         public void Validate()
         {
-            Helpers.Validate(this.suballocations.Count > 0);
+            Helpers.Validate(suballocations.Count > 0);
 
             long calculatedOffset = 0, calculatedSumFreeSize = 0;
             int calculatedFreeCount = 0, freeSuballocationsToRegister = 0;
 
-            bool prevFree = false;
+            var prevFree = false;
 
-            foreach (Suballocation subAlloc in this.suballocations)
+            foreach (var subAlloc in suballocations)
             {
                 Helpers.Validate(subAlloc.Offset == calculatedOffset);
 
-                bool currFree = subAlloc.Type == SuballocationType.Free;
+                var currFree = subAlloc.Type == SuballocationType.Free;
 
                 if (currFree)
                 {
@@ -348,13 +332,13 @@ namespace VMASharp.Metadata
                 prevFree = currFree;
             }
 
-            Helpers.Validate(this.freeSuballocationsBySize.Count == freeSuballocationsToRegister);
+            Helpers.Validate(freeSuballocationsBySize.Count == freeSuballocationsToRegister);
 
-            this.ValidateFreeSuballocationList();
+            ValidateFreeSuballocationList();
 
-            Helpers.Validate(calculatedOffset == this.Size);
-            Helpers.Validate(calculatedSumFreeSize == this.sumFreeSize);
-            Helpers.Validate(calculatedFreeCount == this.freeCount);
+            Helpers.Validate(calculatedOffset == Size);
+            Helpers.Validate(calculatedSumFreeSize == sumFreeSize);
+            Helpers.Validate(calculatedFreeCount == freeCount);
         }
 
         [Conditional("DEBUG")]
@@ -362,9 +346,9 @@ namespace VMASharp.Metadata
         {
             long lastSize = 0;
 
-            for (int i = 0, count = this.freeSuballocationsBySize.Count; i < count; ++i)
+            for (int i = 0, count = freeSuballocationsBySize.Count; i < count; ++i)
             {
-                var node = this.freeSuballocationsBySize[i];
+                var node = freeSuballocationsBySize[i];
 
                 Helpers.Validate(node.ValueRef.Type == SuballocationType.Free);
                 Helpers.Validate(node.ValueRef.Size >= Helpers.MinFreeSuballocationSizeToRegister);
@@ -396,7 +380,7 @@ namespace VMASharp.Metadata
             request.SumFreeSize = 0;
             request.SumItemSize = 0;
 
-            ref Suballocation suballocItem = ref node.ValueRef;
+            ref var suballocItem = ref node.ValueRef;
 
             if (context.CanMakeOtherLost)
             {
@@ -418,7 +402,7 @@ namespace VMASharp.Metadata
                     }
                 }
 
-                if (this.Size - suballocItem.Offset < context.AllocationSize)
+                if (Size - suballocItem.Offset < context.AllocationSize)
                 {
                     return false;
                 }
@@ -437,11 +421,11 @@ namespace VMASharp.Metadata
                     return false;
                 }
 
-                long paddingBegin = request.Offset - suballocItem.Offset;
-                long requiredEndMargin = Helpers.DebugMargin;
-                long totalSize = paddingBegin + context.AllocationSize + requiredEndMargin;
+                var paddingBegin = request.Offset - suballocItem.Offset;
+                var requiredEndMargin = Helpers.DebugMargin;
+                var totalSize = paddingBegin + context.AllocationSize + requiredEndMargin;
 
-                if (suballocItem.Offset + totalSize > this.Size)
+                if (suballocItem.Offset + totalSize > Size)
                 {
                     return false;
                 }
@@ -450,7 +434,7 @@ namespace VMASharp.Metadata
 
                 if (totalSize > suballocItem.Size)
                 {
-                    long remainingSize = totalSize - suballocItem.Size;
+                    var remainingSize = totalSize - suballocItem.Size;
                     while (remainingSize > 0)
                     {
                         if (prevNode.Next == null)
@@ -488,40 +472,38 @@ namespace VMASharp.Metadata
                     }
                 }
 
-                if (context.BufferImageGranularity > 1)
+                if (context.BufferImageGranularity <= 1) return true;
+                var nextNode = prevNode.Next;
+
+                while (nextNode != null)
                 {
-                    var nextNode = prevNode.Next;
+                    ref var nextItem = ref nextNode.ValueRef;
 
-                    while (nextNode != null)
+                    if (Helpers.BlocksOnSamePage(request.Offset, context.AllocationSize, nextItem.Offset,
+                                                 context.BufferImageGranularity))
                     {
-                        ref Suballocation nextItem = ref nextNode.ValueRef;
-
-                        if (Helpers.BlocksOnSamePage(request.Offset, context.AllocationSize, nextItem.Offset,
-                                                     context.BufferImageGranularity))
+                        if (Helpers.IsBufferImageGranularityConflict(context.SuballocationType, nextItem.Type))
                         {
-                            if (Helpers.IsBufferImageGranularityConflict(context.SuballocationType, nextItem.Type))
-                            {
-                                Debug.Assert(nextItem.Allocation != null);
+                            Debug.Assert(nextItem.Allocation != null);
 
-                                if (nextItem.Allocation.CanBecomeLost &&
-                                    nextItem.Allocation.LastUseFrameIndex + context.FrameInUseCount <
-                                    context.CurrentFrame)
-                                {
-                                    request.ItemsToMakeLostCount += 1;
-                                }
-                                else
-                                {
-                                    return false;
-                                }
+                            if (nextItem.Allocation.CanBecomeLost &&
+                                nextItem.Allocation.LastUseFrameIndex + context.FrameInUseCount <
+                                context.CurrentFrame)
+                            {
+                                request.ItemsToMakeLostCount += 1;
+                            }
+                            else
+                            {
+                                return false;
                             }
                         }
-                        else
-                        {
-                            break;
-                        }
-
-                        nextNode = nextNode.Next;
                     }
+                    else
+                    {
+                        break;
+                    }
+
+                    nextNode = nextNode.Next;
                 }
             }
             else
@@ -552,29 +534,27 @@ namespace VMASharp.Metadata
                     return false;
                 }
 
-                if (context.BufferImageGranularity > 1)
+                if (context.BufferImageGranularity <= 1) return true;
+                var nextNode = node.Next;
+
+                while (nextNode != null)
                 {
-                    var nextNode = node.Next;
+                    ref var nextItem = ref nextNode.ValueRef;
 
-                    while (nextNode != null)
+                    if (Helpers.BlocksOnSamePage(request.Offset, context.AllocationSize, nextItem.Offset,
+                                                 context.BufferImageGranularity))
                     {
-                        ref var nextItem = ref nextNode.ValueRef;
-
-                        if (Helpers.BlocksOnSamePage(request.Offset, context.AllocationSize, nextItem.Offset,
-                                                     context.BufferImageGranularity))
+                        if (Helpers.IsBufferImageGranularityConflict(context.SuballocationType, nextItem.Type))
                         {
-                            if (Helpers.IsBufferImageGranularityConflict(context.SuballocationType, nextItem.Type))
-                            {
-                                return false;
-                            }
+                            return false;
                         }
-                        else
-                        {
-                            break;
-                        }
-
-                        nextNode = nextNode.Next;
                     }
+                    else
+                    {
+                        break;
+                    }
+
+                    nextNode = nextNode.Next;
                 }
             }
 
@@ -589,7 +569,7 @@ namespace VMASharp.Metadata
                     return;
                 }
 
-                LinkedListNode<Suballocation> prevNode = node;
+                var prevNode = node;
 
                 while (prevNode.Previous != null)
                 {
@@ -599,16 +579,11 @@ namespace VMASharp.Metadata
 
                     if (Helpers.BlocksOnSamePage(prevAlloc.Offset, prevAlloc.Size, request.Offset, granularity))
                     {
-                        if (Helpers.IsBufferImageGranularityConflict(prevAlloc.Type, suballocType))
-                        {
-                            request.Offset = Helpers.AlignUp(request.Offset, granularity);
-                            break;
-                        }
+                        if (!Helpers.IsBufferImageGranularityConflict(prevAlloc.Type, suballocType)) continue;
+                        request.Offset = Helpers.AlignUp(request.Offset, granularity);
                     }
-                    else
-                    {
-                        break;
-                    }
+
+                    break;
                 }
             }
         }
@@ -616,7 +591,7 @@ namespace VMASharp.Metadata
         private void MergeFreeWithNext(LinkedListNode<Suballocation> node)
         {
             Debug.Assert(node != null);
-            Debug.Assert(object.ReferenceEquals(node.List, this.suballocations));
+            Debug.Assert(ReferenceEquals(node.List, suballocations));
             Debug.Assert(node.ValueRef.Type == SuballocationType.Free);
 
             var nextNode = node.Next;
@@ -627,8 +602,8 @@ namespace VMASharp.Metadata
             ref Suballocation item = ref node.ValueRef, nextItem = ref nextNode.ValueRef;
 
             item.Size += nextItem.Size;
-            this.freeCount -= 1;
-            this.suballocations.Remove(nextNode);
+            freeCount -= 1;
+            suballocations.Remove(nextNode);
         }
 
         private LinkedListNode<Suballocation> FreeSuballocation(LinkedListNode<Suballocation> item)
@@ -638,8 +613,8 @@ namespace VMASharp.Metadata
             suballoc.Type = SuballocationType.Free;
             suballoc.Allocation = null;
 
-            this.freeCount += 1;
-            this.sumFreeSize += suballoc.Size;
+            freeCount += 1;
+            sumFreeSize += suballoc.Size;
 
             var nextItem = item.Next;
             var prevItem = item.Previous;
@@ -657,11 +632,9 @@ namespace VMASharp.Metadata
                 RegisterFreeSuballocation(prevItem);
                 return prevItem;
             }
-            else
-            {
-                RegisterFreeSuballocation(item);
-                return item;
-            }
+
+            RegisterFreeSuballocation(item);
+            return item;
         }
 
         private void RegisterFreeSuballocation(LinkedListNode<Suballocation> item)
@@ -669,21 +642,21 @@ namespace VMASharp.Metadata
             Debug.Assert(item.ValueRef.Type == SuballocationType.Free);
             Debug.Assert(item.ValueRef.Size > 0);
 
-            this.ValidateFreeSuballocationList();
+            ValidateFreeSuballocationList();
 
             if (item.Value.Size >= Helpers.MinFreeSuballocationSizeToRegister)
             {
-                if (this.freeSuballocationsBySize.Count == 0)
+                if (freeSuballocationsBySize.Count == 0)
                 {
-                    this.freeSuballocationsBySize.Add(item);
+                    freeSuballocationsBySize.Add(item);
                 }
                 else
                 {
-                    this.freeSuballocationsBySize.InsertSorted(item, Helpers.SuballocationNodeItemSizeLess);
+                    freeSuballocationsBySize.InsertSorted(item, Helpers.SuballocationNodeItemSizeLess);
                 }
             }
 
-            this.ValidateFreeSuballocationList();
+            ValidateFreeSuballocationList();
         }
 
         private void UnregisterFreeSuballocation(LinkedListNode<Suballocation> item)
@@ -693,20 +666,21 @@ namespace VMASharp.Metadata
 
             if (item.ValueRef.Size >= Helpers.MinFreeSuballocationSizeToRegister)
             {
-                int index =
-                    this.freeSuballocationsBySize.BinarySearch_Leftmost(item, Helpers.SuballocationNodeItemSizeLess);
+                var index =
+                    freeSuballocationsBySize.BinarySearch_Leftmost(item, Helpers.SuballocationNodeItemSizeLess);
 
                 Debug.Assert(index >= 0);
 
-                while (index < this.freeSuballocationsBySize.Count)
+                while (index < freeSuballocationsBySize.Count)
                 {
-                    var tmp = this.freeSuballocationsBySize[index];
+                    var tmp = freeSuballocationsBySize[index];
 
-                    if (object.ReferenceEquals(tmp, item))
+                    if (ReferenceEquals(tmp, item))
                     {
                         break;
                     }
-                    else if (tmp.ValueRef.Size != item.ValueRef.Size)
+
+                    if (tmp.ValueRef.Size != item.ValueRef.Size)
                     {
                         throw new InvalidOperationException("Suballocation Not Found");
                     }
@@ -714,9 +688,9 @@ namespace VMASharp.Metadata
                     index += 1;
                 }
 
-                this.freeSuballocationsBySize.RemoveAt(index);
+                freeSuballocationsBySize.RemoveAt(index);
 
-                this.ValidateFreeSuballocationList();
+                ValidateFreeSuballocationList();
             }
         }
 
@@ -726,19 +700,19 @@ namespace VMASharp.Metadata
 
             outInfo.BlockCount = 1;
 
-            int rangeCount = this.suballocations.Count;
-            outInfo.AllocationCount = rangeCount - this.freeCount;
-            outInfo.UnusedRangeCount = this.freeCount;
+            var rangeCount = suballocations.Count;
+            outInfo.AllocationCount = rangeCount - freeCount;
+            outInfo.UnusedRangeCount = freeCount;
 
-            outInfo.UnusedBytes = this.sumFreeSize;
-            outInfo.UsedBytes = this.Size - outInfo.UnusedBytes;
+            outInfo.UnusedBytes = sumFreeSize;
+            outInfo.UsedBytes = Size - outInfo.UnusedBytes;
 
             outInfo.AllocationSizeMin = long.MaxValue;
             outInfo.AllocationSizeMax = 0;
             outInfo.UnusedRangeSizeMin = long.MaxValue;
             outInfo.UnusedRangeSizeMax = 0;
 
-            for (var node = this.suballocations.First; node != null; node = node.Next)
+            for (var node = suballocations.First; node != null; node = node.Next)
             {
                 ref var item = ref node.ValueRef;
 
@@ -763,17 +737,17 @@ namespace VMASharp.Metadata
 
         public void AddPoolStats(ref PoolStats stats)
         {
-            int rangeCount = this.suballocations.Count;
+            var rangeCount = suballocations.Count;
 
-            stats.Size += this.Size;
+            stats.Size += Size;
 
-            stats.UnusedSize += this.sumFreeSize;
+            stats.UnusedSize += sumFreeSize;
 
-            stats.AllocationCount += rangeCount - this.freeCount;
+            stats.AllocationCount += rangeCount - freeCount;
 
-            stats.UnusedRangeCount += this.freeCount;
+            stats.UnusedRangeCount += freeCount;
 
-            var tmp = this.UnusedRangeSizeMax;
+            var tmp = UnusedRangeSizeMax;
 
             if (tmp > stats.UnusedRangeSizeMax)
                 stats.UnusedRangeSizeMax = tmp;
@@ -781,31 +755,29 @@ namespace VMASharp.Metadata
 
         public bool IsBufferImageGranularityConflictPossible(long bufferImageGranularity, ref SuballocationType type)
         {
-            if (bufferImageGranularity == 1 || this.IsEmpty)
+            if (bufferImageGranularity == 1 || IsEmpty)
             {
                 return false;
             }
 
-            long minAlignment = long.MaxValue;
-            bool typeConflict = false;
+            var minAlignment = long.MaxValue;
+            var typeConflict = false;
 
-            for (var node = this.suballocations.First; node != null; node = node.Next)
+            for (var node = suballocations.First; node != null; node = node.Next)
             {
                 ref var suballoc = ref node.ValueRef;
 
-                SuballocationType thisType = suballoc.Type;
+                var thisType = suballoc.Type;
 
-                if (thisType != SuballocationType.Free)
+                if (thisType == SuballocationType.Free) continue;
+                minAlignment = Math.Min(minAlignment, suballoc.Allocation.Alignment);
+
+                if (Helpers.IsBufferImageGranularityConflict(type, thisType))
                 {
-                    minAlignment = Math.Min(minAlignment, suballoc.Allocation.Alignment);
-
-                    if (Helpers.IsBufferImageGranularityConflict(type, thisType))
-                    {
-                        typeConflict = true;
-                    }
-
-                    type = thisType;
+                    typeConflict = true;
                 }
+
+                type = thisType;
             }
 
             return typeConflict || minAlignment >= bufferImageGranularity;

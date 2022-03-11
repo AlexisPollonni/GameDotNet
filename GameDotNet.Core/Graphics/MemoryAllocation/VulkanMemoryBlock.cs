@@ -1,9 +1,9 @@
 ﻿using System.Diagnostics;
+using GameDotNet.Core.Graphics.MemoryAllocation.Metadata;
 using Silk.NET.Vulkan;
-using VMASharp.Metadata;
 using Buffer = Silk.NET.Vulkan.Buffer;
 
-namespace VMASharp
+namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     internal class VulkanMemoryBlock : IDisposable
     {
@@ -11,7 +11,7 @@ namespace VMASharp
 
         private readonly VulkanMemoryAllocator Allocator;
         internal readonly IBlockMetadata MetaData;
-        private readonly object SyncLock = new object();
+        private readonly object SyncLock = new();
         private int mapCount;
 
 
@@ -22,7 +22,7 @@ namespace VMASharp
             ParentPool = pool;
             MemoryTypeIndex = memoryTypeIndex;
             DeviceMemory = memory;
-            ID = id;
+            Id = id;
 
             MetaData = metaObject;
         }
@@ -33,42 +33,42 @@ namespace VMASharp
 
         public int MemoryTypeIndex { get; }
 
-        public uint ID { get; }
+        public uint Id { get; }
 
         public IntPtr MappedData { get; private set; }
 
         public void Dispose()
         {
-            if (!this.MetaData.IsEmpty)
+            if (!MetaData.IsEmpty)
             {
                 throw new
                     InvalidOperationException("Some allocations were not freed before destruction of this memory block!");
             }
 
-            Debug.Assert(this.DeviceMemory.Handle != default);
+            Debug.Assert(DeviceMemory.Handle != default);
 
-            this.Allocator.FreeVulkanMemory(this.MemoryTypeIndex, this.MetaData.Size, this.DeviceMemory);
+            Allocator.FreeVulkanMemory(MemoryTypeIndex, MetaData.Size, DeviceMemory);
         }
 
         [Conditional("DEBUG")]
         public void Validate()
         {
-            Helpers.Validate(this.DeviceMemory.Handle != default && this.MetaData.Size > 0);
+            Helpers.Validate(DeviceMemory.Handle != default && MetaData.Size > 0);
 
             MetaData.Validate();
         }
 
         public void CheckCorruption(VulkanMemoryAllocator allocator)
         {
-            var data = this.Map(1);
+            var data = Map(1);
 
             try
             {
-                this.MetaData.CheckCorruption((nuint)(nint)data);
+                MetaData.CheckCorruption((nuint)(nint)data);
             }
             finally
             {
-                this.Unmap(1);
+                Unmap(1);
             }
         }
 
@@ -79,38 +79,36 @@ namespace VMASharp
                 throw new ArgumentOutOfRangeException(nameof(count));
             }
 
-            lock (this.SyncLock)
+            lock (SyncLock)
             {
-                Debug.Assert(this.mapCount >= 0);
+                Debug.Assert(mapCount >= 0);
 
-                if (this.mapCount > 0)
+                if (mapCount > 0)
                 {
-                    Debug.Assert(this.MappedData != default);
+                    Debug.Assert(MappedData != default);
 
-                    this.mapCount += count;
-                    return this.MappedData;
+                    mapCount += count;
+                    return MappedData;
                 }
-                else
+
+                if (count == 0)
                 {
-                    if (count == 0)
-                    {
-                        return default;
-                    }
-
-                    IntPtr pData;
-                    var res = VkApi.MapMemory(this.Allocator.Device, this.DeviceMemory, 0, Vk.WholeSize, 0,
-                                              (void**)&pData);
-
-                    if (res != Result.Success)
-                    {
-                        throw new MapMemoryException(res);
-                    }
-
-                    this.mapCount = count;
-                    this.MappedData = pData;
-
-                    return pData;
+                    return default;
                 }
+
+                IntPtr pData;
+                var res = VkApi.MapMemory(Allocator.Device, DeviceMemory, 0, Vk.WholeSize, 0,
+                                          (void**)&pData);
+
+                if (res != Result.Success)
+                {
+                    throw new MapMemoryException(res);
+                }
+
+                mapCount = count;
+                MappedData = pData;
+
+                return pData;
             }
         }
 
@@ -121,9 +119,9 @@ namespace VMASharp
                 return;
             }
 
-            lock (this.SyncLock)
+            lock (SyncLock)
             {
-                int newCount = this.mapCount - count;
+                var newCount = mapCount - count;
 
                 if (newCount < 0)
                 {
@@ -131,13 +129,11 @@ namespace VMASharp
                         InvalidOperationException("Memory block is being unmapped while it was not previously mapped");
                 }
 
-                this.mapCount = newCount;
+                mapCount = newCount;
 
-                if (newCount == 0)
-                {
-                    this.MappedData = default;
-                    VkApi.UnmapMemory(this.Allocator.Device, this.DeviceMemory);
-                }
+                if (newCount != 0) return;
+                MappedData = default;
+                VkApi.UnmapMemory(Allocator.Device, DeviceMemory);
             }
         }
 
@@ -149,11 +145,11 @@ namespace VMASharp
             Debug.Assert((ulong)allocationLocalOffset < (ulong)allocation.Size,
                          "Invalid allocationLocalOffset. Did you forget that this offset is relative to the beginning of the allocation, not the whole memory block?");
 
-            long memoryOffset = allocationLocalOffset + allocation.Offset;
+            var memoryOffset = allocationLocalOffset + allocation.Offset;
 
             lock (SyncLock)
             {
-                return this.Allocator.BindVulkanBuffer(buffer, this.DeviceMemory, memoryOffset, pNext);
+                return Allocator.BindVulkanBuffer(buffer, DeviceMemory, memoryOffset, pNext);
             }
         }
 
@@ -165,11 +161,11 @@ namespace VMASharp
             Debug.Assert((ulong)allocationLocalOffset < (ulong)allocation.Size,
                          "Invalid allocationLocalOffset. Did you forget that this offset is relative to the beginning of the allocation, not the whole memory block?");
 
-            long memoryOffset = allocationLocalOffset + allocation.Offset;
+            var memoryOffset = allocationLocalOffset + allocation.Offset;
 
-            lock (this.SyncLock)
+            lock (SyncLock)
             {
-                return this.Allocator.BindVulkanImage(image, this.DeviceMemory, memoryOffset, pNext);
+                return Allocator.BindVulkanImage(image, DeviceMemory, memoryOffset, pNext);
             }
         }
     }

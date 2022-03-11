@@ -1,4 +1,4 @@
-﻿namespace VMASharp
+﻿namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     [Flags]
     public enum AllocatorCreateFlags

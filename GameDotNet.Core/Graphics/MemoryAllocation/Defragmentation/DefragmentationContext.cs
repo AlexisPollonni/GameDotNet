@@ -1,22 +1,21 @@
 ﻿using Silk.NET.Vulkan;
 
-namespace VMASharp.Defragmentation
+namespace GameDotNet.Core.Graphics.MemoryAllocation.Defragmentation
 {
     public sealed class DefragmentationContext : IDisposable
     {
-        private readonly VulkanMemoryAllocator Allocator;
-        private readonly uint currentFrame;
-        private readonly uint Flags;
-        private DefragmentationStats Stats;
+        private readonly VulkanMemoryAllocator _allocator;
+        private readonly uint _currentFrame;
+        private readonly uint _flags;
+        private DefragmentationStats _stats;
 
-        private ulong MaxCPUBytesToMove, MaxGPUBytesToMove;
-        private int MaxCPUAllocationsToMove, MaxGPUAllocationsToMove;
+        private ulong _maxCpuBytesToMove, _maxGpuBytesToMove;
+        private int _maxCpuAllocationsToMove, _maxGpuAllocationsToMove;
 
-        private readonly BlockListDefragmentationContext[] DefaultPoolContexts =
+        private readonly BlockListDefragmentationContext[] _defaultPoolContexts =
             new BlockListDefragmentationContext[Vk.MaxMemoryTypes];
 
-        private readonly List<BlockListDefragmentationContext> CustomPoolContexts =
-            new List<BlockListDefragmentationContext>();
+        private readonly List<BlockListDefragmentationContext> _customPoolContexts = new();
 
 
         internal DefragmentationContext(VulkanMemoryAllocator allocator, uint currentFrame, uint flags,
@@ -30,7 +29,7 @@ namespace VMASharp.Defragmentation
             throw new NotImplementedException();
         }
 
-        internal void AddPools(params VulkanMemoryPool[] Pools)
+        internal void AddPools(params VulkanMemoryPool[] pools)
         {
             throw new NotImplementedException();
         }
@@ -40,14 +39,14 @@ namespace VMASharp.Defragmentation
             throw new NotImplementedException();
         }
 
-        internal Result Defragment(ulong maxCPUBytesToMove, int maxCPUAllocationsToMove, ulong maxGPUBytesToMove,
-                                   int maxGPUAllocationsToMove, CommandBuffer cbuffer, DefragmentationStats stats,
+        internal Result Defragment(ulong maxCpuBytesToMove, int maxCpuAllocationsToMove, ulong maxGpuBytesToMove,
+                                   int maxGpuAllocationsToMove, CommandBuffer cbuffer, DefragmentationStats stats,
                                    DefragmentationFlags flags)
         {
             throw new NotImplementedException();
         }
 
-        internal Result DefragmentationPassBegin(ref DefragmentationPassMoveInfo[] Info)
+        internal Result DefragmentationPassBegin(ref DefragmentationPassMoveInfo[] info)
         {
             throw new NotImplementedException();
         }

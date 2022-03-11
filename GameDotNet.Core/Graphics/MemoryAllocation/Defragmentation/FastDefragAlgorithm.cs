@@ -1,23 +1,23 @@
-﻿using Silk.NET.Vulkan;
-using VMASharp.Metadata;
+﻿using GameDotNet.Core.Graphics.MemoryAllocation.Metadata;
+using Silk.NET.Vulkan;
 
-namespace VMASharp.Defragmentation
+namespace GameDotNet.Core.Graphics.MemoryAllocation.Defragmentation
 {
     internal sealed class FastDefragAlgorithm : DefragmentationAlgorithm
     {
-        private readonly bool overlappingMoveSupported;
-        private int allocationCount;
-        private bool allAllocations;
+        private readonly bool _overlappingMoveSupported;
+        private int _allocationCount;
+        private bool _allAllocations;
 
-        private ulong bytesMoved;
-        private int allocationsMoved;
+        private ulong _bytesMoved;
+        private int _allocationsMoved;
 
-        private readonly List<BlockInfo> blockInfos = new List<BlockInfo>();
+        private readonly List<BlockInfo> _blockInfos = new();
 
         public FastDefragAlgorithm(VulkanMemoryAllocator allocator, BlockList list, uint currentFrame,
                                    bool overlappingMoveSupported) : base(allocator, list, currentFrame)
         {
-            this.overlappingMoveSupported = overlappingMoveSupported;
+            this._overlappingMoveSupported = overlappingMoveSupported;
         }
 
         public override ulong BytesMoved => throw new NotImplementedException();
@@ -58,13 +58,13 @@ namespace VMASharp.Defragmentation
         {
             private const int MaxCount = 4;
 
-            private FreeSpace[] FreeSpaces = new FreeSpace[MaxCount];
+            private FreeSpace[] _freeSpaces = new FreeSpace[MaxCount];
 
             public FreeSpaceDatabase()
             {
-                for (int i = 0; i < FreeSpaces.Length; ++i)
+                for (var i = 0; i < _freeSpaces.Length; ++i)
                 {
-                    FreeSpaces[i].BlockInfoIndex = -1;
+                    _freeSpaces[i].BlockInfoIndex = -1;
                 }
             }
 
@@ -75,10 +75,10 @@ namespace VMASharp.Defragmentation
                     return;
                 }
 
-                int bestIndex = -1;
-                for (int i = 0; i < FreeSpaces.Length; ++i)
+                var bestIndex = -1;
+                for (var i = 0; i < _freeSpaces.Length; ++i)
                 {
-                    ref FreeSpace space = ref FreeSpaces[i];
+                    ref var space = ref _freeSpaces[i];
 
                     if (space.BlockInfoIndex == -1)
                     {
@@ -86,58 +86,54 @@ namespace VMASharp.Defragmentation
                         break;
                     }
 
-                    if (space.Size < size && (bestIndex == -1 || space.Size < FreeSpaces[bestIndex].Size))
+                    if (space.Size < size && (bestIndex == -1 || space.Size < _freeSpaces[bestIndex].Size))
                     {
                         bestIndex = i;
                     }
                 }
 
-                if (bestIndex != -1)
-                {
-                    ref FreeSpace bestSpace = ref FreeSpaces[bestIndex];
+                if (bestIndex == -1) return;
+                ref var bestSpace = ref _freeSpaces[bestIndex];
 
-                    bestSpace.BlockInfoIndex = blockInfoIndex;
-                    bestSpace.Offset = offset;
-                    bestSpace.Size = size;
-                }
+                bestSpace.BlockInfoIndex = blockInfoIndex;
+                bestSpace.Offset = offset;
+                bestSpace.Size = size;
             }
 
             public bool Fetch(long alignment, long size, out int blockInfoIndex, out long destOffset)
             {
-                int bestIndex = -1;
+                var bestIndex = -1;
                 long bestFreeSpaceAfter = 0;
 
-                for (int i = 0; i < FreeSpaces.Length; ++i)
+                for (var i = 0; i < _freeSpaces.Length; ++i)
                 {
-                    ref FreeSpace space = ref FreeSpaces[i];
+                    ref var space = ref _freeSpaces[i];
 
                     if (space.BlockInfoIndex == -1)
                         break;
 
-                    long tmpOffset = Helpers.AlignUp(space.Offset, alignment);
+                    var tmpOffset = Helpers.AlignUp(space.Offset, alignment);
 
-                    if (tmpOffset + size <= space.Offset + space.Size)
-                    {
-                        long freeSpaceAfter = (space.Offset + space.Size) - (tmpOffset + size);
+                    if (tmpOffset + size > space.Offset + space.Size) continue;
 
-                        if (bestIndex == -1 || freeSpaceAfter > bestFreeSpaceAfter)
-                        {
-                            bestIndex = i;
-                            bestFreeSpaceAfter = freeSpaceAfter;
-                        }
-                    }
+                    var freeSpaceAfter = space.Offset + space.Size - (tmpOffset + size);
+
+                    if (bestIndex != -1 && freeSpaceAfter <= bestFreeSpaceAfter) continue;
+
+                    bestIndex = i;
+                    bestFreeSpaceAfter = freeSpaceAfter;
                 }
 
                 if (bestIndex != -1)
                 {
-                    ref FreeSpace bestSpace = ref FreeSpaces[bestIndex];
+                    ref var bestSpace = ref _freeSpaces[bestIndex];
 
                     blockInfoIndex = bestSpace.BlockInfoIndex;
                     destOffset = Helpers.AlignUp(bestSpace.Offset, alignment);
 
                     if (bestFreeSpaceAfter >= Helpers.MinFreeSuballocationSizeToRegister)
                     {
-                        long alignmentPlusSize = (destOffset - bestSpace.Offset) + size;
+                        var alignmentPlusSize = (destOffset - bestSpace.Offset) + size;
 
                         bestSpace.Offset += alignmentPlusSize;
                         bestSpace.Size -= alignmentPlusSize;

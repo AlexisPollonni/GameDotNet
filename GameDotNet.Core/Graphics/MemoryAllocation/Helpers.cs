@@ -1,8 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Numerics;
-using Silk.NET.Core;
 
-namespace VMASharp
+namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     internal static class Helpers
     {
@@ -10,8 +9,8 @@ namespace VMASharp
         public const int FrameIndexLost = -1;
         public const uint CorruptionDetectionMagicValue = 0x7F84E666;
 
-        public const byte AllocationFillPattern_Created = 0xDC;
-        public const byte AllocationFillPattern_Destroyed = 0xEF;
+        public const byte AllocationFillPatternCreated = 0xDC;
+        public const byte AllocationFillPatternDestroyed = 0xEF;
         public const bool DebugInitializeAllocations = false;
 
         public const long DebugMargin = 0;
@@ -19,10 +18,7 @@ namespace VMASharp
         public const long DebugMinBufferImageGranularity = 1;
 
         public const AllocationStrategyFlags
-            InternalAllocationStrategy_MinOffset = (AllocationStrategyFlags)0x10000000u;
-
-        internal static readonly Version32 VulkanAPIVersion_1_0 = new Version32(1, 0, 0);
-        internal static readonly Version32 VulkanAPIVersion_1_1 = new Version32(1, 1, 0);
+            InternalAllocationStrategyMinOffset = (AllocationStrategyFlags)0x10000000u;
 
         public static readonly Comparison<LinkedListNode<Suballocation>> SuballocationNodeItemSizeLess =
             (first, second) => first.Value.Size.CompareTo(second.Value.Size);
@@ -74,10 +70,10 @@ namespace VMASharp
         {
             Debug.Assert(resourceAOffset + resourceASize <= resourceBOffset && resourceASize > 0 && pageSize > 0);
 
-            long resourceAEnd = resourceAOffset + resourceASize - 1;
-            long resourceAEndPage = resourceAEnd & ~(pageSize - 1);
-            long resourceBStart = resourceBOffset;
-            long resourceBStartPage = resourceBStart & ~(pageSize - 1);
+            var resourceAEnd = resourceAOffset + resourceASize - 1;
+            var resourceAEndPage = resourceAEnd & ~(pageSize - 1);
+            var resourceBStart = resourceBOffset;
+            var resourceBStartPage = resourceBStart & ~(pageSize - 1);
             return resourceAEndPage == resourceBStartPage;
         }
 
@@ -86,9 +82,7 @@ namespace VMASharp
             if (type1 > type2)
             {
                 //Swap
-                var type3 = type1;
-                type1 = type2;
-                type2 = type3;
+                (type1, type2) = (type2, type1);
             }
 
             switch (type1)
@@ -114,7 +108,7 @@ namespace VMASharp
 
         public static long AlignUp(long value, long alignment)
         {
-            return ((value + alignment - 1) / alignment) * alignment;
+            return (value + alignment - 1) / alignment * alignment;
         }
 
         public static long AlignDown(long value, long alignment)
@@ -139,22 +133,20 @@ namespace VMASharp
 
             while (begin <= end)
             {
-                int mid = (begin + end) / 2;
+                var mid = (begin + end) / 2;
 
-                int comparison = comp.Compare(list[mid], value);
+                var comparison = comp.Compare(list[mid], value);
 
-                if (comparison == 0)
+                switch (comparison)
                 {
-                    return mid;
-                }
-
-                if (comparison < 0)
-                {
-                    begin = mid + 1;
-                }
-                else
-                {
-                    end = mid - 1;
+                    case 0:
+                        return mid;
+                    case < 0:
+                        begin = mid + 1;
+                        break;
+                    default:
+                        end = mid - 1;
+                        break;
                 }
             }
 
@@ -167,22 +159,20 @@ namespace VMASharp
 
             while (begin <= end)
             {
-                int mid = (begin + end) / 2;
+                var mid = (begin + end) / 2;
 
-                int comparison = SearchCompare(list[mid], state);
+                var comparison = SearchCompare(list[mid], state);
 
-                if (comparison == 0)
+                switch (comparison)
                 {
-                    return mid;
-                }
-
-                if (comparison < 0)
-                {
-                    begin = mid + 1;
-                }
-                else
-                {
-                    end = mid - 1;
+                    case 0:
+                        return mid;
+                    case < 0:
+                        begin = mid + 1;
+                        break;
+                    default:
+                        end = mid - 1;
+                        break;
                 }
             }
 
@@ -195,22 +185,20 @@ namespace VMASharp
 
             while (begin <= end)
             {
-                int mid = (begin + end) / 2;
+                var mid = (begin + end) / 2;
 
-                int comparison = comparer(list[mid], value);
+                var comparison = comparer(list[mid], value);
 
-                if (comparison == 0)
+                switch (comparison)
                 {
-                    return mid;
-                }
-
-                if (comparison < 0)
-                {
-                    begin = mid + 1;
-                }
-                else
-                {
-                    end = mid - 1;
+                    case 0:
+                        return mid;
+                    case < 0:
+                        begin = mid + 1;
+                        break;
+                    default:
+                        end = mid - 1;
+                        break;
                 }
             }
 
@@ -224,7 +212,7 @@ namespace VMASharp
 
             while (begin < end)
             {
-                int mid = (begin + end) / 2;
+                var mid = (begin + end) / 2;
 
                 comparison = comp.Compare(list[mid]);
 
@@ -247,9 +235,9 @@ namespace VMASharp
 
             while (begin < end)
             {
-                int mid = (begin + end) / 2;
+                var mid = (begin + end) / 2;
 
-                int comparison = comparer(list[mid], value);
+                var comparison = comparer(list[mid], value);
 
                 if (comparison < 0)
                 {
@@ -261,12 +249,12 @@ namespace VMASharp
                 }
             }
 
-            return (comparer(list[begin], value) == 0) ? begin : ~begin;
+            return comparer(list[begin], value) == 0 ? begin : ~begin;
         }
 
         public static int InsertSorted<T>(this List<T> list, T value)
         {
-            int i = list.BinarySearch(value);
+            var i = list.BinarySearch(value);
 
             if (i < 0)
             {
@@ -280,7 +268,7 @@ namespace VMASharp
 
         public static int InsertSorted<T>(this List<T> list, T value, Comparison<T> comparison)
         {
-            int i = list.BinarySearch(value, comparison);
+            var i = list.BinarySearch(value, comparison);
 
             if (i < 0)
             {
@@ -294,7 +282,7 @@ namespace VMASharp
 
         public static int FindIndex<T, TState>(this List<T> list, TState state, Func<T, TState, bool> predicate)
         {
-            for (int i = 0; i < list.Count; ++i)
+            for (var i = 0; i < list.Count; ++i)
             {
                 if (predicate(list[i], state))
                 {

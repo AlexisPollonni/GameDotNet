@@ -1,6 +1,6 @@
 ﻿using Silk.NET.Vulkan;
 
-namespace VMASharp
+namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     public struct StatInfo
     {
@@ -67,27 +67,27 @@ namespace VMASharp
 
         internal Stats()
         {
-            StatInfo.Init(out StatInfo total);
+            StatInfo.Init(out var total);
 
             MemoryType = new StatInfo[Vk.MaxMemoryTypes];
             MemoryHeap = new StatInfo[Vk.MaxMemoryHeaps];
 
-            for (int i = 0; i < Vk.MaxMemoryTypes; ++i)
+            for (var i = 0; i < Vk.MaxMemoryTypes; ++i)
                 StatInfo.Init(out MemoryType[i]);
 
-            for (int i = 0; i < Vk.MaxMemoryHeaps; ++i)
+            for (var i = 0; i < Vk.MaxMemoryHeaps; ++i)
                 StatInfo.Init(out MemoryHeap[i]);
         }
 
         internal void PostProcess()
         {
-            StatInfo.PostProcessCalcStatInfo(ref this.Total);
+            StatInfo.PostProcessCalcStatInfo(ref Total);
 
-            for (int i = 0; i < Vk.MaxMemoryTypes; ++i)
-                StatInfo.PostProcessCalcStatInfo(ref this.MemoryType[i]);
+            for (var i = 0; i < Vk.MaxMemoryTypes; ++i)
+                StatInfo.PostProcessCalcStatInfo(ref MemoryType[i]);
 
-            for (int i = 0; i < Vk.MaxMemoryHeaps; ++i)
-                StatInfo.PostProcessCalcStatInfo(ref this.MemoryHeap[i]);
+            for (var i = 0; i < Vk.MaxMemoryHeaps; ++i)
+                StatInfo.PostProcessCalcStatInfo(ref MemoryHeap[i]);
         }
     }
 

@@ -1,6 +1,6 @@
 ﻿using Silk.NET.Vulkan;
 
-namespace VMASharp.Defragmentation
+namespace GameDotNet.Core.Graphics.MemoryAllocation.Defragmentation
 {
     internal abstract class DefragmentationAlgorithm : IDisposable
     {
@@ -10,9 +10,9 @@ namespace VMASharp.Defragmentation
 
         protected DefragmentationAlgorithm(VulkanMemoryAllocator allocator, BlockList list, uint currentFrame)
         {
-            this.Allocator = allocator;
-            this.BlockList = list;
-            this.CurrentFrame = currentFrame;
+            Allocator = allocator;
+            BlockList = list;
+            CurrentFrame = currentFrame;
         }
 
         public abstract ulong BytesMoved { get; }
@@ -39,7 +39,7 @@ namespace VMASharp.Defragmentation
 
             public AllocateInfo(Allocation allocation)
             {
-                this.Allocation = allocation;
+                Allocation = allocation;
             }
         }
     }

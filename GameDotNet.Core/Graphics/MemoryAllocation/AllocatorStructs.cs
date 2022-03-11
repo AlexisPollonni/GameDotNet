@@ -3,7 +3,7 @@ using Silk.NET.Vulkan;
 
 #pragma warning disable CA1815
 
-namespace VMASharp
+namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     public struct VulkanMemoryAllocatorCreateInfo
     {

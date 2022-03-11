@@ -1,4 +1,4 @@
-﻿namespace VMASharp.Metadata
+﻿namespace GameDotNet.Core.Graphics.MemoryAllocation.Metadata
 {
     /// <summary>
     /// Allocation book-keeping for individual Device Memory Blocks. 

@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using Silk.NET.Vulkan;
 
-namespace VMASharp
+namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     internal class DedicatedAllocation : Allocation
     {
@@ -13,10 +13,10 @@ namespace VMASharp
         {
             this.memory = memory;
             this.mappedData = mappedData;
-            this.memoryTypeIndex = memTypeIndex;
+            memoryTypeIndex = memTypeIndex;
         }
 
-        public override DeviceMemory DeviceMemory => this.memory;
+        public override DeviceMemory DeviceMemory => memory;
 
         public override long Offset
         {
@@ -24,57 +24,47 @@ namespace VMASharp
             internal set => throw new InvalidOperationException();
         }
 
-        public override IntPtr MappedData => this.mapCount != 0 ? this.mappedData : default;
+        public override IntPtr MappedData => mapCount != 0 ? mappedData : default;
 
         internal override bool CanBecomeLost => false;
 
         internal unsafe Result DedicatedAllocMap(out IntPtr pData)
         {
-            if (this.mapCount != 0)
+            if (mapCount != 0)
             {
-                if ((this.mapCount & int.MaxValue) < int.MaxValue)
-                {
-                    Debug.Assert(this.mappedData != default);
-
-                    pData = this.mappedData;
-                    this.mapCount += 1;
-
-                    return Result.Success;
-                }
-                else
-                {
+                if ((mapCount & int.MaxValue) >= int.MaxValue)
                     throw new InvalidOperationException("Dedicated allocation mapped too many times simultaneously");
-                }
+                Debug.Assert(mappedData != default);
+
+                pData = mappedData;
+                mapCount += 1;
+
+                return Result.Success;
             }
-            else
-            {
-                pData = default;
 
-                IntPtr tmp;
-                var res = VkApi.MapMemory(this.Allocator.Device, this.memory, 0, Vk.WholeSize, 0, (void**)&tmp);
+            pData = default;
 
-                if (res == Result.Success)
-                {
-                    this.mappedData = tmp;
-                    this.mapCount = 1;
-                    pData = tmp;
-                }
+            IntPtr tmp;
+            var res = VkApi.MapMemory(Allocator.Device, memory, 0, Vk.WholeSize, 0, (void**)&tmp);
 
+            if (res != Result.Success)
                 return res;
-            }
+            mappedData = tmp;
+            mapCount = 1;
+            pData = tmp;
+
+            return res;
         }
 
         internal void DedicatedAllocUnmap()
         {
-            if ((this.mapCount & int.MaxValue) != 0)
+            if ((mapCount & int.MaxValue) != 0)
             {
-                this.mapCount -= 1;
+                mapCount -= 1;
 
-                if (this.mapCount == 0)
-                {
-                    this.mappedData = default;
-                    VkApi.UnmapMemory(this.Allocator.Device, this.memory);
-                }
+                if (mapCount != 0) return;
+                mappedData = default;
+                VkApi.UnmapMemory(Allocator.Device, memory);
             }
             else
             {
@@ -87,8 +77,8 @@ namespace VMASharp
             StatInfo.Init(out stats);
             stats.BlockCount = 1;
             stats.AllocationCount = 1;
-            stats.UsedBytes = this.Size;
-            stats.AllocationSizeMin = stats.AllocationSizeMax = this.Size;
+            stats.UsedBytes = Size;
+            stats.AllocationSizeMin = stats.AllocationSizeMax = Size;
         }
 
         public override IntPtr Map()

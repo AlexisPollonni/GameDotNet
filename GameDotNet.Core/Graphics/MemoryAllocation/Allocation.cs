@@ -5,12 +5,12 @@ using System.Diagnostics;
 using Silk.NET.Vulkan;
 using Buffer = Silk.NET.Vulkan.Buffer;
 
-namespace VMASharp
+namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     /// <summary>
     /// The object containing details on a suballocation of Vulkan Memory
     /// </summary>
-    public unsafe abstract class Allocation : IDisposable
+    public abstract unsafe class Allocation : IDisposable
     {
         internal VulkanMemoryAllocator Allocator { get; }
 
@@ -21,7 +21,7 @@ namespace VMASharp
         private int lastUseFrameIndex;
         protected int memoryTypeIndex;
         protected int mapCount;
-        private bool LostOrDisposed = false;
+        private bool LostOrDisposed;
 
         /// <summary>
         /// Size of this allocation, in bytes.
@@ -43,10 +43,7 @@ namespace VMASharp
         /// <summary>
         /// Memory type index that this allocation is from. Value does not change.
         /// </summary>
-        public int MemoryTypeIndex
-        {
-            get => memoryTypeIndex;
-        }
+        public int MemoryTypeIndex => memoryTypeIndex;
 
         /// <summary>
         /// Handle to Vulkan memory object.
@@ -65,24 +62,18 @@ namespace VMASharp
         internal abstract bool CanBecomeLost { get; }
 
 
-        internal bool IsPersistantMapped
-        {
-            get => this.mapCount < 0;
-        }
+        internal bool IsPersistantMapped => mapCount < 0;
 
-        internal int LastUseFrameIndex
-        {
-            get { return this.lastUseFrameIndex; }
-        }
+        internal int LastUseFrameIndex => lastUseFrameIndex;
 
-        internal long Alignment => this.alignment;
+        internal long Alignment => alignment;
 
         public object? UserData { get; set; }
 
         internal Allocation(VulkanMemoryAllocator allocator, int currentFrameIndex)
         {
-            this.Allocator = allocator;
-            this.lastUseFrameIndex = currentFrameIndex;
+            Allocator = allocator;
+            lastUseFrameIndex = currentFrameIndex;
         }
 
         /// <summary>
@@ -92,65 +83,65 @@ namespace VMASharp
 
         public void Dispose()
         {
-            if (!this.LostOrDisposed)
-            {
-                this.Allocator.FreeMemory(this);
-                LostOrDisposed = true;
-            }
+            if (LostOrDisposed)
+                return;
+
+            Allocator.FreeMemory(this);
+            LostOrDisposed = true;
         }
 
         public Result BindBufferMemory(Buffer buffer)
         {
-            Debug.Assert(this.Offset >= 0);
+            Debug.Assert(Offset >= 0);
 
-            return this.Allocator.BindVulkanBuffer(buffer, this.DeviceMemory, this.Offset, null);
+            return Allocator.BindVulkanBuffer(buffer, DeviceMemory, Offset, null);
         }
 
-        public unsafe Result BindBufferMemory(Buffer buffer, long allocationLocalOffset, IntPtr pNext)
+        public Result BindBufferMemory(Buffer buffer, long allocationLocalOffset, IntPtr pNext)
         {
-            return this.BindBufferMemory(buffer, allocationLocalOffset, (void*)pNext);
+            return BindBufferMemory(buffer, allocationLocalOffset, (void*)pNext);
         }
 
-        public unsafe Result BindBufferMemory(Buffer buffer, long allocationLocalOffset, void* pNext = null)
+        public Result BindBufferMemory(Buffer buffer, long allocationLocalOffset, void* pNext = null)
         {
-            if ((ulong)allocationLocalOffset >= (ulong)this.Size)
+            if ((ulong)allocationLocalOffset >= (ulong)Size)
             {
                 throw new ArgumentOutOfRangeException(nameof(allocationLocalOffset));
             }
 
-            return this.Allocator.BindVulkanBuffer(buffer, this.DeviceMemory, this.Offset + allocationLocalOffset,
-                                                   pNext);
+            return Allocator.BindVulkanBuffer(buffer, DeviceMemory, Offset + allocationLocalOffset,
+                                              pNext);
         }
 
-        public unsafe Result BindImageMemory(Image image)
+        public Result BindImageMemory(Image image)
         {
-            return this.Allocator.BindVulkanImage(image, this.DeviceMemory, this.Offset, null);
+            return Allocator.BindVulkanImage(image, DeviceMemory, Offset, null);
         }
 
-        public unsafe Result BindImageMemory(Image image, long allocationLocalOffset, IntPtr pNext)
+        public Result BindImageMemory(Image image, long allocationLocalOffset, IntPtr pNext)
         {
-            return this.BindImageMemory(image, allocationLocalOffset, (void*)pNext);
+            return BindImageMemory(image, allocationLocalOffset, (void*)pNext);
         }
 
-        public unsafe Result BindImageMemory(Image image, long allocationLocalOffset, void* pNext = null)
+        public Result BindImageMemory(Image image, long allocationLocalOffset, void* pNext = null)
         {
-            if ((ulong)allocationLocalOffset >= (ulong)this.Size)
+            if ((ulong)allocationLocalOffset >= (ulong)Size)
             {
                 throw new ArgumentOutOfRangeException(nameof(allocationLocalOffset));
             }
 
-            return this.Allocator.BindVulkanImage(image, this.DeviceMemory, this.Offset + allocationLocalOffset, pNext);
+            return Allocator.BindVulkanImage(image, DeviceMemory, Offset + allocationLocalOffset, pNext);
         }
 
         internal bool MakeLost(int currentFrame, int frameInUseCount)
         {
-            if (!this.CanBecomeLost)
+            if (!CanBecomeLost)
             {
                 throw new
                     InvalidOperationException("Internal Exception, tried to make an allocation lost that cannot become lost.");
             }
 
-            int localLastUseFrameIndex = this.lastUseFrameIndex;
+            var localLastUseFrameIndex = lastUseFrameIndex;
 
             while (true)
             {
@@ -159,37 +150,36 @@ namespace VMASharp
                     Debug.Assert(false);
                     return false;
                 }
-                else if (localLastUseFrameIndex + frameInUseCount >= currentFrame)
+
+                if (localLastUseFrameIndex + frameInUseCount >= currentFrame)
                 {
                     return false;
                 }
-                else
+
+                var tmp = Interlocked.CompareExchange(ref lastUseFrameIndex, Helpers.FrameIndexLost,
+                                                      localLastUseFrameIndex);
+
+                if (tmp == localLastUseFrameIndex)
                 {
-                    var tmp = Interlocked.CompareExchange(ref this.lastUseFrameIndex, Helpers.FrameIndexLost,
-                                                          localLastUseFrameIndex);
-
-                    if (tmp == localLastUseFrameIndex)
-                    {
-                        this.LostOrDisposed = true;
-                        return true;
-                    }
-
-                    localLastUseFrameIndex = tmp;
+                    LostOrDisposed = true;
+                    return true;
                 }
+
+                localLastUseFrameIndex = tmp;
             }
         }
 
         public bool TouchAllocation()
         {
-            if (this.LostOrDisposed)
+            if (LostOrDisposed)
             {
                 return false;
             }
 
-            int currFrameIndexLoc = this.Allocator.CurrentFrameIndex;
-            int lastUseFrameIndexLoc = this.lastUseFrameIndex;
+            var currFrameIndexLoc = Allocator.CurrentFrameIndex;
+            var lastUseFrameIndexLoc = lastUseFrameIndex;
 
-            if (this.CanBecomeLost)
+            if (CanBecomeLost)
             {
                 while (true)
                 {
@@ -197,32 +187,31 @@ namespace VMASharp
                     {
                         return false;
                     }
-                    else if (lastUseFrameIndexLoc == currFrameIndexLoc)
+
+                    if (lastUseFrameIndexLoc == currFrameIndexLoc)
                     {
                         return true;
                     }
 
                     lastUseFrameIndexLoc =
-                        Interlocked.CompareExchange(ref this.lastUseFrameIndex, currFrameIndexLoc,
+                        Interlocked.CompareExchange(ref lastUseFrameIndex, currFrameIndexLoc,
                                                     lastUseFrameIndexLoc);
                 }
             }
-            else
+
+            while (true)
             {
-                while (true)
-                {
-                    Debug.Assert(lastUseFrameIndexLoc != Helpers.FrameIndexLost);
+                Debug.Assert(lastUseFrameIndexLoc != Helpers.FrameIndexLost);
 
-                    if (lastUseFrameIndexLoc == currFrameIndexLoc)
-                        break;
+                if (lastUseFrameIndexLoc == currFrameIndexLoc)
+                    break;
 
-                    lastUseFrameIndexLoc =
-                        Interlocked.CompareExchange(ref this.lastUseFrameIndex, currFrameIndexLoc,
-                                                    lastUseFrameIndexLoc);
-                }
-
-                return true;
+                lastUseFrameIndexLoc =
+                    Interlocked.CompareExchange(ref lastUseFrameIndex, currFrameIndexLoc,
+                                                lastUseFrameIndexLoc);
             }
+
+            return true;
         }
 
         /// <summary>
@@ -255,7 +244,7 @@ namespace VMASharp
         {
             if (mapCount != 0)
             {
-                int size = checked((int)this.Size);
+                var size = checked((int)Size);
 
                 if (size >= sizeof(T))
                 {
@@ -273,11 +262,11 @@ namespace VMASharp
         {
             if (mapCount != 0)
             {
-                int size = checked((int)this.Size);
+                var size = checked((int)Size);
 
                 if (size >= sizeof(T))
                 {
-                    span = new Span<T>((void*)MappedData, size / sizeof(T));
+                    span = new((void*)MappedData, size / sizeof(T));
 
                     return true;
                 }
@@ -287,7 +276,7 @@ namespace VMASharp
             return false;
         }
 
-        private unsafe sealed class UnmanagedMemoryManager<T> : MemoryManager<T> where T : unmanaged
+        private sealed class UnmanagedMemoryManager<T> : MemoryManager<T> where T : unmanaged
         {
             private readonly T* Pointer;
             private readonly int ElementCount;
@@ -303,12 +292,12 @@ namespace VMASharp
 
             public override Span<T> GetSpan()
             {
-                return new Span<T>(Pointer, ElementCount);
+                return new(Pointer, ElementCount);
             }
 
             public override MemoryHandle Pin(int elementIndex = 0)
             {
-                return new MemoryHandle(Pointer + elementIndex);
+                return new(Pointer + elementIndex);
             }
 
             public override void Unpin()

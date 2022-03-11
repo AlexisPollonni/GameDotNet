@@ -1,6 +1,6 @@
 ﻿using Silk.NET.Vulkan;
 
-namespace VMASharp
+namespace GameDotNet.Core.Graphics.MemoryAllocation
 {
     public class VulkanResultException : ApplicationException
     {

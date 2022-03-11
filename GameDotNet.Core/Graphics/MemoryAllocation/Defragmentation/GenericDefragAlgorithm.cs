@@ -1,6 +1,6 @@
 ﻿using Silk.NET.Vulkan;
 
-namespace VMASharp.Defragmentation
+namespace GameDotNet.Core.Graphics.MemoryAllocation.Defragmentation
 {
     internal sealed class GenericDefragAlgorithm : DefragmentationAlgorithm
     {
@@ -39,16 +39,16 @@ namespace VMASharp.Defragmentation
             public int OriginalBlockIndex;
             public VulkanMemoryBlock Block;
             public bool HasNonMovableAllocations;
-            public readonly List<AllocateInfo> Allocations = new List<AllocateInfo>();
+            public readonly List<AllocateInfo> Allocations = new();
 
             public void CalcHasNonMovableAllocations()
             {
-                this.HasNonMovableAllocations = this.Block.MetaData.AllocationCount != this.Allocations.Count;
+                HasNonMovableAllocations = Block.MetaData.AllocationCount != Allocations.Count;
             }
 
             public void SortAllocationsBySizeDescending()
             {
-                this.Allocations.Sort(delegate(AllocateInfo info1, AllocateInfo info2)
+                Allocations.Sort(delegate(AllocateInfo info1, AllocateInfo info2)
                 {
                     return info1.Allocation.Size.CompareTo(info2.Allocation.Size);
                 });
@@ -56,14 +56,11 @@ namespace VMASharp.Defragmentation
 
             public void SortAllocationsByOffsetDescending()
             {
-                this.Allocations.Sort(delegate(AllocateInfo info1, AllocateInfo info2)
-                {
-                    return info1.Allocation.Offset.CompareTo(info2.Allocation.Offset);
-                });
+                Allocations.Sort((info1, info2) => info1.Allocation.Offset.CompareTo(info2.Allocation.Offset));
             }
         }
 
-        private readonly List<BlockInfo> Blocks = new List<BlockInfo>();
+        private readonly List<BlockInfo> _blocks = new();
 
         //private Result DefragmentRound()
 

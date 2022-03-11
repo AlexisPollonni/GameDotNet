@@ -1,7 +1,7 @@
 ﻿using Silk.NET.Vulkan;
 using Buffer = Silk.NET.Vulkan.Buffer;
 
-namespace VMASharp.Defragmentation
+namespace GameDotNet.Core.Graphics.MemoryAllocation.Defragmentation
 {
     public struct DefragmentationInfo2
     {
