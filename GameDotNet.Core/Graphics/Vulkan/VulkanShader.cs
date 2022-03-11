@@ -1,4 +1,5 @@
 using GameDotNet.Core.Tools.Extensions;
+using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
 
@@ -13,7 +14,8 @@ public sealed class VulkanShader : IDisposable
     private readonly ShaderStageFlags _stage;
     private readonly ShaderModule _module;
 
-    public VulkanShader(Vk vk, VulkanDevice device, ShaderStageFlags stage, byte[] bytecode, string entryPoint = "main")
+    public VulkanShader(Vk vk, VulkanDevice device, ShaderStageFlags stage, ReadOnlySpan<byte> bytecode,
+                        string entryPoint = "main")
     {
         _vk = vk;
         _stage = stage;
@@ -26,12 +28,12 @@ public sealed class VulkanShader : IDisposable
     internal unsafe PipelineShaderStageCreateInfo GetPipelineShaderInfo() =>
         new(stage: _stage, module: _module, pName: _entryPointMem.AsPtr<byte>());
 
-    private unsafe ShaderModule CreateShaderModule(byte[] code)
+    private unsafe ShaderModule CreateShaderModule(ReadOnlySpan<byte> code)
     {
         ShaderModule module;
-        fixed (byte* pBytecode = code)
+        fixed (uint* pBytecode = code.Cast<byte, uint>())
         {
-            var shaderModuleInfo = new ShaderModuleCreateInfo(codeSize: (nuint?)code.Length, pCode: (uint*)pBytecode);
+            var shaderModuleInfo = new ShaderModuleCreateInfo(codeSize: (nuint?)code.Length, pCode: pBytecode);
 
             _vk.CreateShaderModule(_device, shaderModuleInfo, null, out module).ThrowOnError();
         }
