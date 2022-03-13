@@ -265,7 +265,7 @@ public sealed class VulkanRenderer : IDisposable
     private unsafe void Draw(double d)
     {
         var vk = _instance.Vk;
-        //wait until the GPU has finished rendering the last frame. Timeout of 1 second
+        // wait until the GPU has finished rendering the last frame. Timeout of 1 second
         vk.WaitForFences(_device, 1, _renderFence, true, 1000000000);
 
         var res = _swapchain!.AcquireNextImage(1000000000, _presentSemaphore, null, out var swImgIndex);
@@ -289,7 +289,7 @@ public sealed class VulkanRenderer : IDisposable
 
         vk.BeginCommandBuffer(_mainCommandBuffer, cmdBeginInfo);
 
-        //make a clear-color from frame number. This will flash with a 120*pi frame period.
+        // make a clear-color from frame number. This will flash with a 120*pi frame period.
         var clearValue = new ClearValue(new(0, 0, (float)Math.Abs(Math.Sin(_frameNumber / 120D)), 0));
 
         var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
@@ -300,7 +300,7 @@ public sealed class VulkanRenderer : IDisposable
 
         vk.CmdBeginRenderPass(_mainCommandBuffer, rpInfo, SubpassContents.Inline);
 
-        //RENDERING COMMANDS
+        // RENDERING COMMANDS
         vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
 
         vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, _triangleMesh.Buffer, 0); //TODO: Use ECS to retrieve mesh
@@ -309,20 +309,20 @@ public sealed class VulkanRenderer : IDisposable
         vk.CmdEndRenderPass(_mainCommandBuffer);
         vk.EndCommandBuffer(_mainCommandBuffer);
 
-        //prepare the submission to the queue.
-        //we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
-        //we will signal the _renderSemaphore, to signal that rendering has finished
+        // prepare the submission to the queue.
+        // we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+        // we will signal the _renderSemaphore, to signal that rendering has finished
         var waitStage = PipelineStageFlags.PipelineStageColorAttachmentOutputBit;
 
         fixed (CommandBuffer* cmd = &_mainCommandBuffer)
-        fixed (Semaphore* present = &_renderSemaphore, render = &_renderSemaphore)
+        fixed (Semaphore* present = &_presentSemaphore, render = &_renderSemaphore)
         {
             var submit = new SubmitInfo(pWaitDstStageMask: &waitStage,
                                         waitSemaphoreCount: 1, pWaitSemaphores: present,
                                         signalSemaphoreCount: 1, pSignalSemaphores: render,
                                         commandBufferCount: 1, pCommandBuffers: cmd);
 
-            //submit command buffer to the queue and execute it.
+            // submit command buffer to the queue and execute it.
             // _renderFence will now block until the graphic commands finish execution
             vk.QueueSubmit(_graphicsQueue, 1, submit, _renderFence);
         }
