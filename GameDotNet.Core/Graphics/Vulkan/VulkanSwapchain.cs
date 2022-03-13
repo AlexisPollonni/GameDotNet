@@ -97,11 +97,11 @@ public sealed class VulkanSwapchain : IDisposable
         return _imageViews = imageViews;
     }
 
-    public uint AcquireNextImage(ulong timeout, Semaphore? semaphore, Fence? fence)
+    public Result AcquireNextImage(ulong timeout, Semaphore? semaphore, Fence? fence, out uint imageIndex)
     {
-        var index = 0U;
-        _extension.AcquireNextImage(_device, Swapchain, timeout, semaphore ?? new(), fence ?? new(), ref index);
-        return index;
+        imageIndex = 0U;
+        return _extension.AcquireNextImage(_device, Swapchain, timeout, semaphore ?? new(), fence ?? new(),
+                                           ref imageIndex);
     }
 
     public Result QueuePresent(Queue queue, in PresentInfoKHR info)

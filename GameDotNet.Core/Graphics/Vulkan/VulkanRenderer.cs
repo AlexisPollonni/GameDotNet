@@ -19,21 +19,22 @@ namespace GameDotNet.Core.Graphics.Vulkan;
 
 public sealed class VulkanRenderer : IDisposable
 {
-    private readonly IView _window;
-    private CommandPool _commandPool;
-    private Framebuffer[] _frameBuffers;
+    private bool _frameBufferResized;
     private ulong _frameNumber;
+    private readonly IView _window;
     private readonly CompositeDisposable _bufferDisposable;
 
     private VulkanInstance _instance = null!;
     private VulkanDevice _device = null!;
     private VulkanPhysDevice _physDevice = null!;
     private VulkanSurface _surface = null!;
-    private VulkanSwapchain _swapchain = null!;
+    private VulkanSwapchain? _swapchain;
     private VulkanPipeline _meshPipeline = null!;
     private VulkanMemoryAllocator _allocator = null!;
 
     private Queue _graphicsQueue;
+    private Framebuffer[] _frameBuffers;
+    private CommandPool _commandPool;
     private CommandBuffer _mainCommandBuffer;
     private Semaphore _presentSemaphore, _renderSemaphore;
     private Fence _renderFence;
@@ -48,6 +49,7 @@ public sealed class VulkanRenderer : IDisposable
         _bufferDisposable = new();
 
         _window.Load += Initialize;
+        _window.Resize += vec => _frameBufferResized = true;
         _window.Render += Draw;
     }
 
@@ -66,7 +68,7 @@ public sealed class VulkanRenderer : IDisposable
 
         // Order is important
         _allocator.Dispose();
-        _swapchain.Dispose();
+        _swapchain?.Dispose();
         _device.Dispose();
         _surface.Dispose();
         _instance.Dispose();
@@ -81,43 +83,6 @@ public sealed class VulkanRenderer : IDisposable
         CreateSyncStructures();
         CreatePipeline();
         LoadMeshes();
-    }
-
-    private void LoadMeshes()
-    {
-        _triangleMesh = new(new()
-        {
-            new(new(1, 1, 0), new(2, 2, 2), Color.Blue),
-            new(new(-1, 1, 0), new(3, 3, 3), Color.Red),
-            new(new(0, 0, 0), new(4, 4, 4), Color.Green),
-
-            new(new(0, 0, 0), new(2, 2, 2), Color.Blue),
-            new(new(1, 0, 0), new(3, 3, 3), Color.Red),
-            new(new(1, 1, 0), new(4, 4, 4), Color.Green)
-        });
-
-        UploadMesh(ref _triangleMesh);
-    }
-
-    private unsafe void UploadMesh(ref Mesh mesh)
-    {
-        var bufferInfo =
-            new
-                BufferCreateInfo(size: (ulong)(sizeof(Vertex) * mesh.Vertices.Count),
-                                 usage: BufferUsageFlags.BufferUsageVertexBufferBit);
-
-        var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
-
-        mesh.Buffer = _allocator.CreateBuffer(bufferInfo, allocInfo, out var allocation);
-
-        allocation.DisposeWith(_bufferDisposable);
-
-        allocation.Map();
-        if (!allocation.TryGetSpan(out Span<Vertex> span))
-            throw new AllocationException("Couldn't get vertices span from allocation");
-
-        mesh.Vertices.AsSpan().CopyTo(span);
-        allocation.Unmap();
     }
 
     private void InitVulkan()
@@ -150,12 +115,7 @@ public sealed class VulkanRenderer : IDisposable
 
         _device = new DeviceBuilder(_instance, _physDevice).Build();
 
-        _swapchain = new SwapchainBuilder(_instance, _physDevice, _device, new SwapchainBuilder.Info(_surface)
-            {
-                DesiredPresentModes = new() { PresentModeKHR.PresentModeFifoKhr }
-            })
-            .Build();
-
+        CreateSwapchain();
         _graphicsQueue = _device.GetQueue(QueueType.Graphics)!.Value;
 
         _allocator = new(new(_instance.VkVersion, _instance.Vk, _instance, _physDevice, _device));
@@ -167,6 +127,19 @@ public sealed class VulkanRenderer : IDisposable
 
         var handle = window.VkSurface.Create<nint>(_instance.Instance.ToHandle(), null);
         return new(_instance, handle.ToSurface());
+    }
+
+    private void CreateSwapchain()
+    {
+        var swapchain = new SwapchainBuilder(_instance, _physDevice, _device, new SwapchainBuilder.Info(_surface)
+            {
+                DesiredPresentModes = new() { PresentModeKHR.PresentModeFifoKhr },
+                OldSwapchain = _swapchain
+            })
+            .Build();
+
+        _swapchain?.Dispose();
+        _swapchain = swapchain;
     }
 
     private unsafe void CreateCommands()
@@ -187,7 +160,7 @@ public sealed class VulkanRenderer : IDisposable
 
     private unsafe void CreateRenderPass()
     {
-        var colorAttachment = new AttachmentDescription(format: _swapchain.ImageFormat,
+        var colorAttachment = new AttachmentDescription(format: _swapchain!.ImageFormat,
                                                         samples: SampleCountFlags.SampleCount1Bit,
                                                         loadOp: AttachmentLoadOp.Clear,
                                                         storeOp: AttachmentStoreOp.Store,
@@ -209,7 +182,7 @@ public sealed class VulkanRenderer : IDisposable
 
     private unsafe void CreateFrameBuffers()
     {
-        var frameBuffers = new Framebuffer[_swapchain.ImageCount];
+        var frameBuffers = new Framebuffer[_swapchain!.ImageCount];
         var fbInfo = new FramebufferCreateInfo(renderPass: _renderPass,
                                                width: _swapchain.Extent.Width, height: _swapchain.Extent.Height,
                                                attachmentCount: 1, layers: 1);
@@ -257,15 +230,58 @@ public sealed class VulkanRenderer : IDisposable
             });
     }
 
+    private void LoadMeshes()
+    {
+        _triangleMesh = new(new()
+        {
+            new(new(1, 1, 0), new(2, 2, 2), Color.Blue),
+            new(new(-1, 1, 0), new(3, 3, 3), Color.Red),
+            new(new(0, 0, 0), new(4, 4, 4), Color.Green),
+
+            new(new(0, 0, 0), new(2, 2, 2), Color.Blue),
+            new(new(1, 0, 0), new(3, 3, 3), Color.Red),
+            new(new(1, 1, 0), new(4, 4, 4), Color.Green)
+        });
+
+        UploadMesh(ref _triangleMesh);
+    }
+
+    private void RecreateSwapChain()
+    {
+        var vk = _instance.Vk;
+        vk.DeviceWaitIdle(_device);
+
+        vk.DestroyCommandPool(_device, _commandPool, NullAlloc);
+        foreach (var framebuffer in _frameBuffers)
+        {
+            vk.DestroyFramebuffer(_device, framebuffer, NullAlloc);
+        }
+
+        CreateSwapchain();
+        CreateFrameBuffers();
+        CreateCommands();
+    }
+
     private unsafe void Draw(double d)
     {
         var vk = _instance.Vk;
         //wait until the GPU has finished rendering the last frame. Timeout of 1 second
         vk.WaitForFences(_device, 1, _renderFence, true, 1000000000);
+
+        var res = _swapchain!.AcquireNextImage(1000000000, _presentSemaphore, null, out var swImgIndex);
+        if (res is Result.ErrorOutOfDateKhr)
+        {
+            RecreateSwapChain();
+            return;
+        }
+
+        if (res is not Result.Success)
+        {
+            res.LogError("Failed to acquire swapchain Image");
+            return;
+        }
+
         vk.ResetFences(_device, 1, _renderFence);
-
-        var swImgIndex = _swapchain.AcquireNextImage(1000000000, _presentSemaphore, null);
-
         vk.ResetCommandBuffer(_mainCommandBuffer, 0);
 
         var cmdBeginInfo =
@@ -321,10 +337,43 @@ public sealed class VulkanRenderer : IDisposable
                                                  waitSemaphoreCount: 1, pWaitSemaphores: semaphore,
                                                  pImageIndices: &swImgIndex);
 
-            _swapchain.QueuePresent(_graphicsQueue, presentInfo);
+            res = _swapchain.QueuePresent(_graphicsQueue, presentInfo);
+            if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr || _frameBufferResized)
+            {
+                RecreateSwapChain();
+                _frameBufferResized = false;
+                return;
+            }
+
+            if (res is not Result.Success)
+            {
+                res.LogError("Failed to present swapchain image");
+                return;
+            }
         }
 
         _frameNumber++;
+    }
+
+    private unsafe void UploadMesh(ref Mesh mesh)
+    {
+        var bufferInfo =
+            new
+                BufferCreateInfo(size: (ulong)(sizeof(Vertex) * mesh.Vertices.Count),
+                                 usage: BufferUsageFlags.BufferUsageVertexBufferBit);
+
+        var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
+
+        mesh.Buffer = _allocator.CreateBuffer(bufferInfo, allocInfo, out var allocation);
+
+        allocation.DisposeWith(_bufferDisposable);
+
+        allocation.Map();
+        if (!allocation.TryGetSpan(out Span<Vertex> span))
+            throw new AllocationException("Couldn't get vertices span from allocation");
+
+        mesh.Vertices.AsSpan().CopyTo(span);
+        allocation.Unmap();
     }
 
     private static IEnumerable<string> GetGlfwRequiredVulkanExtensions()
