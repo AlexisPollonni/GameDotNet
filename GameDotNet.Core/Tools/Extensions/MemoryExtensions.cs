@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Microsoft.Toolkit.HighPerformance;
 using Microsoft.Toolkit.HighPerformance.Extensions;
 using Silk.NET.Core.Native;
 
@@ -71,5 +72,28 @@ public static class MemoryExtensions
         return (T*)new Memory<T>(enumerable.ToArray()).Pin().DisposeWith(dispose).Pointer;
     }
 
+    /// <summary>
+    /// Return a pointer to the first element of a list of unmanaged objects.
+    /// WARNING: Adding or removing elements from the structs invalidates the pointer, 
+    /// </summary>
+    /// <param name="list"></param>
+    /// <typeparam name="T"></typeparam>
+    /// <returns></returns>
+    public static unsafe T* AsPtr<T>(this List<T> list) where T : unmanaged =>
+        (T*)Unsafe.AsPointer(ref list.AsSpan().GetPinnableReference());
+
+    public static unsafe T* AsPtr<T>(this T[] arr) where T : unmanaged
+        => (T*)Unsafe.AsPointer(ref arr.AsSpan().GetPinnableReference());
+
+    public static unsafe byte** AsPtr(this string[] arr)
+        => (byte**)Unsafe.AsPointer(ref arr.AsSpan().GetPinnableReference());
+
     public static unsafe byte** AsByteDoublePtr(this GlobalMemory mem) => (byte**)mem.AsPtr<byte>();
+
+    public static int ByteOffset<T1, T2>(this ref T1 source, ref T2 property)
+        where T1 : struct
+        where T2 : unmanaged
+    {
+        return (int)Unsafe.ByteOffset(ref source, ref Unsafe.As<T2, T1>(ref property));
+    }
 }
