@@ -28,11 +28,11 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
             ParentPool = pool;
             MemoryTypeIndex = memoryTypeIndex;
             PreferredBlockSize = preferredBlockSize;
-            this._minBlockCount = minBlockCount;
-            this._maxBlockCount = maxBlockCount;
+            _minBlockCount = minBlockCount;
+            _maxBlockCount = maxBlockCount;
             BufferImageGranularity = bufferImageGranularity;
             FrameInUseCount = frameInUseCount;
-            this._explicitBlockSize = explicitBlockSize;
+            _explicitBlockSize = explicitBlockSize;
 
             _metaObjectCreate = algorithm;
         }

@@ -81,7 +81,7 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
             }
             else
             {
-                throw new InvalidOperationException("Allocation mapped too many times simultaniously");
+                throw new InvalidOperationException("Allocation mapped too many times simultaneously");
             }
         }
 

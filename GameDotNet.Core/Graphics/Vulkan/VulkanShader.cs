@@ -44,13 +44,13 @@ public sealed class VulkanShader : IDisposable
     private unsafe void ReleaseUnmanagedResources()
     {
         _vk.DestroyShaderModule(_device, _module, null);
+        _entryPointMem.Dispose();
     }
 
     public void Dispose()
     {
         ReleaseUnmanagedResources();
 
-        _entryPointMem.Dispose();
         GC.SuppressFinalize(this);
     }
 
