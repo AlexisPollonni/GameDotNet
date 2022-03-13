@@ -211,7 +211,7 @@ public class InstanceBuilder
             if (res2 != Result.Success)
                 throw new PlatformException("Couldn't create Vulkan debug messenger", new VulkanException(res2));
 
-            return new(vk, instance, apiVersion, supportsProperties2Ext, debugMessenger);
+            return new(vk, instance, apiVersion, supportsProperties2Ext, IsValidationLayersEnabled, debugMessenger);
         }
     }
 

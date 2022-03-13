@@ -37,7 +37,7 @@ public class DeviceBuilder
 
     public VulkanDevice Build()
     {
-        using var disposables = new CompositeDisposable();
+        using var d = new CompositeDisposable();
 
         var queueDesc = _info.QueueDescriptions.ToList();
         if (queueDesc.Count == 0)
@@ -54,7 +54,7 @@ public class DeviceBuilder
                     SType = StructureType.DeviceQueueCreateInfo,
                     QueueFamilyIndex = desc.Index,
                     QueueCount = desc.Count,
-                    PQueuePriorities = desc.Priorities.ToGlobalMemory().DisposeWith(disposables).AsPtr<float>()
+                    PQueuePriorities = desc.Priorities.ToGlobalMemory().DisposeWith(d).AsPtr<float>()
                 };
                 queueCreateInfos.Add(info);
             }
@@ -81,10 +81,10 @@ public class DeviceBuilder
             if (_physDevice.InstanceVersion > Vk.Version11)
             {
                 localFeatures2.Features = _physDevice.Features;
-                finalNextChain.Add(localFeatures2.ToGlobalMemory().DisposeWith(disposables));
+                finalNextChain.Add(localFeatures2.ToGlobalMemory().DisposeWith(d));
                 hasPhysDevFeatures2 = true;
                 finalNextChain.AddRange(physicalDeviceExtensionFeatures.Select(node => node.ToGlobalMemory()
-                                                                                   .DisposeWith(disposables)));
+                                                                                   .DisposeWith(d)));
             }
         }
         else
@@ -98,26 +98,30 @@ public class DeviceBuilder
             {
                 deviceCreateInfo.PEnabledFeatures = _physDevice.Features
                                                                .ToGlobalMemory()
-                                                               .DisposeWith(disposables)
+                                                               .DisposeWith(d)
                                                                .AsPtr<PhysicalDeviceFeatures>();
             }
         }
 
         finalNextChain.AddRange(_info.NextChain);
 
-        var nextArray = finalNextChain.ToArray();
-        SilkExtensions.SetupPNextChain(nextArray);
+        var nextArray = finalNextChain.SetupPNextChain().ToArray();
 
-        deviceCreateInfo.SType = StructureType.DeviceCreateInfo;
-        deviceCreateInfo.Flags = _info.Flags;
-        deviceCreateInfo.QueueCreateInfoCount = (uint)queueCreateInfos.Count;
-        deviceCreateInfo.EnabledExtensionCount = (uint)extensions.Count;
         unsafe
         {
-            deviceCreateInfo.PQueueCreateInfos =
-                queueCreateInfos.ToGlobalMemory().DisposeWith(disposables).AsPtr<DeviceQueueCreateInfo>();
-            deviceCreateInfo.PpEnabledExtensionNames =
-                extensions.ToGlobalMemory().DisposeWith(disposables).AsByteDoublePtr();
+            deviceCreateInfo =
+                new(flags: _info.Flags,
+                    queueCreateInfoCount: (uint)queueCreateInfos.Count,
+                    enabledExtensionCount: (uint)extensions.Count,
+                    enabledLayerCount: _instance.IsValidationEnabled
+                                           ? (uint)Constants.DefaultValidationLayers.Length
+                                           : 0,
+                    pQueueCreateInfos: queueCreateInfos.ToGlobalMemory().DisposeWith(d).AsPtr<DeviceQueueCreateInfo>(),
+                    ppEnabledExtensionNames: extensions.ToGlobalMemory().DisposeWith(d).AsByteDoublePtr(),
+                    ppEnabledLayerNames: _instance.IsValidationEnabled
+                                             ? Constants.DefaultValidationLayers.AsPtr()
+                                             : null,
+                    pNext: nextArray.Length is not 0 ? (void*)nextArray[0].Handle : null);
         }
 
         Device device;

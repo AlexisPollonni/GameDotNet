@@ -13,18 +13,20 @@ public class VulkanInstance : IDisposable
     internal PhysicalDevice? ActivePhysicalDevice;
 
     internal VulkanInstance(Vk context, Instance instance, Version32 vkVersion, bool supportsProperties2Ext,
-                            DebugUtilsMessengerEXT? messenger = null)
+                            bool isValidationEnabled = false, DebugUtilsMessengerEXT? messenger = null)
     {
         Vk = context;
         Vk.CurrentInstance = instance;
         Instance = instance;
         VkVersion = vkVersion;
         SupportsProperties2Ext = supportsProperties2Ext;
+        IsValidationEnabled = isValidationEnabled;
         _messenger = messenger;
     }
 
     public bool IsHeadless { get; internal set; }
     public bool SupportsProperties2Ext { get; }
+    public bool IsValidationEnabled { get; }
     public Version32 VkVersion { get; }
 
     public void Dispose()
