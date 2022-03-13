@@ -31,8 +31,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <AdditionalFiles Include="Graphics\Shaders\triangle.frag"/>
-        <AdditionalFiles Include="Graphics\Shaders\triangle.vert"/>
+        <AdditionalFiles Include="Graphics\Shaders\Mesh.frag"/>
+        <AdditionalFiles Include="Graphics\Shaders\Mesh.vert"/>
     </ItemGroup>
 
 </Project>

@@ -11,7 +11,8 @@ public class PipelineBuilder
 
     public class PipelineOptions
     {
-        public IList<VulkanShader> Shaders { get; set; } = new List<VulkanShader>();
+        public VertexInputDescription VertexInputDescription { get; set; }
+        public IList<VulkanShader> ShaderStages { get; set; } = new List<VulkanShader>();
         public RenderPass RenderPass { get; set; }
         public PrimitiveTopology Topology { get; set; } = PrimitiveTopology.TriangleList;
         public PolygonMode PolygonMode { get; set; } = PolygonMode.Fill;
@@ -29,8 +30,8 @@ public class PipelineBuilder
     {
         using var d = new CompositeDisposable();
 
-        var shaderStages = options.Shaders.Select(shader => shader.GetPipelineShaderInfo()).ToArray();
-        var vertexCreateInfo = CreateVertexInputStageInfo();
+        var shaderStages = options.ShaderStages.Select(shader => shader.GetPipelineShaderInfo()).ToArray();
+        var vertexCreateInfo = CreateVertexInputStageInfo(options.VertexInputDescription);
         var inputAssembly = CreateInputAssemblyStateInfo(options.Topology);
         var rasterizer = CreateRasterizationStateInfo(options.PolygonMode);
         var multisampling = CreateMultisampleStateInfo();
@@ -72,8 +73,14 @@ public class PipelineBuilder
     }
 
 
-    private static unsafe PipelineVertexInputStateCreateInfo CreateVertexInputStageInfo() =>
-        new(vertexBindingDescriptionCount: 0, vertexAttributeDescriptionCount: 0);
+    private static unsafe PipelineVertexInputStateCreateInfo CreateVertexInputStageInfo(VertexInputDescription d)
+    {
+        return new(flags: d.Flags,
+                   vertexBindingDescriptionCount: (uint)d.Bindings.Count,
+                   pVertexBindingDescriptions: d.Bindings.Count is not 0 ? d.Bindings.AsPtr() : null,
+                   vertexAttributeDescriptionCount: (uint)d.Attributes.Count,
+                   pVertexAttributeDescriptions: d.Attributes.Count is not 0 ? d.Attributes.AsPtr() : null);
+    }
 
     private static unsafe PipelineInputAssemblyStateCreateInfo
         CreateInputAssemblyStateInfo(PrimitiveTopology topology) =>

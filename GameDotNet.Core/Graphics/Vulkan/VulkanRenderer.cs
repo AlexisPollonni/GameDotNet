@@ -1,8 +1,12 @@
 using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.CompilerServices;
+using GameDotNet.Core.Graphics.MemoryAllocation;
 using GameDotNet.Core.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Core.Shaders.Generated;
+using GameDotNet.Core.Tools;
 using GameDotNet.Core.Tools.Extensions;
+using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
@@ -17,15 +21,17 @@ public sealed class VulkanRenderer : IDisposable
 {
     private readonly IView _window;
     private CommandPool _commandPool;
-    private Framebuffer[] _framebuffers;
+    private Framebuffer[] _frameBuffers;
     private ulong _frameNumber;
+    private readonly CompositeDisposable _bufferDisposable;
 
     private VulkanInstance _instance = null!;
     private VulkanDevice _device = null!;
     private VulkanPhysDevice _physDevice = null!;
     private VulkanSurface _surface = null!;
     private VulkanSwapchain _swapchain = null!;
-    private VulkanPipeline _trianglePipeline = null!;
+    private VulkanPipeline _meshPipeline = null!;
+    private VulkanMemoryAllocator _allocator = null!;
 
     private Queue _graphicsQueue;
     private CommandBuffer _mainCommandBuffer;
@@ -33,10 +39,13 @@ public sealed class VulkanRenderer : IDisposable
     private Fence _renderFence;
     private RenderPass _renderPass;
 
+    private Mesh _triangleMesh;
+
     public VulkanRenderer(IView window)
     {
         _window = window;
-        _framebuffers = Array.Empty<Framebuffer>();
+        _frameBuffers = Array.Empty<Framebuffer>();
+        _bufferDisposable = new();
 
         _window.Load += Initialize;
         _window.Render += Draw;
@@ -46,14 +55,17 @@ public sealed class VulkanRenderer : IDisposable
 
     public void Dispose()
     {
+        _bufferDisposable.Dispose();
         _instance.Vk.DestroyRenderPass(_device, _renderPass, NullAlloc);
-        foreach (var framebuffer in _framebuffers)
+        foreach (var framebuffer in _frameBuffers)
         {
             _instance.Vk.DestroyFramebuffer(_device, framebuffer, NullAlloc);
         }
 
         _instance.Vk.DestroyCommandPool(_device, _commandPool, NullAlloc);
 
+        // Order is important
+        _allocator.Dispose();
         _swapchain.Dispose();
         _device.Dispose();
         _surface.Dispose();
@@ -65,9 +77,47 @@ public sealed class VulkanRenderer : IDisposable
         InitVulkan();
         CreateCommands();
         CreateRenderPass();
-        CreateFramebuffers();
+        CreateFrameBuffers();
         CreateSyncStructures();
         CreatePipeline();
+        LoadMeshes();
+    }
+
+    private void LoadMeshes()
+    {
+        _triangleMesh = new(new()
+        {
+            new(new(1, 1, 0), new(2, 2, 2), Color.Blue),
+            new(new(-1, 1, 0), new(3, 3, 3), Color.Red),
+            new(new(0, 0, 0), new(4, 4, 4), Color.Green),
+
+            new(new(0, 0, 0), new(2, 2, 2), Color.Blue),
+            new(new(1, 0, 0), new(3, 3, 3), Color.Red),
+            new(new(1, 1, 0), new(4, 4, 4), Color.Green)
+        });
+
+        UploadMesh(ref _triangleMesh);
+    }
+
+    private unsafe void UploadMesh(ref Mesh mesh)
+    {
+        var bufferInfo =
+            new
+                BufferCreateInfo(size: (ulong)(sizeof(Vertex) * mesh.Vertices.Count),
+                                 usage: BufferUsageFlags.BufferUsageVertexBufferBit);
+
+        var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
+
+        mesh.Buffer = _allocator.CreateBuffer(bufferInfo, allocInfo, out var allocation);
+
+        allocation.DisposeWith(_bufferDisposable);
+
+        allocation.Map();
+        if (!allocation.TryGetSpan(out Span<Vertex> span))
+            throw new AllocationException("Couldn't get vertices span from allocation");
+
+        mesh.Vertices.AsSpan().CopyTo(span);
+        allocation.Unmap();
     }
 
     private void InitVulkan()
@@ -83,8 +133,8 @@ public sealed class VulkanRenderer : IDisposable
                 {
                     ValidationFeatureEnableEXT.ValidationFeatureEnableBestPracticesExt,
                     ValidationFeatureEnableEXT.ValidationFeatureEnableSynchronizationValidationExt,
-                    ValidationFeatureEnableEXT.ValidationFeatureEnableGpuAssistedExt,
-                    ValidationFeatureEnableEXT.ValidationFeatureEnableDebugPrintfExt
+                    ValidationFeatureEnableEXT.ValidationFeatureEnableDebugPrintfExt,
+                    ValidationFeatureEnableEXT.ValidationFeatureEnableGpuAssistedReserveBindingSlotExt
                 },
                 IsValidationLayersRequested = true,
                 IsHeadless = false
@@ -107,6 +157,8 @@ public sealed class VulkanRenderer : IDisposable
             .Build();
 
         _graphicsQueue = _device.GetQueue(QueueType.Graphics)!.Value;
+
+        _allocator = new(new(_instance.VkVersion, _instance.Vk, _instance, _physDevice, _device));
     }
 
     private unsafe VulkanSurface CreateSurface(IVkSurfaceSource window)
@@ -155,9 +207,9 @@ public sealed class VulkanRenderer : IDisposable
         _instance.Vk.CreateRenderPass(_device, renderPassInfo, NullAlloc, out _renderPass);
     }
 
-    private unsafe void CreateFramebuffers()
+    private unsafe void CreateFrameBuffers()
     {
-        var framebuffers = new Framebuffer[_swapchain.ImageCount];
+        var frameBuffers = new Framebuffer[_swapchain.ImageCount];
         var fbInfo = new FramebufferCreateInfo(renderPass: _renderPass,
                                                width: _swapchain.Extent.Width, height: _swapchain.Extent.Height,
                                                attachmentCount: 1, layers: 1);
@@ -165,10 +217,10 @@ public sealed class VulkanRenderer : IDisposable
         foreach (var (imageView, i) in _swapchain.GetImageViews().WithIndex())
         {
             fbInfo.PAttachments = &imageView;
-            _instance.Vk.CreateFramebuffer(_device, fbInfo, NullAlloc, out framebuffers[i]);
+            _instance.Vk.CreateFramebuffer(_device, fbInfo, NullAlloc, out frameBuffers[i]);
         }
 
-        _framebuffers = framebuffers;
+        _frameBuffers = frameBuffers;
     }
 
     private unsafe void CreateSyncStructures()
@@ -185,24 +237,24 @@ public sealed class VulkanRenderer : IDisposable
 
     private void CreatePipeline()
     {
-        var triangleFragShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.ShaderStageFragmentBit,
-                                                  CompiledShaders.triangleFragmentShader);
-        var triangleVertShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.ShaderStageVertexBit,
-                                                  CompiledShaders.triangleVertexShader);
+        using var meshFragShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.ShaderStageFragmentBit,
+                                                    CompiledShaders.MeshFragmentShader);
+        using var meshVertShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.ShaderStageVertexBit,
+                                                    CompiledShaders.MeshVertexShader);
 
-        _trianglePipeline = new PipelineBuilder(_instance, _device)
-            .Build(
-                   new()
-                   {
-                       Shaders = new[] { triangleFragShader, triangleVertShader },
-                       RenderPass = _renderPass,
-                       Viewport = new(0, 0,
-                                      _window.Size.X, _window.Size.Y, 0, 1f),
-                       Scissor =
-                           new(new(0, 0),
-                               new Extent2D((uint)_window.Size.X,
-                                            (uint)_window.Size.Y))
-                   });
+        _meshPipeline = new PipelineBuilder(_instance, _device)
+            .Build(new()
+            {
+                VertexInputDescription = Vertex.GetDescription(),
+                ShaderStages = new[] { meshFragShader, meshVertShader },
+                RenderPass = _renderPass,
+                Viewport = new(0, 0,
+                               _window.Size.X, _window.Size.Y, 0, 1f),
+                Scissor =
+                    new(new(0, 0),
+                        new Extent2D((uint)_window.Size.X,
+                                     (uint)_window.Size.Y))
+            });
     }
 
     private unsafe void Draw(double d)
@@ -226,15 +278,17 @@ public sealed class VulkanRenderer : IDisposable
 
         var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
                                              renderArea: new Rect2D(new Offset2D(0, 0), _swapchain.Extent),
-                                             framebuffer: _framebuffers[swImgIndex],
+                                             framebuffer: _frameBuffers[swImgIndex],
                                              clearValueCount: 1,
                                              pClearValues: &clearValue);
 
         vk.CmdBeginRenderPass(_mainCommandBuffer, rpInfo, SubpassContents.Inline);
 
         //RENDERING COMMANDS
-        vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _trianglePipeline);
-        vk.CmdDraw(_mainCommandBuffer, 3, 1, 0, 0);
+        vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
+
+        vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, _triangleMesh.Buffer, 0); //TODO: Use ECS to retrieve mesh
+        vk.CmdDraw(_mainCommandBuffer, (uint)_triangleMesh.Vertices.Count, 1, 0, 0);
 
         vk.CmdEndRenderPass(_mainCommandBuffer);
         vk.EndCommandBuffer(_mainCommandBuffer);
