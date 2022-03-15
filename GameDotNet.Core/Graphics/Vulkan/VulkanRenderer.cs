@@ -137,17 +137,22 @@ public sealed class VulkanRenderer : IDisposable
                 EngineVersion = new Version32(0, 0, 1),
                 RequiredApiVersion = Vk.Version11,
                 Extensions = GetGlfwRequiredVulkanExtensions(),
-                EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
-                {
-                    ValidationFeatureEnableEXT.ValidationFeatureEnableBestPracticesExt,
-                    ValidationFeatureEnableEXT.ValidationFeatureEnableSynchronizationValidationExt,
-                    ValidationFeatureEnableEXT.ValidationFeatureEnableDebugPrintfExt,
-                    ValidationFeatureEnableEXT.ValidationFeatureEnableGpuAssistedReserveBindingSlotExt
-                },
-                IsValidationLayersRequested = true,
-                IsHeadless = false
-            }.UseDefaultDebugMessenger()
-             .Build();
+                IsHeadless = false,
+#if DEBUG
+                        EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
+                        {
+                            ValidationFeatureEnableEXT.ValidationFeatureEnableBestPracticesExt,
+                            ValidationFeatureEnableEXT.ValidationFeatureEnableSynchronizationValidationExt,
+                            ValidationFeatureEnableEXT.ValidationFeatureEnableDebugPrintfExt,
+                            ValidationFeatureEnableEXT.ValidationFeatureEnableGpuAssistedReserveBindingSlotExt
+                        },
+                        IsValidationLayersRequested = true
+#endif
+            }
+#if DEBUG
+                    .UseDefaultDebugMessenger()
+#endif
+            .Build();
 
         _surface = CreateSurface(_window);
 
