@@ -59,17 +59,15 @@ public sealed class VulkanRenderer : IDisposable
                     Draw(0);
                 }
             }
-        });
+        })
+        {
+            Name = "GameDotNet Render"
+        };
 
         _window.Load += Initialize;
 
         unsafe
         {
-            if (!_window.IsGlfw())
-            {
-                _window.Resize += _ => { _refreshCallback!(null); };
-            }
-
             _refreshCallback = _ =>
             {
                 lock (_swapchainRecreateLock)
@@ -112,6 +110,10 @@ public sealed class VulkanRenderer : IDisposable
                 Debug.Assert(_window.Native.Glfw != null, "_window.Native.Glfw != null");
                 Glfw.GetApi()
                     .SetWindowRefreshCallback((WindowHandle*)_window.Native.Glfw.Value, _refreshCallback);
+            }
+            else
+            {
+                _window.Resize += _ => _refreshCallback(null);
             }
         }
 

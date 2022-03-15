@@ -41,6 +41,12 @@ public static class SilkExtensions
         return arr;
     }
 
+    /// <summary>
+    /// Determines if a view is a GLFW window.
+    /// WARNING: if the window is not initialized this method returns false.
+    /// </summary>
+    /// <param name="view"></param>
+    /// <returns>True if view is GLFW, false otherwise or if its not initialized.</returns>
     internal static bool IsGlfw(this IView view) => view.Native?.Kind.HasFlag(NativeWindowFlags.Glfw) ?? false;
 
 
