@@ -1,6 +1,8 @@
 using Serilog;
+using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
+using Silk.NET.Windowing;
 
 namespace GameDotNet.Core.Graphics.Vulkan;
 
@@ -38,6 +40,9 @@ public static class SilkExtensions
         SetupPNextChain(arr);
         return arr;
     }
+
+    internal static bool IsGlfw(this IView view) => view.Native?.Kind.HasFlag(NativeWindowFlags.Glfw) ?? false;
+
 
     internal static unsafe void SetupPNextChain(params GlobalMemory[] structs)
     {

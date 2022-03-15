@@ -19,7 +19,6 @@ namespace GameDotNet.Core.Graphics.Vulkan;
 
 public sealed class VulkanRenderer : IDisposable
 {
-    private bool _frameBufferResized;
     private ulong _frameNumber;
     private readonly IView _window;
     private readonly CompositeDisposable _bufferDisposable;
@@ -36,27 +35,56 @@ public sealed class VulkanRenderer : IDisposable
     private Framebuffer[] _frameBuffers;
     private CommandPool _commandPool;
     private CommandBuffer _mainCommandBuffer;
+    private RenderPass _renderPass;
     private Semaphore _presentSemaphore, _renderSemaphore;
     private Fence _renderFence;
-    private RenderPass _renderPass;
 
     private Mesh _triangleMesh;
+
+    private readonly Thread _renderThread;
+    private readonly GlfwCallbacks.WindowRefreshCallback _refreshCallback;
+    private readonly object _swapchainRecreateLock = new();
 
     public VulkanRenderer(IView window)
     {
         _window = window;
         _frameBuffers = Array.Empty<Framebuffer>();
         _bufferDisposable = new();
+        _renderThread = new(() =>
+        {
+            while (!_window.IsClosing)
+            {
+                lock (_swapchainRecreateLock)
+                {
+                    Draw(0);
+                }
+            }
+        });
 
         _window.Load += Initialize;
-        _window.Resize += vec => _frameBufferResized = true;
-        _window.Render += Draw;
+
+        unsafe
+        {
+            if (!_window.IsGlfw())
+            {
+                _window.Resize += _ => { _refreshCallback!(null); };
+            }
+
+            _refreshCallback = _ =>
+            {
+                lock (_swapchainRecreateLock)
+                {
+                    RecreateSwapChain();
+                }
+            };
+        }
     }
 
     private static ref readonly AllocationCallbacks NullAlloc => ref Unsafe.NullRef<AllocationCallbacks>();
 
     public void Dispose()
     {
+        _renderThread.Join();
         _bufferDisposable.Dispose();
         _instance.Vk.DestroyRenderPass(_device, _renderPass, NullAlloc);
         foreach (var framebuffer in _frameBuffers)
@@ -76,6 +104,17 @@ public sealed class VulkanRenderer : IDisposable
 
     private void Initialize()
     {
+        unsafe
+        {
+            if (_window.IsGlfw())
+            {
+                Debug.Assert(_window.Native != null, "_window.Native != null");
+                Debug.Assert(_window.Native.Glfw != null, "_window.Native.Glfw != null");
+                Glfw.GetApi()
+                    .SetWindowRefreshCallback((WindowHandle*)_window.Native.Glfw.Value, _refreshCallback);
+            }
+        }
+
         InitVulkan();
         CreateCommands();
         CreateRenderPass();
@@ -83,6 +122,8 @@ public sealed class VulkanRenderer : IDisposable
         CreateSyncStructures();
         CreatePipeline();
         LoadMeshes();
+
+        _renderThread.Start();
     }
 
     private void InitVulkan()
@@ -338,10 +379,9 @@ public sealed class VulkanRenderer : IDisposable
                                                  pImageIndices: &swImgIndex);
 
             res = _swapchain.QueuePresent(_graphicsQueue, presentInfo);
-            if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr || _frameBufferResized)
+            if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
             {
                 RecreateSwapChain();
-                _frameBufferResized = false;
                 return;
             }
 
