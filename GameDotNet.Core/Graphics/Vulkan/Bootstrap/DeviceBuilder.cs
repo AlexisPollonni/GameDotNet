@@ -1,4 +1,4 @@
-using GameDotNet.Core.Tools;
+using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using Serilog;
 using Silk.NET.Core.Native;
@@ -37,7 +37,7 @@ public class DeviceBuilder
 
     public VulkanDevice Build()
     {
-        using var d = new CompositeDisposable();
+        using var d = new DisposableList();
 
         var queueDesc = _info.QueueDescriptions.ToList();
         if (queueDesc.Count == 0)

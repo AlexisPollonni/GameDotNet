@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using GameDotNet.Core.Tools.Containers;
 using Microsoft.Toolkit.HighPerformance;
 using Microsoft.Toolkit.HighPerformance.Extensions;
 using Silk.NET.Core.Native;
@@ -62,12 +63,12 @@ public static class MemoryExtensions
         }
     }
 
-    public static unsafe T* AsPtr<T>(this T s, CompositeDisposable dispose) where T : unmanaged
+    public static unsafe T* AsPtr<T>(this T s, ICompositeDisposable dispose) where T : unmanaged
     {
         return new Pinned<T>(s).DisposeWith(dispose).AsPtr();
     }
 
-    public static unsafe T* AsPtr<T>(this IEnumerable<T> enumerable, CompositeDisposable dispose) where T : unmanaged
+    public static unsafe T* AsPtr<T>(this IEnumerable<T> enumerable, ICompositeDisposable dispose) where T : unmanaged
     {
         return (T*)new Memory<T>(enumerable.ToArray()).Pin().DisposeWith(dispose).Pointer;
     }

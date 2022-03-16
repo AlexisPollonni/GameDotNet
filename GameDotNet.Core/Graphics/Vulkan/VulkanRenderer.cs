@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 using GameDotNet.Core.Graphics.MemoryAllocation;
 using GameDotNet.Core.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Core.Shaders.Generated;
-using GameDotNet.Core.Tools;
+using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Core;
@@ -21,7 +21,7 @@ public sealed class VulkanRenderer : IDisposable
 {
     private ulong _frameNumber;
     private readonly IView _window;
-    private readonly CompositeDisposable _bufferDisposable;
+    private readonly DisposableList _bufferDisposable;
 
     private VulkanInstance _instance = null!;
     private VulkanDevice _device = null!;

@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using GameDotNet.Core.Tools;
+using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using Serilog;
 using Silk.NET.Core;
@@ -116,7 +116,7 @@ public class InstanceBuilder
 
     public VulkanInstance Build()
     {
-        using var disposables = new CompositeDisposable();
+        using var disposables = new DisposableList();
 
         unsafe
         {
@@ -246,7 +246,7 @@ public class InstanceBuilder
 
     private unsafe IDisposable CreateAppInfo(out ApplicationInfo info, Version32 apiVersion)
     {
-        var d = new CompositeDisposable();
+        var d = new DisposableList();
 
         info = new()
         {
@@ -284,7 +284,7 @@ public class InstanceBuilder
 
     private unsafe IDisposable? CreateValidationFeatures(out ValidationFeaturesEXT? features)
     {
-        var d = new CompositeDisposable();
+        var d = new DisposableList();
 
         features = null;
         if (EnabledValidationFeatures.Count == 0 && DisabledValidationFeatures.Count == 0)
@@ -327,7 +327,7 @@ public class InstanceBuilder
     private unsafe IDisposable CreateInstanceInfo(out InstanceCreateInfo info, IReadOnlyList<string> extensions,
                                                   IReadOnlyList<string> layers, ApplicationInfo appInfo)
     {
-        var d = new CompositeDisposable();
+        var d = new DisposableList();
 
         info = new()
         {

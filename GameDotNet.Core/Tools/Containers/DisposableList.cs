@@ -4,16 +4,17 @@
 
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using GameDotNet.Core.Tools.Extensions;
 
-namespace GameDotNet.Core.Tools
+namespace GameDotNet.Core.Tools.Containers
 {
     /// <summary>
-    /// Represents a group of disposable resources that are disposed together.
+    /// Represents a list of disposable resources that are disposed together.
     /// </summary>
     [SuppressMessage("Microsoft.Naming", "CA1710:IdentifiersShouldHaveCorrectSuffix",
                      Justification =
                          "Backward compat + ideally want to get rid of the ICollection nature of the type.")]
-    public sealed class CompositeDisposable : ICollection<IDisposable>, IDisposable
+    public sealed class DisposableList : ICompositeDisposable
     {
         private const int ShrinkThreshold = 64;
 
@@ -25,51 +26,45 @@ namespace GameDotNet.Core.Tools
         /// An empty enumerator for the <see cref="GetEnumerator"/>
         /// method to avoid allocation on disposed or empty composites.
         /// </summary>
-        private static readonly CompositeEnumerator EmptyEnumerator =
-            new CompositeEnumerator(Array.Empty<IDisposable?>());
+        private static readonly CompositeEnumerator EmptyEnumerator = new(Array.Empty<IDisposable?>());
 
-        private readonly object _gate = new object();
+        private readonly object _gate = new();
         private int _count;
         private List<IDisposable?> _disposables;
         private bool _disposed;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CompositeDisposable"/> class with no disposables contained by it initially.
+        /// Initializes a new instance of the <see cref="DisposableList"/> class with no disposables contained by it initially.
         /// </summary>
-        public CompositeDisposable()
+        public DisposableList()
         {
-            _disposables = new List<IDisposable?>();
+            _disposables = new(DefaultCapacity);
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CompositeDisposable"/> class with the specified number of disposables.
+        /// Initializes a new instance of the <see cref="DisposableList"/> class with the specified number of disposables.
         /// </summary>
-        /// <param name="capacity">The number of disposables that the new CompositeDisposable can initially store.</param>
+        /// <param name="capacity">The number of disposables that the new DisposableList can initially store.</param>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="capacity"/> is less than zero.</exception>
-        public CompositeDisposable(int capacity)
+        public DisposableList(int capacity)
         {
             if (capacity < 0)
-            {
                 throw new ArgumentOutOfRangeException(nameof(capacity));
-            }
 
-            _disposables = new List<IDisposable?>(capacity);
+            _disposables = new(capacity);
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CompositeDisposable"/> class from a group of disposables.
+        /// Initializes a new instance of the <see cref="DisposableList"/> class from a group of disposables.
         /// </summary>
         /// <param name="disposables">Disposables that will be disposed together.</param>
         /// <exception cref="ArgumentNullException"><paramref name="disposables"/> is <c>null</c>.</exception>
-        /// <exception cref="ArgumentException">Any of the disposables in the <paramref name="disposables"/> collection is <c>null</c>.</exception>
-        public CompositeDisposable(params IDisposable[] disposables)
+        public DisposableList(params IDisposable[] disposables)
         {
-            if (disposables == null)
-            {
+            if (disposables is null)
                 throw new ArgumentNullException(nameof(disposables));
-            }
 
-            _disposables = ToList(disposables);
+            _disposables = disposables.ToList()!;
 
             // _count can be read by other threads and thus should be properly visible
             // also releases the _disposables contents so it becomes thread-safe
@@ -77,19 +72,16 @@ namespace GameDotNet.Core.Tools
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="CompositeDisposable"/> class from a group of disposables.
+        /// Initializes a new instance of the <see cref="DisposableList"/> class from a group of disposables.
         /// </summary>
         /// <param name="disposables">Disposables that will be disposed together.</param>
         /// <exception cref="ArgumentNullException"><paramref name="disposables"/> is <c>null</c>.</exception>
-        /// <exception cref="ArgumentException">Any of the disposables in the <paramref name="disposables"/> collection is <c>null</c>.</exception>
-        public CompositeDisposable(IEnumerable<IDisposable> disposables)
+        public DisposableList(IEnumerable<IDisposable> disposables)
         {
-            if (disposables == null)
-            {
+            if (disposables is null)
                 throw new ArgumentNullException(nameof(disposables));
-            }
 
-            _disposables = ToList(disposables);
+            _disposables = disposables.ToList()!;
 
             // _count can be read by other threads and thus should be properly visible
             // also releases the _disposables contents so it becomes thread-safe
@@ -102,22 +94,16 @@ namespace GameDotNet.Core.Tools
         public bool IsDisposed => Volatile.Read(ref _disposed);
 
         /// <summary>
-        /// Gets the number of disposables contained in the <see cref="CompositeDisposable"/>.
+        /// Gets the number of disposables contained in the <see cref="DisposableList"/>.
         /// </summary>
         public int Count => Volatile.Read(ref _count);
 
         /// <summary>
-        /// Adds a disposable to the <see cref="CompositeDisposable"/> or disposes the disposable if the <see cref="CompositeDisposable"/> is disposed.
+        /// Adds a disposable to the <see cref="DisposableList"/> or disposes the disposable if the <see cref="DisposableList"/> is disposed.
         /// </summary>
         /// <param name="item">Disposable to add.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="item"/> is <c>null</c>.</exception>
-        public void Add(IDisposable item)
+        public void Add(IDisposable? item)
         {
-            if (item == null)
-            {
-                throw new ArgumentNullException(nameof(item));
-            }
-
             lock (_gate)
             {
                 if (!_disposed)
@@ -132,62 +118,47 @@ namespace GameDotNet.Core.Tools
                 }
             }
 
-            item.Dispose();
+            item?.Dispose();
         }
 
         /// <summary>
-        /// Removes and disposes the first occurrence of a disposable from the <see cref="CompositeDisposable"/>.
+        /// Removes and disposes the first occurrence of a disposable from the <see cref="DisposableList"/>.
         /// </summary>
         /// <param name="item">Disposable to remove.</param>
         /// <returns>true if found; false otherwise.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="item"/> is <c>null</c>.</exception>
         public bool Remove(IDisposable item)
         {
-            if (item == null)
-            {
+            if (item is null)
                 throw new ArgumentNullException(nameof(item));
-            }
 
             lock (_gate)
             {
                 // this composite was already disposed and if the item was in there
                 // it has been already removed/disposed
                 if (_disposed)
-                {
                     return false;
-                }
 
-                //
                 // List<T> doesn't shrink the size of the underlying array but does collapse the array
                 // by copying the tail one position to the left of the removal index. We don't need
                 // index-based lookup but only ordering for sequential disposal. So, instead of spending
                 // cycles on the Array.Copy imposed by Remove, we use a null sentinel value. We also
                 // do manual Swiss cheese detection to shrink the list if there's a lot of holes in it.
-                //
 
                 // read fields as infrequently as possible
                 var current = _disposables;
 
                 var i = current.IndexOf(item);
                 if (i < 0)
-                {
                     // not found, just return
                     return false;
-                }
 
                 current[i] = null;
 
                 if (current.Capacity > ShrinkThreshold && _count < current.Capacity / 2)
                 {
                     var fresh = new List<IDisposable?>(current.Capacity / 2);
-
-                    foreach (var d in current)
-                    {
-                        if (d != null)
-                        {
-                            fresh.Add(d);
-                        }
-                    }
+                    fresh.AddRange(current.WhereNotNull());
 
                     _disposables = fresh;
                 }
@@ -198,14 +169,13 @@ namespace GameDotNet.Core.Tools
 
             // if we get here, the item was found and removed from the list
             // just dispose it and report success
-
             item.Dispose();
 
             return true;
         }
 
         /// <summary>
-        /// Removes and disposes all disposables from the <see cref="CompositeDisposable"/>, but does not dispose the <see cref="CompositeDisposable"/>.
+        /// Removes and disposes all disposables from the <see cref="DisposableList"/>, but does not dispose the <see cref="DisposableList"/>.
         /// </summary>
         public void Clear()
         {
@@ -215,9 +185,7 @@ namespace GameDotNet.Core.Tools
             {
                 // disposed composites are always clear
                 if (_disposed)
-                {
                     return;
-                }
 
                 var current = _disposables;
 
@@ -228,23 +196,19 @@ namespace GameDotNet.Core.Tools
             }
 
             foreach (var d in previousDisposables)
-            {
                 d?.Dispose();
-            }
         }
 
         /// <summary>
-        /// Determines whether the <see cref="CompositeDisposable"/> contains a specific disposable.
+        /// Determines whether the <see cref="DisposableList"/> contains a specific disposable.
         /// </summary>
         /// <param name="item">Disposable to search for.</param>
         /// <returns>true if the disposable was found; otherwise, false.</returns>
         /// <exception cref="ArgumentNullException"><paramref name="item"/> is <c>null</c>.</exception>
         public bool Contains(IDisposable item)
         {
-            if (item == null)
-            {
+            if (item is null)
                 throw new ArgumentNullException(nameof(item));
-            }
 
             lock (_gate)
             {
@@ -253,7 +217,7 @@ namespace GameDotNet.Core.Tools
         }
 
         /// <summary>
-        /// Copies the disposables contained in the <see cref="CompositeDisposable"/> to an array, starting at a particular array index.
+        /// Copies the disposables contained in the <see cref="DisposableList"/> to an array, starting at a particular array index.
         /// </summary>
         /// <param name="array">Array to copy the contained disposables to.</param>
         /// <param name="arrayIndex">Target index at which to copy the first disposable of the group.</param>
@@ -261,39 +225,28 @@ namespace GameDotNet.Core.Tools
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="arrayIndex"/> is less than zero. -or - <paramref name="arrayIndex"/> is larger than or equal to the array length.</exception>
         public void CopyTo(IDisposable[] array, int arrayIndex)
         {
-            if (array == null)
-            {
+            if (array is null)
                 throw new ArgumentNullException(nameof(array));
-            }
 
             if (arrayIndex < 0 || arrayIndex >= array.Length)
-            {
                 throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-            }
 
             lock (_gate)
             {
                 // disposed composites are always empty
                 if (_disposed)
-                {
                     return;
-                }
 
                 if (arrayIndex + _count > array.Length)
-                {
                     // there is not enough space beyond arrayIndex 
                     // to accommodate all _count disposables in this composite
                     throw new ArgumentOutOfRangeException(nameof(arrayIndex));
-                }
 
                 var i = arrayIndex;
 
-                foreach (var d in _disposables)
+                foreach (var d in _disposables.WhereNotNull())
                 {
-                    if (d != null)
-                    {
-                        array[i++] = d;
-                    }
+                    array[i++] = d;
                 }
             }
         }
@@ -304,7 +257,7 @@ namespace GameDotNet.Core.Tools
         public bool IsReadOnly => false;
 
         /// <summary>
-        /// Returns an enumerator that iterates through the <see cref="CompositeDisposable"/>.
+        /// Returns an enumerator that iterates through the <see cref="DisposableList"/>.
         /// </summary>
         /// <returns>An enumerator to iterate over the disposables.</returns>
         public IEnumerator<IDisposable> GetEnumerator()
@@ -323,7 +276,7 @@ namespace GameDotNet.Core.Tools
         }
 
         /// <summary>
-        /// Returns an enumerator that iterates through the <see cref="CompositeDisposable"/>.
+        /// Returns an enumerator that iterates through the <see cref="DisposableList"/>.
         /// </summary>
         /// <returns>An enumerator to iterate over the disposables.</returns>
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -359,32 +312,6 @@ namespace GameDotNet.Core.Tools
             }
         }
 
-        private static List<IDisposable?> ToList(IEnumerable<IDisposable> disposables)
-        {
-            var capacity = disposables switch
-            {
-                IDisposable[] a => a.Length,
-                ICollection<IDisposable> c => c.Count,
-                _ => DefaultCapacity
-            };
-
-            var list = new List<IDisposable?>(capacity);
-
-            // do the copy and null-check in one step to avoid a
-            // second loop for just checking for null items
-            foreach (var d in disposables)
-            {
-                if (d == null)
-                {
-                    throw new ArgumentException("Disposable can't be null", nameof(disposables));
-                }
-
-                list.Add(d);
-            }
-
-            return list;
-        }
-
         /// <summary>
         /// An enumerator for an array of disposables.
         /// </summary>
@@ -403,6 +330,7 @@ namespace GameDotNet.Core.Tools
 
             object IEnumerator.Current => _disposables[_index]!;
 
+            [SuppressMessage("ReSharper", "InlineTemporaryVariable")]
             public void Dispose()
             {
                 // Avoid retention of the referenced disposables
@@ -422,15 +350,11 @@ namespace GameDotNet.Core.Tools
                     var idx = ++_index;
 
                     if (idx >= disposables.Length)
-                    {
                         return false;
-                    }
 
                     // inlined that filter for null elements
                     if (disposables[idx] != null)
-                    {
                         return true;
-                    }
                 }
             }
 

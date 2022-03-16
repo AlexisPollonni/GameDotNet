@@ -1,4 +1,4 @@
-using GameDotNet.Core.Tools;
+using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.Vulkan;
 
@@ -28,7 +28,7 @@ public class PipelineBuilder
 
     public unsafe VulkanPipeline Build(PipelineOptions options)
     {
-        using var d = new CompositeDisposable();
+        using var d = new DisposableList();
 
         var shaderStages = options.ShaderStages.Select(shader => shader.GetPipelineShaderInfo()).ToArray();
         var vertexCreateInfo = CreateVertexInputStageInfo(options.VertexInputDescription);
