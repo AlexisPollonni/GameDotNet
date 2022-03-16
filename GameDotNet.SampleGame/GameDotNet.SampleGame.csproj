@@ -22,4 +22,8 @@
         <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <RdXmlFile Include="Rd.xml"/>
+    </ItemGroup>
+
 </Project>
