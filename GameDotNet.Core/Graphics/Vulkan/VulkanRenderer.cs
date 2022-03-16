@@ -43,7 +43,6 @@ public sealed class VulkanRenderer : IDisposable
 
     private readonly Thread _renderThread;
     private readonly GlfwCallbacks.WindowRefreshCallback _refreshCallback;
-    private readonly object _swapchainRecreateLock = new();
 
     public VulkanRenderer(IView window)
     {
@@ -54,10 +53,7 @@ public sealed class VulkanRenderer : IDisposable
         {
             while (!_window.IsClosing)
             {
-                lock (_swapchainRecreateLock)
-                {
-                    Draw(0);
-                }
+                Draw(0);
             }
         })
         {
@@ -65,17 +61,6 @@ public sealed class VulkanRenderer : IDisposable
         };
 
         _window.Load += Initialize;
-
-        unsafe
-        {
-            _refreshCallback = _ =>
-            {
-                lock (_swapchainRecreateLock)
-                {
-                    RecreateSwapChain();
-                }
-            };
-        }
     }
 
     private static ref readonly AllocationCallbacks NullAlloc => ref Unsafe.NullRef<AllocationCallbacks>();
@@ -131,13 +116,13 @@ public sealed class VulkanRenderer : IDisposable
     private void InitVulkan()
     {
         _instance = new InstanceBuilder
-            {
-                ApplicationName = "App",
-                EngineName = "GamesDotNet",
-                EngineVersion = new Version32(0, 0, 1),
-                RequiredApiVersion = Vk.Version11,
-                Extensions = GetGlfwRequiredVulkanExtensions(),
-                IsHeadless = false,
+                    {
+                        ApplicationName = "App",
+                        EngineName = "GamesDotNet",
+                        EngineVersion = new Version32(0, 0, 1),
+                        RequiredApiVersion = Vk.Version11,
+                        Extensions = GetGlfwRequiredVulkanExtensions(),
+                        IsHeadless = false,
 #if DEBUG
                         EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
                         {
@@ -148,11 +133,11 @@ public sealed class VulkanRenderer : IDisposable
                         },
                         IsValidationLayersRequested = true
 #endif
-            }
+                    }
 #if DEBUG
                     .UseDefaultDebugMessenger()
 #endif
-            .Build();
+                    .Build();
 
         _surface = CreateSurface(_window);
 
@@ -317,7 +302,7 @@ public sealed class VulkanRenderer : IDisposable
         vk.WaitForFences(_device, 1, _renderFence, true, 1000000000);
 
         var res = _swapchain!.AcquireNextImage(1000000000, _presentSemaphore, null, out var swImgIndex);
-        if (res is Result.ErrorOutOfDateKhr)
+        if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
         {
             RecreateSwapChain();
             return;
@@ -388,7 +373,6 @@ public sealed class VulkanRenderer : IDisposable
             res = _swapchain.QueuePresent(_graphicsQueue, presentInfo);
             if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
             {
-                RecreateSwapChain();
                 return;
             }
 
