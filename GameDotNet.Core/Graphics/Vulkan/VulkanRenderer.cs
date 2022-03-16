@@ -423,14 +423,15 @@ public sealed class VulkanRenderer : IDisposable
         allocation.Unmap();
     }
 
-    private static IEnumerable<string> GetGlfwRequiredVulkanExtensions()
+    private IEnumerable<string> GetGlfwRequiredVulkanExtensions()
     {
         unsafe
         {
-            var ppExtensions = Glfw.GetApi().GetRequiredInstanceExtensions(out var count);
+            Debug.Assert(_window.VkSurface != null, "_window.VkSurface != null");
+            var ppExtensions = _window.VkSurface.GetRequiredExtensions(out var count);
 
             if (ppExtensions is null)
-                throw new PlatformException("GLFW vulkan extensions for windowing not available");
+                throw new PlatformException("Vulkan extensions for windowing not available");
             return SilkMarshal.PtrToStringArray((nint)ppExtensions, (int)count);
         }
     }
