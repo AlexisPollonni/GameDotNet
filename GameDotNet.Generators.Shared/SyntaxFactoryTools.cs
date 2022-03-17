@@ -4,7 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
-namespace GameDotNet.Generators.Shader;
+namespace GameDotNet.Generators.Shared;
 
 public static class SyntaxFactoryTools
 {
@@ -29,6 +29,11 @@ public static class SyntaxFactoryTools
                 return FileScopedNamespaceDeclaration(name);
             }
         }
+    }
+
+    public static CompilationUnitSyntax WithUsings(this CompilationUnitSyntax cu, params string[] usings)
+    {
+        return cu.WithUsings(new(usings.Select(s => UsingDirective(IdentifierName(s)))));
     }
 
     public static FieldDeclarationSyntax IntFieldWithInit(string name, int init) =>

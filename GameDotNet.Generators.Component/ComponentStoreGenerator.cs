@@ -4,7 +4,10 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+using static GameDotNet.Generators.Shared.SyntaxFactoryTools;
 
 namespace GameDotNet.Generators.Component
 {
@@ -19,7 +22,7 @@ namespace GameDotNet.Generators.Component
             _diagnosticReporter = diagnosticReporter;
         }
 
-        public void Execute(INamedTypeSymbol componentInterface, INamedTypeSymbol componentStoreInterface)
+        public void Execute(INamedTypeSymbol componentInterface, INamedTypeSymbol componentStoreBase)
         {
             // Gets the classes that implement IComponent
             var implementedComponents
@@ -29,16 +32,14 @@ namespace GameDotNet.Generators.Component
 
 
             var components = new List<Component>();
-            foreach (var componentSymbol in implementedComponents)
+            foreach (var component in implementedComponents.Where(componentSymbol => !componentSymbol.IsGenericType)
+                                                           .Select(componentSymbol => new Component(componentSymbol)))
             {
-                if (componentSymbol.IsGenericType) break;
-
-                var component = new Component(componentSymbol);
-                components.Add(component);
                 component.VariableName = GetVariableName(component, components);
+                components.Add(component);
             }
 
-            GenerateComponentStore(components, componentStoreInterface);
+            GenerateComponentStore(components, componentStoreBase);
         }
 
         private static string GetVariableName(Component component, IReadOnlyCollection<Component> components)
@@ -59,71 +60,45 @@ namespace GameDotNet.Generators.Component
         }
 
         private void GenerateComponentStore(IReadOnlyCollection<Component> components,
-                                            INamedTypeSymbol componentStoreInterface)
+                                            INamedTypeSymbol componentStoreBase)
         {
-            var generatedSource = $@"
-using System;
-using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using GameDotNet.Core.ECS;
+            var cu = CompilationUnit()
+                     .WithUsings("System",
+                                 "System.Collections.Generic",
+                                 "System.Runtime.CompilerServices",
+                                 "GameDotNet.Core.ECS",
+                                 "GameDotNet.Core.Tools.Containers")
+                     .AddMembers(UsingFileScoped("GameDotNet", "Core", "ECS", "Generated"),
+                                 ClassDeclaration("ComponentStore")
+                                     .AddModifiers(Token(SyntaxKind.InternalKeyword))
+                                     .AddMembers(GenerateFields(components).ToArray())
+                                     .AddMembers(GenerateListAccessor(components))
+                                     .AddBaseListTypes(SimpleBaseType(IdentifierName(componentStoreBase.Name))));
 
-namespace GameDotNet.Core.ECS.Generated
-{{
-    public class ComponentStore : {componentStoreInterface}
-    {{
-{GenerateFields(components).AddTabulations(2).ConcatLines()}
+            var tree = SyntaxTree(cu.NormalizeWhitespace(), encoding: Encoding.UTF8);
 
-        public ulong Add<T>() where T : struct, IComponent
-        {{
-            ref var l = ref GetList<T>();
-
-            var c = new T();
-            l.Add(in c);
-
-            return l.Count - 1;
-        }}
-
-        public ulong Add<T>(in T component) where T : struct, IComponent
-        {{
-            ref var l = ref GetList<T>();
-
-            l.Add(component);
-            return l.Count - 1;
-        }}
-
-        public ref T Get<T>(ulong index) where T : struct, IComponent =>
-            ref GetList<T>()[index];
-
-{GenerateListAccessor(components).AddTabulations(2).ConcatLines()}
-    }}
-}}";
-
-            _context.AddSource("ComponentStore.g.cs", SourceText.From(generatedSource, Encoding.UTF8));
+            _context.AddSource("ComponentStore.g.cs", tree.GetText());
         }
 
-        private static IEnumerable<string> GenerateFields(IEnumerable<Component> components) =>
-            components.Select(
-                              component =>
-                                  $"private RefStructList<{component.ComponentType}> {component.VariableName} = new ();");
+        private static IEnumerable<MemberDeclarationSyntax> GenerateFields(IEnumerable<Component> components) =>
+            components.Select(component =>
+                                  ParseMemberDeclaration($"private RefStructList<{component.ComponentType}> {component.VariableName} = new ();"));
 
-        private static IEnumerable<string> GenerateListAccessor(IReadOnlyCollection<Component> components)
+        private static MethodDeclarationSyntax GenerateListAccessor(IEnumerable<Component> components)
         {
-            var body = components.Select(c => new[]
-                                 {
-                                     $"if (typeof(T) == typeof({c.ComponentType}))",
-                                     $"return ref Unsafe.As<RefStructList<{c.ComponentType}>, RefStructList<T>>(ref {c.VariableName});"
-                                         .AddTabulation()
-                                 })
-                                 .SelectMany(e => e)
-                                 .Append(Environment.NewLine)
-                                 .Append(
-                                         "throw new InvalidOperationException($\"Type {typeof(T).FullName} was not found in the component store, this shouldn't happen.\");");
+            var ifConditions = components.Select(c =>
+                                                     IfStatement(ParseExpression($"typeof(T) == typeof({c.ComponentType})"),
+                                                                 ParseStatement($"return ref Unsafe.As<RefStructList<{c.ComponentType}>, RefStructList<T>>(ref {c.VariableName});")));
 
-            return Enumerable.Empty<string>()
-                             .Append("private ref RefStructList<T> GetList<T>() where T : struct, IComponent")
-                             .Append("{")
-                             .Concat(body.AddTabulations())
-                             .Append("}");
+            var throwEnd =
+                ParseStatement("throw new InvalidOperationException($\"Type {typeof(T).FullName} was not found in the component store, this shouldn't happen.\");");
+
+            return MethodDeclaration(RefType(GenericName("RefStructList")
+                                                 .AddTypeArgumentListArguments(IdentifierName("T"))), "GetList")
+                   .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.OverrideKeyword))
+                   .AddTypeParameterListParameters(TypeParameter("T"))
+                   .WithBody(Block(ifConditions)
+                                 .AddStatements(throwEnd));
         }
     }
 }

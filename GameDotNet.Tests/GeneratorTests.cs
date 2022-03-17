@@ -24,7 +24,7 @@ public class GeneratorTests
     {
         // Create the 'input' compilation that the generator will act on
         var inputCompilation = CreateCompilation(@"
-using Core.ECS;
+using GameDotNet.Core.ECS;
 
 namespace ClassLibrary;
 
@@ -73,13 +73,13 @@ public struct TestComponentInClass : IComponent
     [Order(2)]
     public void ComponentStoreTest()
     {
-        var storeType = _generatedAssembly!.GetType("Core.ECS.Generated.ComponentStore");
+        var storeType = _generatedAssembly!.GetType("GameDotNet.Core.ECS.Generated.ComponentStore");
         Assert.IsNotNull(storeType, "Couldn't find component store type");
 
         var testComponentInClassType = _generatedAssembly.GetType("ClassLibrary.TestComponentInClass");
         Assert.IsNotNull(testComponentInClassType, "Couldn't find input test component type");
 
-        var store = Activator.CreateInstance(storeType!) as IComponentStore;
+        var store = Activator.CreateInstance(storeType!) as ComponentStoreBase;
         Assert.IsNotNull(store, "Couldn't instantiate generated component store type");
 
         for (var i = 0; i < 1000; i++)

@@ -9,7 +9,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using shaderc;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
-using static GameDotNet.Generators.Shader.SyntaxFactoryTools;
+using static GameDotNet.Generators.Shared.SyntaxFactoryTools;
 
 namespace GameDotNet.Generators.Shader;
 

@@ -13,11 +13,18 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generators", "Generators", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.Generators.Component", "GameDotNet.Generators.Component\GameDotNet.Generators.Component.csproj", "{05DB94D8-781E-4F0B-8342-5F502704E41D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.Generators.Shader", "GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj", "{1F511BAA-4256-4E85-816A-D2CE60F2F0C1}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.Generators.Shader", "GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj", "{1F511BAA-4256-4E85-816A-D2CE60F2F0C1}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.SampleGame", "GameDotNet.SampleGame\GameDotNet.SampleGame.csproj", "{FFACFDC3-5E18-422A-945C-BB1BE982E9A9}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.SampleGame", "GameDotNet.SampleGame\GameDotNet.SampleGame.csproj", "{FFACFDC3-5E18-422A-945C-BB1BE982E9A9}"
+EndProject
+Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "GameDotNet.Generators.Shared", "GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.shproj", "{2F8C763B-0E95-4DA6-8C9D-55E5865ED538}"
 EndProject
 Global
+	GlobalSection(SharedMSBuildProjectFiles) = preSolution
+		GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.projitems*{05db94d8-781e-4f0b-8342-5f502704e41d}*SharedItemsImports = 5
+		GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.projitems*{1f511baa-4256-4e85-816a-d2ce60f2f0c1}*SharedItemsImports = 5
+		GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.projitems*{2f8c763b-0e95-4da6-8c9d-55e5865ed538}*SharedItemsImports = 13
+	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -54,6 +61,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{05DB94D8-781E-4F0B-8342-5F502704E41D} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
 		{1F511BAA-4256-4E85-816A-D2CE60F2F0C1} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
+		{2F8C763B-0E95-4DA6-8C9D-55E5865ED538} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {051079D1-B2BB-4FF3-99C6-EE9B3D05E696}

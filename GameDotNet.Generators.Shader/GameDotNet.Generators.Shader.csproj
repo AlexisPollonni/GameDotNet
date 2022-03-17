@@ -28,4 +28,6 @@
     </ItemGroup>
   </Target>
 
+  <Import Project="..\GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.projitems" Label="Shared"/>
+
 </Project>

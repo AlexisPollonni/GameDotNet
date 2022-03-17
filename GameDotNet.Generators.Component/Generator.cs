@@ -20,17 +20,18 @@ namespace GameDotNet.Generators.Component
                 return;
             }
 
-            var storeInterface = context.Compilation.GetTypeByMetadataName("GameDotNet.Core.ECS.IComponentStore");
-            if (storeInterface is null)
+            var storeBase = context.Compilation.GetTypeByMetadataName("GameDotNet.Core.ECS.ComponentStoreBase");
+            if (storeBase is null)
             {
-                diagnosticReporter.ReportError("Type GameDotNet.ECS.IComponentStore not found, this shouldn't happen",
-                                               "Please make sure the Core package is included");
+                diagnosticReporter
+                    .ReportError("Type GameDotNet.ECS.ComponentStoreBase not found, this shouldn't happen",
+                                 "Please make sure the Core package is included");
                 return;
             }
 
-            var storeGenerator = new ComponentStoreGenerator(in context, diagnosticReporter);
+            var storeGenerator = new ComponentStoreGenerator(context, diagnosticReporter);
 
-            storeGenerator.Execute(componentInterface, storeInterface);
+            storeGenerator.Execute(componentInterface, storeBase);
         }
     }
 }
