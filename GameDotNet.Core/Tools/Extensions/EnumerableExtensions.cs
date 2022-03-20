@@ -10,4 +10,22 @@ public static class EnumerableExtensions
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static IEnumerable<(T Item, int Index)> WithIndex<T>(this IEnumerable<T> source) =>
         source.Select((item, i) => (item, i));
+
+    public static void Resize<T>(this List<T> list, int size, T defaultVal)
+    {
+        var count = list.Count;
+
+        if (size < count)
+        {
+            list.RemoveRange(size, count - size);
+        }
+        else if (size > count)
+        {
+            if (size > list.Capacity)
+                list.Capacity = size;
+            list.AddRange(Enumerable.Repeat(defaultVal, size - count));
+        }
+    }
+
+    public static void Resize<T>(this List<T> list, int size) => list.Resize(size, default!);
 }

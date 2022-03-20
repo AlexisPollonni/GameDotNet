@@ -1,4 +1,8 @@
-﻿using Microsoft.CodeAnalysis;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using Microsoft.CodeAnalysis;
 
 namespace GameDotNet.Generators.Component
 {
@@ -30,8 +34,51 @@ namespace GameDotNet.Generators.Component
             }
 
             var storeGenerator = new ComponentStoreGenerator(context, diagnosticReporter);
+            var maskGenerator = new ComponentMaskGenerator(context, diagnosticReporter);
 
-            storeGenerator.Execute(componentInterface, storeBase);
+            var components = FindComponents(context.Compilation, componentInterface, diagnosticReporter)
+                .ToArray();
+
+            storeGenerator.Execute(storeBase, components);
+            maskGenerator.Execute();
+        }
+
+        private static IEnumerable<Component> FindComponents(Compilation comp, INamedTypeSymbol compInterface,
+                                                             DiagnosticReporter diag)
+        {
+            // Gets the classes that implement IComponent
+            var implementedComponents
+                = Helpers.FindImplementations(compInterface, comp).ToImmutableList();
+            diag.ReportInfo($"Found {implementedComponents.Count} types implementing IComponent",
+                            $"Found types : {implementedComponents.Select(symbol => symbol.ToString()).Aggregate((s1, s2) => s1 + ", " + s2)}");
+
+
+            var components = new List<Component>();
+            foreach (var component in implementedComponents.Where(componentSymbol => !componentSymbol.IsGenericType)
+                                                           .Select(componentSymbol => new Component(componentSymbol)))
+            {
+                component.VariableName = GetVariableName(component, components);
+                components.Add(component);
+            }
+
+            return components;
+        }
+
+        private static string GetVariableName(Component component, IReadOnlyCollection<Component> components)
+        {
+            var typeName = component.ComponentType.ToString();
+
+            var parts = typeName.Split('.');
+            for (var i = parts.Length - 1; i >= 0; i--)
+            {
+                var candidate = string.Join("", parts.Skip(i));
+                candidate = "_" + char.ToLowerInvariant(candidate[0]) + candidate.Substring(1);
+                if (components.Any(f => string.Equals(f.VariableName, candidate, StringComparison.Ordinal))) continue;
+                typeName = candidate;
+                break;
+            }
+
+            return typeName;
         }
     }
 }

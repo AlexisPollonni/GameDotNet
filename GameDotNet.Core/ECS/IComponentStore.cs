@@ -1,8 +1,6 @@
-﻿using GameDotNet.Core.Tools.Containers;
-
-namespace GameDotNet.Core.ECS;
+﻿namespace GameDotNet.Core.ECS;
 
 public interface IComponentStore
 {
-    ref RefStructList<T> GetList<T>() where T : struct, IComponent;
+    ref ComponentPool<T> GetPool<T>() where T : struct, IComponent;
 }

@@ -4,7 +4,7 @@ namespace GameDotNet.Core.Tools.Containers;
 
 public struct RefStructList<T> where T : struct
 {
-    public ref T this[ulong index]
+    public ref T this[int index]
     {
         get
         {
@@ -15,20 +15,20 @@ public struct RefStructList<T> where T : struct
     }
 
     public bool IsReadOnly => _data.IsReadOnly;
-    public ulong Count { get; private set; }
+    public int Count { get; private set; }
 
     // Gets and sets the capacity of this list.  The capacity is the size of
     // the internal array used to hold items.  When set, the internal
     // array of the list is reallocated to the given capacity.
     //
-    public ulong Capacity
+    public int Capacity
     {
-        get => (ulong)_data.Length;
+        get => _data.Length;
         set
         {
             if (value < Count) throw new ArgumentOutOfRangeException(nameof(value));
 
-            if (value == (ulong)_data.Length) return;
+            if (value == _data.Length) return;
 
             if (value > 0)
             {
@@ -43,7 +43,7 @@ public struct RefStructList<T> where T : struct
         }
     }
 
-    private const ulong DefaultCapacity = 10;
+    private const int DefaultCapacity = 10;
 
     private static readonly T[] DefaultArray = new T[DefaultCapacity];
     private T[] _data;
@@ -55,9 +55,16 @@ public struct RefStructList<T> where T : struct
         Capacity = DefaultCapacity;
     }
 
+    public RefStructList(int capacity)
+    {
+        Count = 0;
+        _data = new T[capacity];
+        Capacity = capacity;
+    }
+
     public void Add(in T item)
     {
-        if (Count < (ulong)_data.LongLength)
+        if (Count < _data.LongLength)
         {
             _data[Count] = item;
             Count++;
@@ -71,12 +78,12 @@ public struct RefStructList<T> where T : struct
         }
     }
 
-    public void RemoveAt(ulong index)
+    public void RemoveAt(int index)
     {
         if (index >= Count) throw new ArgumentOutOfRangeException(nameof(index));
 
         Count--;
-        if (index < Count) Array.Copy(_data, (long)index + 1, _data, (long)index, (long)(Count - index));
+        if (index < Count) Array.Copy(_data, (long)index + 1, _data, index, Count - index);
     }
 
     public void Clear()
@@ -88,15 +95,15 @@ public struct RefStructList<T> where T : struct
     ///     Increase the capacity of this list to at least the specified <paramref name="capacity" />.
     /// </summary>
     /// <param name="capacity">The minimum capacity to ensure.</param>
-    private void Grow(ulong capacity)
+    private void Grow(int capacity)
     {
-        Debug.Assert((ulong)_data.LongLength < capacity);
+        Debug.Assert(_data.LongLength < capacity);
 
-        var newCapacity = 2 * (ulong)_data.LongLength;
+        var newCapacity = 2 * _data.Length;
 
         // Allow the list to grow to maximum possible capacity (~2G elements) before encountering overflow.
         // Note that this check works even when _items.Length overflowed thanks to the (uint) cast
-        if (newCapacity > (ulong)Array.MaxLength) newCapacity = (ulong)Array.MaxLength;
+        if (newCapacity > (uint)Array.MaxLength) newCapacity = Array.MaxLength;
 
         // If the computed capacity is still less than specified, set to the original argument.
         // Capacities exceeding Array.MaxLength will be surfaced as OutOfMemoryException by Array.Resize.
@@ -104,4 +111,8 @@ public struct RefStructList<T> where T : struct
 
         Capacity = newCapacity;
     }
+
+    public Span<T> AsSpan() => _data.AsSpan();
+
+    public readonly ReadOnlySpan<T> AsReadOnlySpan() => _data.AsSpan();
 }

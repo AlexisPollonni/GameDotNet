@@ -1,6 +1,6 @@
 using System;
 using GameDotNet.Core.ECS;
-using GameDotNet.Core.Physics;
+using GameDotNet.Core.Physics.Components;
 using NUnit.Framework;
 
 namespace GameDotNet.Tests;
@@ -13,7 +13,7 @@ public class TypeIdTests
     {
         var t = TypeId.Get<TestComponent>();
         var tt = TypeId<TestComponent>.Get;
-        var t2 = TypeId<Transform3DComponent>.Get;
+        var t2 = TypeId<Translation>.Get;
 
         Console.WriteLine($"TypeId #1: {t.Id} - {t.Name}");
 

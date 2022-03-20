@@ -2,6 +2,17 @@
 
 public readonly struct EntityId
 {
-    public ulong Id { get; init; }
-    public uint Reuse { get; init; }
+    public EntityId(int index, uint version)
+    {
+        Index = index;
+        Version = version;
+    }
+
+    public EntityId(int index) : this()
+    {
+        Index = index;
+    }
+
+    public int Index { get; }
+    public uint Version { get; }
 }

@@ -1,29 +1,21 @@
-using GameDotNet.Core.Tools.Containers;
-
 namespace GameDotNet.Core.ECS;
 
 public abstract class ComponentStoreBase : IComponentStore
 {
-    public abstract ref RefStructList<T> GetList<T>() where T : struct, IComponent;
+    public abstract ref ComponentPool<T> GetPool<T>() where T : struct, IComponent;
 
-    public ulong Add<T>() where T : struct, IComponent
-    {
-        ref var l = ref GetList<T>();
+    public void Add<T>(in EntityId id) where T : struct, IComponent
+        => GetPool<T>().Add(id);
 
-        var c = new T();
-        l.Add(in c);
+    public void Add<T>(in EntityId id, in T component) where T : struct, IComponent
+        => GetPool<T>().Add(id, component);
 
-        return l.Count - 1;
-    }
+    public void Remove<T>(in EntityId id) where T : struct, IComponent
+        => GetPool<T>().Remove(id);
 
-    public ulong Add<T>(in T component) where T : struct, IComponent
-    {
-        ref var l = ref GetList<T>();
+    public ref T Get<T>(in EntityId id) where T : struct, IComponent
+        => ref GetPool<T>().Get(id);
 
-        l.Add(component);
-        return l.Count - 1;
-    }
-
-    public ref T Get<T>(ulong index) where T : struct, IComponent =>
-        ref GetList<T>()[index];
+    public bool Has<T>(in EntityId id) where T : struct, IComponent
+        => GetPool<T>().Has(id);
 }

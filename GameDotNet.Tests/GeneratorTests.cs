@@ -85,12 +85,12 @@ public struct TestComponentInClass : IComponent
         for (var i = 0; i < 1000; i++)
         {
             var c = new TestComponent { Index = i };
-            store!.Add(in c);
+            store!.Add(new(i), c);
         }
 
-        for (ulong i = 0; i < 1000; i++)
+        for (var i = 0; i < 1000; i++)
         {
-            ref var c = ref store!.Get<TestComponent>(i);
+            ref var c = ref store!.Get<TestComponent>(new(i));
             Assert.AreEqual(i, c.Index, "Continuity error in component insertion");
         }
     }

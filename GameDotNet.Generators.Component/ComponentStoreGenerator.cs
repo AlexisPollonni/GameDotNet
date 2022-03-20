@@ -1,6 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -22,41 +20,9 @@ namespace GameDotNet.Generators.Component
             _diagnosticReporter = diagnosticReporter;
         }
 
-        public void Execute(INamedTypeSymbol componentInterface, INamedTypeSymbol componentStoreBase)
+        public void Execute(INamedTypeSymbol componentStoreBase, IReadOnlyCollection<Component> components)
         {
-            // Gets the classes that implement IComponent
-            var implementedComponents
-                = Helpers.FindImplementations(componentInterface, _context.Compilation).ToImmutableList();
-            _diagnosticReporter.ReportInfo($"Found {implementedComponents.Count} types implementing IComponent",
-                                           $"Found types : {implementedComponents.Select(symbol => symbol.ToString()).Aggregate((s1, s2) => s1 + ", " + s2)}");
-
-
-            var components = new List<Component>();
-            foreach (var component in implementedComponents.Where(componentSymbol => !componentSymbol.IsGenericType)
-                                                           .Select(componentSymbol => new Component(componentSymbol)))
-            {
-                component.VariableName = GetVariableName(component, components);
-                components.Add(component);
-            }
-
             GenerateComponentStore(components, componentStoreBase);
-        }
-
-        private static string GetVariableName(Component component, IReadOnlyCollection<Component> components)
-        {
-            var typeName = component.ComponentType.ToString();
-
-            var parts = typeName.Split('.');
-            for (var i = parts.Length - 1; i >= 0; i--)
-            {
-                var candidate = string.Join("", parts.Skip(i));
-                candidate = "_" + char.ToLowerInvariant(candidate[0]) + candidate.Substring(1);
-                if (components.Any(f => string.Equals(f.VariableName, candidate, StringComparison.Ordinal))) continue;
-                typeName = candidate;
-                break;
-            }
-
-            return typeName;
         }
 
         private void GenerateComponentStore(IReadOnlyCollection<Component> components,
@@ -82,19 +48,19 @@ namespace GameDotNet.Generators.Component
 
         private static IEnumerable<MemberDeclarationSyntax> GenerateFields(IEnumerable<Component> components) =>
             components.Select(component =>
-                                  ParseMemberDeclaration($"private RefStructList<{component.ComponentType}> {component.VariableName} = new ();"));
+                                  ParseMemberDeclaration($"private ComponentPool<{component.ComponentType}> {component.VariableName} = new ();"));
 
         private static MethodDeclarationSyntax GenerateListAccessor(IEnumerable<Component> components)
         {
             var ifConditions = components.Select(c =>
                                                      IfStatement(ParseExpression($"typeof(T) == typeof({c.ComponentType})"),
-                                                                 ParseStatement($"return ref Unsafe.As<RefStructList<{c.ComponentType}>, RefStructList<T>>(ref {c.VariableName});")));
+                                                                 ParseStatement($"return ref Unsafe.As<ComponentPool<{c.ComponentType}>, ComponentPool<T>>(ref {c.VariableName});")));
 
             var throwEnd =
                 ParseStatement("throw new InvalidOperationException($\"Type {typeof(T).FullName} was not found in the component store, this shouldn't happen.\");");
 
-            return MethodDeclaration(RefType(GenericName("RefStructList")
-                                                 .AddTypeArgumentListArguments(IdentifierName("T"))), "GetList")
+            return MethodDeclaration(RefType(GenericName("ComponentPool")
+                                                 .AddTypeArgumentListArguments(IdentifierName("T"))), "GetPool")
                    .AddModifiers(Token(SyntaxKind.PublicKeyword), Token(SyntaxKind.OverrideKeyword))
                    .AddTypeParameterListParameters(TypeParameter("T"))
                    .WithBody(Block(ifConditions)

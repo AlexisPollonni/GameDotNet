@@ -35,7 +35,7 @@ namespace GameDotNet.Generators.Component
 
         public static IEnumerable<T> SkipLast<T>(this IEnumerable<T> source, int n)
         {
-            var it = source.GetEnumerator();
+            using var it = source.GetEnumerator();
             bool hasRemainingItems;
             var cache = new Queue<T>(n + 1);
 
