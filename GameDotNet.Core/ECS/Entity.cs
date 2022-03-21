@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-namespace GameDotNet.Core.ECS;
+﻿namespace GameDotNet.Core.ECS;
 
 public readonly struct Entity
 {
@@ -14,22 +12,18 @@ public readonly struct Entity
         _store = store;
     }
 
-    public ref readonly Entity Add<T>() where T : struct, IComponent
+    public Entity Add<T>() where T : struct, IComponent
     {
-        unsafe
-        {
-            _store.Add<T>(Id);
+        _store.Add<T>(Id);
 
-            ref readonly var e = ref this;
-            var p = Unsafe.AsPointer(ref Unsafe.AsRef(this));
-
-            return ref Unsafe.AsRef<Entity>(p);
-        }
+        return this;
     }
 
-    public void Add<T>(in T component) where T : struct, IComponent
+    public Entity Add<T>(in T component) where T : struct, IComponent
     {
         _store.Add(Id, component);
+
+        return this;
     }
 
     public void Remove<T>() where T : struct, IComponent
