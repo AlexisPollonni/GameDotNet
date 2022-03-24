@@ -4,16 +4,17 @@ public class EntityManager
 {
     private readonly List<EntityId> _entities;
     private readonly Queue<EntityId> _deleted;
-    private readonly ComponentStoreBase _componentStore;
+    private readonly World _world;
 
-    public EntityManager(ComponentStoreBase store)
+    public EntityManager(World world)
     {
+        _world = world;
+
         _entities = new();
         _deleted = new();
-        _componentStore = store;
     }
 
-    public Entity Get(EntityId id)
+    public Entity Get(in EntityId id)
     {
         if (id.Index >= _entities.Count)
             throw new ArgumentOutOfRangeException(nameof(id), "Entity id is not present in manager");
@@ -22,7 +23,7 @@ public class EntityManager
             throw new ArgumentOutOfRangeException(nameof(id),
                                                   "Manager contains entity at same index with different version, it's possible collection change while accessing");
 
-        return new(_componentStore, id);
+        return new(_world.ComponentStore, id);
     }
 
     public Entity CreateEntity()
@@ -39,6 +40,6 @@ public class EntityManager
             _entities.Add(newId);
         }
 
-        return new(_componentStore, newId);
+        return new(_world.ComponentStore, newId);
     }
 }
