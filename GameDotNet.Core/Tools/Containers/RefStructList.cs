@@ -112,7 +112,7 @@ public struct RefStructList<T> where T : struct
         Capacity = newCapacity;
     }
 
-    public Span<T> AsSpan() => _data.AsSpan();
+    public Span<T> AsSpan() => _data.AsSpan(..Count);
 
-    public readonly ReadOnlySpan<T> AsReadOnlySpan() => _data.AsSpan();
+    public readonly ReadOnlySpan<T> AsReadOnlySpan() => _data.AsSpan(..Count);
 }
