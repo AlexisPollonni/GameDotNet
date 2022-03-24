@@ -1,4 +1,6 @@
-﻿namespace GameDotNet.Core.ECS;
+﻿using GameDotNet.Core.ECS.Components;
+
+namespace GameDotNet.Core.ECS;
 
 public class EntityManager
 {
@@ -26,7 +28,7 @@ public class EntityManager
         return new(_world.ComponentStore, id);
     }
 
-    public Entity CreateEntity()
+    public Entity CreateEntity(string name = "Unnamed")
     {
         EntityId newId;
         if (_deleted.TryDequeue(out var oldId))
@@ -40,6 +42,21 @@ public class EntityManager
             _entities.Add(newId);
         }
 
-        return new(_world.ComponentStore, newId);
+        var entity = new Entity(_world.ComponentStore, newId);
+
+        entity.Add(new Tag(name));
+        entity.Add<Parented>();
+
+        return entity;
+    }
+
+    public ReadOnlySpan<Entity> CreateEntities(int count)
+    {
+        var l = new Entity[count];
+        for (var i = 0; i < count; i++)
+            //TODO: Batch create entities
+            l[i] = CreateEntity();
+
+        return l;
     }
 }

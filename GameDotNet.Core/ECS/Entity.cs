@@ -1,8 +1,16 @@
-﻿namespace GameDotNet.Core.ECS;
+﻿using GameDotNet.Core.ECS.Components;
+using Microsoft.Toolkit.HighPerformance;
+
+namespace GameDotNet.Core.ECS;
 
 public readonly struct Entity
 {
     public EntityId Id { get; }
+
+    public bool IsRoot => !_store.Get<Parented>(Id).Parent.HasValue;
+    public ReadOnlySpan<EntityId> Children => _store.Get<Parented>(Id).Children.AsSpan();
+
+    public string Tag => _store.Get<Tag>(Id).Name;
 
     private readonly ComponentStoreBase _store;
 
@@ -11,6 +19,8 @@ public readonly struct Entity
         Id = id;
         _store = store;
     }
+
+    public override string ToString() => Tag;
 
     public Entity Add<T>() where T : struct, IComponent
     {
