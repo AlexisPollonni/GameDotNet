@@ -11,15 +11,11 @@ public class TypeIdTests
     [Test]
     public void TypeTest()
     {
-        var t = TypeId.Get<TestComponent>();
-        var tt = TypeId<TestComponent>.Get;
-        var t2 = TypeId<Translation>.Get;
+        var t1 = TypeId.Get<TestComponent>();
+        var t2 = TypeId.Get<Translation>();
 
-        Console.WriteLine($"TypeId #1: {t.Id} - {t.Name}");
+        Console.WriteLine($"TypeId #1: {t1}, TypeId #2: {t2}");
 
-        Assert.AreEqual(t, tt);
-
-        Assert.AreNotEqual(t, t2);
-        Assert.AreNotEqual(tt, t2);
+        Assert.AreNotEqual(t1, t2);
     }
 }
