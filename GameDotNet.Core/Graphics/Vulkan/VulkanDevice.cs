@@ -26,7 +26,6 @@ public sealed class VulkanDevice : IDisposable
     public void Dispose()
     {
         ReleaseUnmanagedResources();
-        GC.SuppressFinalize(this);
     }
 
     public static implicit operator Device(VulkanDevice device) => device._device;
@@ -56,8 +55,6 @@ public sealed class VulkanDevice : IDisposable
         _instance.Vk.GetDeviceQueue(_device, i.Value, 0, out var queue);
         return queue;
     }
-
-    ~VulkanDevice() => ReleaseUnmanagedResources();
 
     private void ReleaseUnmanagedResources()
     {

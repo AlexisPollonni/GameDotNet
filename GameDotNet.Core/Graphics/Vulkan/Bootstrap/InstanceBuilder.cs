@@ -254,7 +254,7 @@ public class InstanceBuilder
             PNext = null,
             ApiVersion = apiVersion,
             ApplicationVersion = ApplicationVersion ?? new Version32(0, 0, 1),
-            EngineVersion = Constants.EngineVersion,
+            EngineVersion = Core.Constants.EngineVersion,
             PApplicationName = (ApplicationName ?? "").ToGlobalMemory().DisposeWith(d).AsPtr<byte>(),
             PEngineName = (EngineName ?? "").ToGlobalMemory().DisposeWith(d).AsPtr<byte>()
         };

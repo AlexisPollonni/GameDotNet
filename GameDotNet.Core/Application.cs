@@ -1,4 +1,6 @@
-using GameDotNet.Core.Graphics.Vulkan;
+using GameDotNet.Core.ECS;
+using GameDotNet.Core.ECS.Generated;
+using GameDotNet.Core.Graphics;
 using Serilog;
 using Serilog.Events;
 using Silk.NET.Input;
@@ -9,8 +11,7 @@ namespace GameDotNet.Core;
 public class Application : IDisposable
 {
     private readonly IView _mainView;
-
-    private readonly VulkanRenderer _renderer;
+    private readonly World _world;
 
     public Application(string appName)
     {
@@ -38,25 +39,28 @@ public class Application : IDisposable
             _mainView = Window.Create(opt);
         }
 
+        _world = new World(new ComponentStore());
         _mainView.Load += OnWindowLoad;
-        _renderer = new(_mainView);
+        _mainView.Update += d => _world.Update();
+
+        _world.RegisterSystem(new VulkanRenderSystem(_world, _mainView));
     }
 
     public string ApplicationName { get; }
-
-    public void Dispose()
-    {
-        _renderer.Dispose();
-        _mainView.Dispose();
-
-        GC.SuppressFinalize(this);
-    }
 
     public int Run()
     {
         _mainView.Run();
 
         return 0;
+    }
+
+    public void Dispose()
+    {
+        _world.Dispose();
+        _mainView.Dispose();
+
+        GC.SuppressFinalize(this);
     }
 
     private void OnWindowLoad()
@@ -72,6 +76,8 @@ public class Application : IDisposable
                 }
             };
         }
+
+        _world.Initialize();
     }
 
 

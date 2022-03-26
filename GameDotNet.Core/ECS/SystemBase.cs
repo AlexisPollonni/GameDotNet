@@ -24,6 +24,7 @@ public abstract class SystemBase
         }
     }
 
+    public virtual bool Initialize() => true;
     public abstract void Update(TimeSpan delta);
 
     protected abstract ReadOnlySpan<EntityId> GetBoundEntities();

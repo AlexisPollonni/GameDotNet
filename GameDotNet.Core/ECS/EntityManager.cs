@@ -38,7 +38,7 @@ public class EntityManager
         }
         else
         {
-            newId = new(_entities.Count, 0);
+            newId = new(_entities.Count, 1); // New entity versions start at 1
             _entities.Add(newId);
         }
 

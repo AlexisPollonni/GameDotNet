@@ -10,6 +10,4 @@ public static class Constants
 
     public static string LogsDirectoryPath =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GamesDotNet", "Logs");
-
-    public static string[] DefaultValidationLayers => new[] { "VK_LAYER_KHRONOS_validation" };
 }

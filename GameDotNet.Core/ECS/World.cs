@@ -2,7 +2,7 @@ using System.Diagnostics;
 
 namespace GameDotNet.Core.ECS;
 
-public class World
+public sealed class World : IDisposable
 {
     public EntityManager EntityManager { get; }
     public ComponentStoreBase ComponentStore { get; }
@@ -26,6 +26,9 @@ public class World
 
     public void Initialize()
     {
+        if (_systems.Any(system => !system.Initialize()))
+            throw new("Couldn't initialize system");
+
         _dtWatch.Start();
     }
 
@@ -42,5 +45,12 @@ public class World
         }
 
         _dtWatch.Restart();
+    }
+
+    public void Dispose()
+    {
+        foreach (var system in _systems)
+            if (system is IDisposable d)
+                d.Dispose();
     }
 }

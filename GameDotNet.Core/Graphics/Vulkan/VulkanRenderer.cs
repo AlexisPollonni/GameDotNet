@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.Drawing;
-using System.Runtime.CompilerServices;
 using GameDotNet.Core.Graphics.MemoryAllocation;
 using GameDotNet.Core.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Core.Shaders.Generated;
@@ -10,9 +8,9 @@ using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
-using Silk.NET.GLFW;
 using Silk.NET.Vulkan;
 using Silk.NET.Windowing;
+using static GameDotNet.Core.Graphics.Vulkan.Constants;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 namespace GameDotNet.Core.Graphics.Vulkan;
@@ -39,35 +37,15 @@ public sealed class VulkanRenderer : IDisposable
     private Semaphore _presentSemaphore, _renderSemaphore;
     private Fence _renderFence;
 
-    private Mesh _triangleMesh;
-
-    private readonly Thread _renderThread;
-    private readonly GlfwCallbacks.WindowRefreshCallback _refreshCallback;
-
     public VulkanRenderer(IView window)
     {
         _window = window;
         _frameBuffers = Array.Empty<Framebuffer>();
         _bufferDisposable = new();
-        _renderThread = new(() =>
-        {
-            while (!_window.IsClosing)
-            {
-                Draw(0);
-            }
-        })
-        {
-            Name = "GameDotNet Render"
-        };
-
-        _window.Load += Initialize;
     }
-
-    private static ref readonly AllocationCallbacks NullAlloc => ref Unsafe.NullRef<AllocationCallbacks>();
 
     public void Dispose()
     {
-        _renderThread.Join();
         _bufferDisposable.Dispose();
         _instance.Vk.DestroyRenderPass(_device, _renderPass, NullAlloc);
         foreach (var framebuffer in _frameBuffers)
@@ -85,32 +63,129 @@ public sealed class VulkanRenderer : IDisposable
         _instance.Dispose();
     }
 
-    private void Initialize()
+    public void Initialize()
     {
-        unsafe
-        {
-            if (_window.IsGlfw())
-            {
-                Debug.Assert(_window.Native != null, "_window.Native != null");
-                Debug.Assert(_window.Native.Glfw != null, "_window.Native.Glfw != null");
-                Glfw.GetApi()
-                    .SetWindowRefreshCallback((WindowHandle*)_window.Native.Glfw.Value, _refreshCallback);
-            }
-            else
-            {
-                _window.Resize += _ => _refreshCallback(null);
-            }
-        }
-
         InitVulkan();
         CreateCommands();
         CreateRenderPass();
         CreateFrameBuffers();
         CreateSyncStructures();
         CreatePipeline();
-        LoadMeshes();
+    }
 
-        _renderThread.Start();
+    public unsafe void Draw(TimeSpan dt, ReadOnlySpan<Mesh> meshes)
+    {
+        var vk = _instance.Vk;
+        // wait until the GPU has finished rendering the last frame. Timeout of 1 second
+        vk.WaitForFences(_device, 1, _renderFence, true, 1000000000);
+
+        var res = _swapchain!.AcquireNextImage(1000000000, _presentSemaphore, null, out var swImgIndex);
+        if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
+        {
+            RecreateSwapChain();
+            return;
+        }
+
+        if (res is not Result.Success)
+        {
+            res.LogError("Failed to acquire swapchain Image");
+            return;
+        }
+
+        vk.ResetFences(_device, 1, _renderFence);
+        vk.ResetCommandBuffer(_mainCommandBuffer, 0);
+
+        var cmdBeginInfo =
+            new CommandBufferBeginInfo(flags: CommandBufferUsageFlags.CommandBufferUsageOneTimeSubmitBit);
+
+        vk.BeginCommandBuffer(_mainCommandBuffer, cmdBeginInfo);
+
+        // make a clear-color from frame number. This will flash with a 120*pi frame period.
+        var clearValue = new ClearValue(new(0, 0, (float)Math.Abs(Math.Sin(_frameNumber / 120D)), 0));
+
+        var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
+                                             renderArea: new Rect2D(new Offset2D(0, 0), _swapchain.Extent),
+                                             framebuffer: _frameBuffers[swImgIndex],
+                                             clearValueCount: 1,
+                                             pClearValues: &clearValue);
+
+        vk.CmdBeginRenderPass(_mainCommandBuffer, rpInfo, SubpassContents.Inline);
+
+        // RENDERING COMMANDS
+        vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
+
+        foreach (var mesh in meshes)
+        {
+            vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, mesh.Buffer, 0);
+            vk.CmdDraw(_mainCommandBuffer, (uint)mesh.Vertices.Count, 1, 0, 0);
+        }
+
+        vk.CmdEndRenderPass(_mainCommandBuffer);
+        vk.EndCommandBuffer(_mainCommandBuffer);
+
+        // prepare the submission to the queue.
+        // we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
+        // we will signal the _renderSemaphore, to signal that rendering has finished
+        var waitStage = PipelineStageFlags.PipelineStageColorAttachmentOutputBit;
+
+        fixed (CommandBuffer* cmd = &_mainCommandBuffer)
+        fixed (Semaphore* present = &_presentSemaphore, render = &_renderSemaphore)
+        {
+            var submit = new SubmitInfo(pWaitDstStageMask: &waitStage,
+                                        waitSemaphoreCount: 1, pWaitSemaphores: present,
+                                        signalSemaphoreCount: 1, pSignalSemaphores: render,
+                                        commandBufferCount: 1, pCommandBuffers: cmd);
+
+            // submit command buffer to the queue and execute it.
+            // _renderFence will now block until the graphic commands finish execution
+            vk.QueueSubmit(_graphicsQueue, 1, submit, _renderFence);
+        }
+
+        // this will put the image we just rendered into the visible window.
+        // we want to wait on the _renderSemaphore for that,
+        // as it's necessary that drawing commands have finished before the image is displayed to the user
+        fixed (SwapchainKHR* swapchain = &_swapchain.Swapchain)
+        fixed (Semaphore* semaphore = &_renderSemaphore)
+        {
+            var presentInfo = new PresentInfoKHR(swapchainCount: 1, pSwapchains: swapchain,
+                                                 waitSemaphoreCount: 1, pWaitSemaphores: semaphore,
+                                                 pImageIndices: &swImgIndex);
+
+            res = _swapchain.QueuePresent(_graphicsQueue, presentInfo);
+            if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
+            {
+                return;
+            }
+
+            if (res is not Result.Success)
+            {
+                res.LogError("Failed to present swapchain image");
+                return;
+            }
+        }
+
+        _frameNumber++;
+    }
+
+    public unsafe void UploadMesh(ref Mesh mesh)
+    {
+        var bufferInfo =
+            new
+                BufferCreateInfo(size: (ulong)(sizeof(Vertex) * mesh.Vertices.Count),
+                                 usage: BufferUsageFlags.BufferUsageVertexBufferBit);
+
+        var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
+
+        mesh.Buffer = _allocator.CreateBuffer(bufferInfo, allocInfo, out var allocation);
+
+        allocation.DisposeWith(_bufferDisposable);
+
+        allocation.Map();
+        if (!allocation.TryGetSpan(out Span<Vertex> span))
+            throw new AllocationException("Couldn't get vertices span from allocation");
+
+        mesh.Vertices.AsSpan().CopyTo(span);
+        allocation.Unmap();
     }
 
     private void InitVulkan()
@@ -263,22 +338,6 @@ public sealed class VulkanRenderer : IDisposable
             });
     }
 
-    private void LoadMeshes()
-    {
-        _triangleMesh = new(new()
-        {
-            new(new(1, 1, 0), new(2, 2, 2), Color.Blue),
-            new(new(-1, 1, 0), new(3, 3, 3), Color.Red),
-            new(new(0, 0, 0), new(4, 4, 4), Color.Green),
-
-            new(new(0, 0, 0), new(2, 2, 2), Color.Blue),
-            new(new(1, 0, 0), new(3, 3, 3), Color.Red),
-            new(new(1, 1, 0), new(4, 4, 4), Color.Green)
-        });
-
-        UploadMesh(ref _triangleMesh);
-    }
-
     private void RecreateSwapChain()
     {
         var vk = _instance.Vk;
@@ -295,128 +354,13 @@ public sealed class VulkanRenderer : IDisposable
         CreateCommands();
     }
 
-    private unsafe void Draw(double d)
+    private unsafe IEnumerable<string> GetGlfwRequiredVulkanExtensions()
     {
-        var vk = _instance.Vk;
-        // wait until the GPU has finished rendering the last frame. Timeout of 1 second
-        vk.WaitForFences(_device, 1, _renderFence, true, 1000000000);
+        Debug.Assert(_window.VkSurface != null, "_window.VkSurface != null");
+        var ppExtensions = _window.VkSurface.GetRequiredExtensions(out var count);
 
-        var res = _swapchain!.AcquireNextImage(1000000000, _presentSemaphore, null, out var swImgIndex);
-        if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
-        {
-            RecreateSwapChain();
-            return;
-        }
-
-        if (res is not Result.Success)
-        {
-            res.LogError("Failed to acquire swapchain Image");
-            return;
-        }
-
-        vk.ResetFences(_device, 1, _renderFence);
-        vk.ResetCommandBuffer(_mainCommandBuffer, 0);
-
-        var cmdBeginInfo =
-            new CommandBufferBeginInfo(flags: CommandBufferUsageFlags.CommandBufferUsageOneTimeSubmitBit);
-
-        vk.BeginCommandBuffer(_mainCommandBuffer, cmdBeginInfo);
-
-        // make a clear-color from frame number. This will flash with a 120*pi frame period.
-        var clearValue = new ClearValue(new(0, 0, (float)Math.Abs(Math.Sin(_frameNumber / 120D)), 0));
-
-        var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
-                                             renderArea: new Rect2D(new Offset2D(0, 0), _swapchain.Extent),
-                                             framebuffer: _frameBuffers[swImgIndex],
-                                             clearValueCount: 1,
-                                             pClearValues: &clearValue);
-
-        vk.CmdBeginRenderPass(_mainCommandBuffer, rpInfo, SubpassContents.Inline);
-
-        // RENDERING COMMANDS
-        vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
-
-        vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, _triangleMesh.Buffer, 0); //TODO: Use ECS to retrieve mesh
-        vk.CmdDraw(_mainCommandBuffer, (uint)_triangleMesh.Vertices.Count, 1, 0, 0);
-
-        vk.CmdEndRenderPass(_mainCommandBuffer);
-        vk.EndCommandBuffer(_mainCommandBuffer);
-
-        // prepare the submission to the queue.
-        // we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
-        // we will signal the _renderSemaphore, to signal that rendering has finished
-        var waitStage = PipelineStageFlags.PipelineStageColorAttachmentOutputBit;
-
-        fixed (CommandBuffer* cmd = &_mainCommandBuffer)
-        fixed (Semaphore* present = &_presentSemaphore, render = &_renderSemaphore)
-        {
-            var submit = new SubmitInfo(pWaitDstStageMask: &waitStage,
-                                        waitSemaphoreCount: 1, pWaitSemaphores: present,
-                                        signalSemaphoreCount: 1, pSignalSemaphores: render,
-                                        commandBufferCount: 1, pCommandBuffers: cmd);
-
-            // submit command buffer to the queue and execute it.
-            // _renderFence will now block until the graphic commands finish execution
-            vk.QueueSubmit(_graphicsQueue, 1, submit, _renderFence);
-        }
-
-        // this will put the image we just rendered into the visible window.
-        // we want to wait on the _renderSemaphore for that,
-        // as it's necessary that drawing commands have finished before the image is displayed to the user
-        fixed (SwapchainKHR* swapchain = &_swapchain.Swapchain)
-        fixed (Semaphore* semaphore = &_renderSemaphore)
-        {
-            var presentInfo = new PresentInfoKHR(swapchainCount: 1, pSwapchains: swapchain,
-                                                 waitSemaphoreCount: 1, pWaitSemaphores: semaphore,
-                                                 pImageIndices: &swImgIndex);
-
-            res = _swapchain.QueuePresent(_graphicsQueue, presentInfo);
-            if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
-            {
-                return;
-            }
-
-            if (res is not Result.Success)
-            {
-                res.LogError("Failed to present swapchain image");
-                return;
-            }
-        }
-
-        _frameNumber++;
-    }
-
-    private unsafe void UploadMesh(ref Mesh mesh)
-    {
-        var bufferInfo =
-            new
-                BufferCreateInfo(size: (ulong)(sizeof(Vertex) * mesh.Vertices.Count),
-                                 usage: BufferUsageFlags.BufferUsageVertexBufferBit);
-
-        var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
-
-        mesh.Buffer = _allocator.CreateBuffer(bufferInfo, allocInfo, out var allocation);
-
-        allocation.DisposeWith(_bufferDisposable);
-
-        allocation.Map();
-        if (!allocation.TryGetSpan(out Span<Vertex> span))
-            throw new AllocationException("Couldn't get vertices span from allocation");
-
-        mesh.Vertices.AsSpan().CopyTo(span);
-        allocation.Unmap();
-    }
-
-    private IEnumerable<string> GetGlfwRequiredVulkanExtensions()
-    {
-        unsafe
-        {
-            Debug.Assert(_window.VkSurface != null, "_window.VkSurface != null");
-            var ppExtensions = _window.VkSurface.GetRequiredExtensions(out var count);
-
-            if (ppExtensions is null)
-                throw new PlatformException("Vulkan extensions for windowing not available");
-            return SilkMarshal.PtrToStringArray((nint)ppExtensions, (int)count);
-        }
+        if (ppExtensions is null)
+            throw new PlatformException("Vulkan extensions for windowing not available");
+        return SilkMarshal.PtrToStringArray((nint)ppExtensions, (int)count);
     }
 }
