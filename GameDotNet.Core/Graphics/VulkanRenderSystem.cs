@@ -60,11 +60,13 @@ public sealed class VulkanRenderSystem : GenericSystem<Translation, RenderMesh>,
     {
         while (!_view.IsClosing)
         {
-            var m = ArrayPool<Mesh>.Shared.Rent(Entities.Length);
-            for (var i = 0; i < Entities.Length; i++)
-                m[i] = Entities[i].Get<RenderMesh>().Mesh;
+            var entities = World.EntityManager.Get(GetBoundEntities());
 
-            _renderer.Draw(_drawWatch.Elapsed, m.AsSpan(..Entities.Length));
+            var m = ArrayPool<Mesh>.Shared.Rent(entities.Length);
+            for (var i = 0; i < entities.Length; i++) 
+                m[i] = entities[i].Get<RenderMesh>().Mesh;
+
+            _renderer.Draw(_drawWatch.Elapsed, m.AsSpan(..entities.Length));
             ArrayPool<Mesh>.Shared.Return(m);
 
             _drawWatch.Restart();

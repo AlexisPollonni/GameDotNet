@@ -28,6 +28,20 @@ public class EntityManager
         return new(_world.ComponentStore, id);
     }
 
+    public ReadOnlySpan<Entity> Get(ReadOnlySpan<EntityId> ids)
+    {
+        // TODO: Find a better way to do this (array pooling or others)
+        var arr = new Entity[ids.Length];
+        var i = 0;
+        foreach (var id in ids)
+        {
+            arr[i] = new(_world.ComponentStore, id);
+            i++;
+        }
+
+        return arr;
+    }
+
     public Entity CreateEntity(string name = "Unnamed")
     {
         EntityId newId;

@@ -14,5 +14,11 @@ public readonly struct EntityId
     }
 
     public int Index { get; }
+
     public uint Version { get; }
+
+    public override string ToString()
+    {
+        return $"Index = {Index}, Version = {Version}";
+    }
 }
