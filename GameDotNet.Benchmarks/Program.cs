@@ -4,16 +4,12 @@ using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Environments;
 using BenchmarkDotNet.Jobs;
 using BenchmarkDotNet.Running;
-using BenchmarkDotNet.Toolchains.CoreRt;
+using BenchmarkDotNet.Toolchains.NativeAot;
 using GameDotNet.Benchmarks;
 
 Console.WriteLine("Hello, World!");
 
-var aotToolchain = CoreRtToolchain.CreateBuilder()
-                                  .UseCoreRtNuGet()
-                                  .DisplayName("NativeAOT")
-                                  .TargetFrameworkMoniker("net6.0")
-                                  .ToToolchain();
+var aotToolchain = NativeAotToolchain.Net60;
 
 var aotConfig = DefaultConfig.Instance
                              .AddJob(Job.Default.AsBaseline().WithRuntime(CoreRuntime.Core60))
