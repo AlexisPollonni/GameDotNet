@@ -142,18 +142,14 @@ public class PhysicalDeviceSelector
             suitable = Suitable.Partial;
 
         var dedicatedCompute =
-            QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.QueueComputeBit,
-                                              QueueFlags.QueueTransferBit);
+            QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
         var dedicatedTransfer =
-            QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.QueueTransferBit,
-                                              QueueFlags.QueueComputeBit);
+            QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
 
         var separateCompute =
-            QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.QueueComputeBit,
-                                             QueueFlags.QueueTransferBit);
+            QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
         var separateTransfer =
-            QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.QueueTransferBit,
-                                             QueueFlags.QueueComputeBit);
+            QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
 
         var presentQueue = QueueTools.GetPresentQueueIndex(_instance, dsc.Device, Surface, dsc.QueueFamilies);
 

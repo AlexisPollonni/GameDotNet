@@ -91,7 +91,7 @@ public class PipelineBuilder
             rasterizerDiscardEnable: false, //discards all primitives before the rasterization stage if enabled which we don't want
             polygonMode: polygonMode,
             lineWidth: 1.0f,
-            cullMode: CullModeFlags.CullModeNone, //no backface cull
+            cullMode: CullModeFlags.None, //no backface cull
             frontFace: FrontFace.Clockwise,
             depthBiasEnable: false,
             depthBiasConstantFactor: 0,
@@ -101,13 +101,13 @@ public class PipelineBuilder
     private static unsafe PipelineMultisampleStateCreateInfo CreateMultisampleStateInfo() =>
         new(sampleShadingEnable: false,
             rasterizationSamples: SampleCountFlags
-                .SampleCount1Bit, //multisampling defaulted to no multisampling (1 sample per pixel)
+                .Count1Bit, //multisampling defaulted to no multisampling (1 sample per pixel)
             minSampleShading: 1f,
             alphaToCoverageEnable: false,
             alphaToOneEnable: false);
 
     private static PipelineColorBlendAttachmentState CreateColorBlendAttachmentState() =>
-        new(colorWriteMask: ColorComponentFlags.ColorComponentRBit | ColorComponentFlags.ColorComponentGBit | ColorComponentFlags.ColorComponentBBit | ColorComponentFlags.ColorComponentABit,
+        new(colorWriteMask: ColorComponentFlags.RBit | ColorComponentFlags.GBit | ColorComponentFlags.BBit | ColorComponentFlags.ABit,
             blendEnable: false);
 
     private static unsafe PipelineLayoutCreateInfo CreatePipelineLayoutInfo() =>

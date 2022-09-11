@@ -23,7 +23,7 @@ internal static class QueueTools
         {
             if (family.QueueFlags.HasFlag(desiredFlags)
                 && !family.QueueFlags.HasFlag(undesiredFlags)
-                && !family.QueueFlags.HasFlag(QueueFlags.QueueGraphicsBit))
+                && !family.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
             {
                 return i;
             }
@@ -38,7 +38,7 @@ internal static class QueueTools
         int? index = null;
         foreach (var (family, i) in families.WithIndex())
         {
-            if (!family.QueueFlags.HasFlag(desiredFlags) || family.QueueFlags.HasFlag(QueueFlags.QueueGraphicsBit))
+            if (!family.QueueFlags.HasFlag(desiredFlags) || family.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
                 continue;
 
             if (!family.QueueFlags.HasFlag(undesiredFlags))

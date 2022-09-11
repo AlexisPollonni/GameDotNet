@@ -96,7 +96,7 @@ public sealed class VulkanRenderer : IDisposable
         vk.ResetCommandBuffer(_mainCommandBuffer, 0);
 
         var cmdBeginInfo =
-            new CommandBufferBeginInfo(flags: CommandBufferUsageFlags.CommandBufferUsageOneTimeSubmitBit);
+            new CommandBufferBeginInfo(flags: CommandBufferUsageFlags.OneTimeSubmitBit);
 
         vk.BeginCommandBuffer(_mainCommandBuffer, cmdBeginInfo);
 
@@ -126,7 +126,7 @@ public sealed class VulkanRenderer : IDisposable
         // prepare the submission to the queue.
         // we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
         // we will signal the _renderSemaphore, to signal that rendering has finished
-        var waitStage = PipelineStageFlags.PipelineStageColorAttachmentOutputBit;
+        var waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
 
         fixed (CommandBuffer* cmd = &_mainCommandBuffer)
         fixed (Semaphore* present = &_presentSemaphore, render = &_renderSemaphore)
@@ -172,7 +172,7 @@ public sealed class VulkanRenderer : IDisposable
         var bufferInfo =
             new
                 BufferCreateInfo(size: (ulong)(sizeof(Vertex) * mesh.Vertices.Count),
-                                 usage: BufferUsageFlags.BufferUsageVertexBufferBit);
+                                 usage: BufferUsageFlags.VertexBufferBit);
 
         var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
 
@@ -191,13 +191,13 @@ public sealed class VulkanRenderer : IDisposable
     private void InitVulkan()
     {
         _instance = new InstanceBuilder
-                    {
-                        ApplicationName = "App",
-                        EngineName = "GamesDotNet",
-                        EngineVersion = new Version32(0, 0, 1),
-                        RequiredApiVersion = Vk.Version11,
-                        Extensions = GetGlfwRequiredVulkanExtensions(),
-                        IsHeadless = false,
+            {
+                ApplicationName = "App",
+                EngineName = "GamesDotNet",
+                EngineVersion = new Version32(0, 0, 1),
+                RequiredApiVersion = Vk.Version11,
+                Extensions = GetGlfwRequiredVulkanExtensions(),
+                IsHeadless = false,
 #if DEBUG
                         EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
                         {
@@ -208,11 +208,11 @@ public sealed class VulkanRenderer : IDisposable
                         },
                         IsValidationLayersRequested = true
 #endif
-                    }
+            }
 #if DEBUG
                     .UseDefaultDebugMessenger()
 #endif
-                    .Build();
+            .Build();
 
         _surface = CreateSurface(_window);
 
@@ -241,7 +241,7 @@ public sealed class VulkanRenderer : IDisposable
     {
         var swapchain = new SwapchainBuilder(_instance, _physDevice, _device, new SwapchainBuilder.Info(_surface)
             {
-                DesiredPresentModes = new() { PresentModeKHR.PresentModeFifoKhr },
+                DesiredPresentModes = new() { PresentModeKHR.FifoKhr },
                 OldSwapchain = _swapchain
             })
             .Build();
@@ -253,7 +253,7 @@ public sealed class VulkanRenderer : IDisposable
     private unsafe void CreateCommands()
     {
         var commandPoolInfo =
-            new CommandPoolCreateInfo(flags: CommandPoolCreateFlags.CommandPoolCreateResetCommandBufferBit,
+            new CommandPoolCreateInfo(flags: CommandPoolCreateFlags.ResetCommandBufferBit,
                                       queueFamilyIndex: _device.GetQueueIndex(QueueType.Graphics)!.Value);
 
 
@@ -269,7 +269,7 @@ public sealed class VulkanRenderer : IDisposable
     private unsafe void CreateRenderPass()
     {
         var colorAttachment = new AttachmentDescription(format: _swapchain!.ImageFormat,
-                                                        samples: SampleCountFlags.SampleCount1Bit,
+                                                        samples: SampleCountFlags.Count1Bit,
                                                         loadOp: AttachmentLoadOp.Clear,
                                                         storeOp: AttachmentStoreOp.Store,
                                                         stencilLoadOp: AttachmentLoadOp.DontCare,
@@ -306,7 +306,7 @@ public sealed class VulkanRenderer : IDisposable
 
     private unsafe void CreateSyncStructures()
     {
-        var fenceCreateInfo = new FenceCreateInfo(flags: FenceCreateFlags.FenceCreateSignaledBit);
+        var fenceCreateInfo = new FenceCreateInfo(flags: FenceCreateFlags.SignaledBit);
 
         _instance.Vk.CreateFence(_device, fenceCreateInfo, NullAlloc, out _renderFence);
 
@@ -318,9 +318,9 @@ public sealed class VulkanRenderer : IDisposable
 
     private void CreatePipeline()
     {
-        using var meshFragShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.ShaderStageFragmentBit,
+        using var meshFragShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.FragmentBit,
                                                     CompiledShaders.MeshFragmentShader);
-        using var meshVertShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.ShaderStageVertexBit,
+        using var meshVertShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.VertexBit,
                                                     CompiledShaders.MeshVertexShader);
 
         _meshPipeline = new PipelineBuilder(_instance, _device)

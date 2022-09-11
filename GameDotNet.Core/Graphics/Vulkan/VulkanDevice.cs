@@ -35,11 +35,11 @@ public sealed class VulkanDevice : IDisposable
         var index = type switch
         {
             QueueType.Present => QueueTools.GetPresentQueueIndex(_instance, _physDevice, _surface, _queueFamilies),
-            QueueType.Graphics => QueueTools.GetFirstQueueIndex(_queueFamilies, QueueFlags.QueueGraphicsBit),
-            QueueType.Compute => QueueTools.GetSeparateQueueIndex(_queueFamilies, QueueFlags.QueueComputeBit,
-                                                                  QueueFlags.QueueTransferBit),
-            QueueType.Transfer => QueueTools.GetSeparateQueueIndex(_queueFamilies, QueueFlags.QueueTransferBit,
-                                                                   QueueFlags.QueueComputeBit),
+            QueueType.Graphics => QueueTools.GetFirstQueueIndex(_queueFamilies, QueueFlags.GraphicsBit),
+            QueueType.Compute => QueueTools.GetSeparateQueueIndex(_queueFamilies, QueueFlags.ComputeBit,
+                                                                  QueueFlags.TransferBit),
+            QueueType.Transfer => QueueTools.GetSeparateQueueIndex(_queueFamilies, QueueFlags.TransferBit,
+                                                                   QueueFlags.ComputeBit),
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
 

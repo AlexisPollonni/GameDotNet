@@ -23,19 +23,18 @@ public class InstanceBuilder
         {
             var msgType = types switch
             {
-                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt |
-                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt |
-                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt =>
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt |
+                    DebugUtilsMessageTypeFlagsEXT.ValidationBitExt =>
                     "General | Validation | Performance",
-                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt |
-                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt => "Validation | Performance",
-                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt |
-                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt => "General | Performance",
-                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypePerformanceBitExt => "Performance",
-                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt |
-                    DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt => "General | Validation",
-                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt => "Validation",
-                DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt => "General",
+                DebugUtilsMessageTypeFlagsEXT.ValidationBitExt | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt =>
+                    "Validation | Performance",
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt =>
+                    "General | Performance",
+                DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt => "Performance",
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt =>
+                    "General | Validation",
+                DebugUtilsMessageTypeFlagsEXT.ValidationBitExt => "Validation",
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt => "General",
                 _ => "Unknown"
             };
 
@@ -44,18 +43,19 @@ public class InstanceBuilder
             const string template = "<Vulkan || {MessageType}> {Message}";
             switch (severity)
             {
-                case DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityVerboseBitExt:
+                case DebugUtilsMessageSeverityFlagsEXT.VerboseBitExt:
                     Log.Debug(template, msgType, msg);
                     break;
-                case DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityInfoBitExt:
+                case DebugUtilsMessageSeverityFlagsEXT.InfoBitExt:
                     Log.Information(template, msgType, msg);
                     break;
-                case DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityWarningBitExt:
+                case DebugUtilsMessageSeverityFlagsEXT.WarningBitExt:
                     Log.Warning(template, msgType, msg);
                     break;
-                case DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityErrorBitExt:
+                case DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt:
                     Log.Error(template, msgType, msg);
                     break;
+                case DebugUtilsMessageSeverityFlagsEXT.None:
                 default:
                     Log.Warning(template, msgType, msg);
                     break;
@@ -273,10 +273,9 @@ public class InstanceBuilder
             SType = StructureType.DebugUtilsMessengerCreateInfoExt,
             PNext = null,
             MessageSeverity = DebugMessageSeverity ??
-                              DebugUtilsMessageSeverityFlagsEXT.DebugUtilsMessageSeverityInfoBitExt,
+                              DebugUtilsMessageSeverityFlagsEXT.InfoBitExt,
             MessageType = DebugMessageType ??
-                          DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeGeneralBitExt |
-                          DebugUtilsMessageTypeFlagsEXT.DebugUtilsMessageTypeValidationBitExt,
+                          DebugUtilsMessageTypeFlagsEXT.GeneralBitExt | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt,
             PfnUserCallback = new(DebugCallback),
             PUserData = null
         };

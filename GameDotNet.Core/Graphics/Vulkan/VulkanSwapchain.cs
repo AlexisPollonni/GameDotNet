@@ -79,11 +79,11 @@ public sealed class VulkanSwapchain : IDisposable
             {
                 SType = StructureType.ImageViewCreateInfo,
                 Image = image,
-                ViewType = ImageViewType.ImageViewType2D,
+                ViewType = ImageViewType.Type2D,
                 Format = ImageFormat,
                 Components = new(ComponentSwizzle.Identity, ComponentSwizzle.Identity, ComponentSwizzle.Identity,
                                  ComponentSwizzle.Identity),
-                SubresourceRange = new(ImageAspectFlags.ImageAspectColorBit, 0, 1, 0, 1)
+                SubresourceRange = new(ImageAspectFlags.ColorBit, 0, 1, 0, 1)
             };
 
             var res = _instance.Vk.CreateImageView(_device, createInfo, _alloc.AsReadOnlyRefOrNull(),

@@ -212,44 +212,44 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
                     break;
                 case MemoryUsage.GPU_Only:
                     if (IsIntegratedGPU ||
-                        (preferredFlags & MemoryPropertyFlags.MemoryPropertyHostVisibleBit) == 0)
+                        (preferredFlags & MemoryPropertyFlags.HostVisibleBit) == 0)
                     {
-                        preferredFlags |= MemoryPropertyFlags.MemoryPropertyDeviceLocalBit;
+                        preferredFlags |= MemoryPropertyFlags.DeviceLocalBit;
                     }
 
                     break;
                 case MemoryUsage.CPU_Only:
-                    requiredFlags |= MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
-                                     MemoryPropertyFlags.MemoryPropertyHostCoherentBit;
+                    requiredFlags |= MemoryPropertyFlags.HostVisibleBit |
+                                     MemoryPropertyFlags.HostCoherentBit;
                     break;
                 case MemoryUsage.CPU_To_GPU:
-                    requiredFlags |= MemoryPropertyFlags.MemoryPropertyHostVisibleBit;
+                    requiredFlags |= MemoryPropertyFlags.HostVisibleBit;
                     if (!IsIntegratedGPU ||
-                        (preferredFlags & MemoryPropertyFlags.MemoryPropertyHostVisibleBit) == 0)
+                        (preferredFlags & MemoryPropertyFlags.HostVisibleBit) == 0)
                     {
-                        preferredFlags |= MemoryPropertyFlags.MemoryPropertyDeviceLocalBit;
+                        preferredFlags |= MemoryPropertyFlags.DeviceLocalBit;
                     }
 
                     break;
                 case MemoryUsage.GPU_To_CPU:
-                    requiredFlags |= MemoryPropertyFlags.MemoryPropertyHostVisibleBit;
-                    preferredFlags |= MemoryPropertyFlags.MemoryPropertyHostCachedBit;
+                    requiredFlags |= MemoryPropertyFlags.HostVisibleBit;
+                    preferredFlags |= MemoryPropertyFlags.HostCachedBit;
                     break;
                 case MemoryUsage.CPU_Copy:
-                    notPreferredFlags |= MemoryPropertyFlags.MemoryPropertyDeviceLocalBit;
+                    notPreferredFlags |= MemoryPropertyFlags.DeviceLocalBit;
                     break;
                 case MemoryUsage.GPU_LazilyAllocated:
-                    requiredFlags |= MemoryPropertyFlags.MemoryPropertyLazilyAllocatedBit;
+                    requiredFlags |= MemoryPropertyFlags.LazilyAllocatedBit;
                     break;
                 default:
                     throw new ArgumentException("Invalid Usage Flags");
             }
 
             if (((allocInfo.RequiredFlags | allocInfo.PreferredFlags) &
-                 (MemoryPropertyFlags.MemoryPropertyDeviceCoherentBitAmd |
-                  MemoryPropertyFlags.MemoryPropertyDeviceUncachedBitAmd)) == 0)
+                 (MemoryPropertyFlags.DeviceCoherentBitAmd |
+                  MemoryPropertyFlags.DeviceUncachedBitAmd)) == 0)
             {
-                notPreferredFlags |= MemoryPropertyFlags.MemoryPropertyDeviceCoherentBitAmd;
+                notPreferredFlags |= MemoryPropertyFlags.DeviceCoherentBitAmd;
             }
 
             int? memoryTypeIndex = null;
@@ -542,9 +542,9 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
         internal bool IsMemoryTypeNonCoherent(int memTypeIndex)
         {
             return (MemoryTypes[memTypeIndex].PropertyFlags &
-                    (MemoryPropertyFlags.MemoryPropertyHostVisibleBit |
-                     MemoryPropertyFlags.MemoryPropertyHostCoherentBit)) ==
-                   MemoryPropertyFlags.MemoryPropertyHostVisibleBit;
+                    (MemoryPropertyFlags.HostVisibleBit |
+                     MemoryPropertyFlags.HostCoherentBit)) ==
+                   MemoryPropertyFlags.HostVisibleBit;
         }
 
         internal long GetMemoryTypeMinAlignment(int memTypeIndex)
@@ -666,7 +666,7 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
 
                 if ((createInfo.Flags & AllocationCreateFlags.Mapped) != 0 &&
                     (MemoryTypes[memoryTypeIndex].PropertyFlags &
-                     MemoryPropertyFlags.MemoryPropertyHostVisibleBit) == 0)
+                     MemoryPropertyFlags.HostVisibleBit) == 0)
                 {
                     infoForPool.Flags &= ~AllocationCreateFlags.Mapped;
                 }
@@ -1083,7 +1083,7 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
         {
             if (!Helpers.DebugInitializeAllocations || allocation.CanBecomeLost ||
                 (MemoryTypes[allocation.MemoryTypeIndex].PropertyFlags &
-                 MemoryPropertyFlags.MemoryPropertyHostVisibleBit) == 0)
+                 MemoryPropertyFlags.HostVisibleBit) == 0)
                 return;
             var pData = allocation.Map();
 
@@ -1124,7 +1124,7 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
             var finalCreateInfo = createInfo;
 
             if ((finalCreateInfo.Flags & AllocationCreateFlags.Mapped) != 0 &&
-                (MemoryTypes[memoryTypeIndex].PropertyFlags & MemoryPropertyFlags.MemoryPropertyHostVisibleBit) ==
+                (MemoryTypes[memoryTypeIndex].PropertyFlags & MemoryPropertyFlags.HostVisibleBit) ==
                 0)
             {
                 finalCreateInfo.Flags &= ~AllocationCreateFlags.Mapped;
@@ -1260,7 +1260,7 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
                 {
                     canContainBufferWithDeviceAddress = dedicatedInfo.DedicatedBufferUsage == UnknownBufferUsage
                                                         || (dedicatedInfo.DedicatedBufferUsage &
-                                                            BufferUsageFlags.BufferUsageShaderDeviceAddressBitKhr) != 0;
+                                                            BufferUsageFlags.ShaderDeviceAddressBitExt) != 0;
                 }
                 else if (dedicatedInfo.DedicatedImage.Handle != default)
                 {
@@ -1269,7 +1269,7 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
 
                 if (canContainBufferWithDeviceAddress)
                 {
-                    allocFlagsInfo.Flags = MemoryAllocateFlags.MemoryAllocateDeviceAddressBit;
+                    allocFlagsInfo.Flags = MemoryAllocateFlags.AddressBit;
                     allocFlagsInfo.PNext = allocInfo.PNext;
                     allocInfo.PNext = &allocFlagsInfo;
                 }
@@ -1332,7 +1332,7 @@ namespace GameDotNet.Core.Graphics.MemoryAllocation
             for (var index = 0; index < MemoryTypeCount; ++index)
             {
                 if ((MemoryTypes[index].PropertyFlags &
-                     MemoryPropertyFlags.MemoryPropertyDeviceCoherentBitAmd) != 0)
+                     MemoryPropertyFlags.DeviceCoherentBitAmd) != 0)
                 {
                     memoryTypeBits &= ~(1u << index);
                 }

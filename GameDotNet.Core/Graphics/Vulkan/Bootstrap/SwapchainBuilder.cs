@@ -175,7 +175,7 @@ public class SwapchainBuilder
         }
 
         // only preset mode required, use as fallback
-        return PresentModeKHR.PresentModeFifoKhr;
+        return PresentModeKHR.FifoKhr;
     }
 
     private class SurfaceSupportDetails
@@ -197,7 +197,7 @@ public class SwapchainBuilder
     {
         public bool Clipped = true;
         public uint ArrayLayerCount = 1;
-        public CompositeAlphaFlagsKHR CompositeAlpha = CompositeAlphaFlagsKHR.CompositeAlphaOpaqueBitKhr;
+        public CompositeAlphaFlagsKHR CompositeAlpha = CompositeAlphaFlagsKHR.OpaqueBitKhr;
         public SwapchainCreateFlagsKHR CreateFlags = 0;
 
         public List<SurfaceFormatKHR> DesiredFormats = DefaultFormats.ToList();
@@ -206,9 +206,9 @@ public class SwapchainBuilder
 
 
         public uint DesiredWidth = 256;
-        public FormatFeatureFlags FormatFeatureFlags = FormatFeatureFlags.FormatFeatureSampledImageBit;
+        public FormatFeatureFlags FormatFeatureFlags = FormatFeatureFlags.SampledImageBit;
         public uint GraphicsQueueIndex;
-        public ImageUsageFlags ImageUsageFlags = ImageUsageFlags.ImageUsageColorAttachmentBit;
+        public ImageUsageFlags ImageUsageFlags = ImageUsageFlags.ColorAttachmentBit;
 
         public VulkanSwapchain? OldSwapchain;
         public uint PresentQueueIndex;
@@ -222,13 +222,13 @@ public class SwapchainBuilder
 
         public static IEnumerable<SurfaceFormatKHR> DefaultFormats { get; } = new SurfaceFormatKHR[]
         {
-            new(Format.B8G8R8A8Srgb, ColorSpaceKHR.ColorspaceSrgbNonlinearKhr),
-            new(Format.R8G8B8A8Srgb, ColorSpaceKHR.ColorspaceSrgbNonlinearKhr)
+            new(Format.B8G8R8A8Srgb, ColorSpaceKHR.PaceSrgbNonlinearKhr),
+            new(Format.R8G8B8A8Srgb, ColorSpaceKHR.PaceSrgbNonlinearKhr)
         };
 
         public static IEnumerable<PresentModeKHR> DefaultPresentModes { get; } = new[]
         {
-            PresentModeKHR.PresentModeMailboxKhr, PresentModeKHR.PresentModeFifoKhr
+            PresentModeKHR.MailboxKhr, PresentModeKHR.FifoKhr
         };
     }
 }
