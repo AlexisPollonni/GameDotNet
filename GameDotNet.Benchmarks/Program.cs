@@ -16,4 +16,3 @@ var aotConfig = DefaultConfig.Instance
                              .AddJob(Job.Default.WithToolchain(aotToolchain));
 
 BenchmarkRunner.Run<RefListVsList>(aotConfig);
-BenchmarkRunner.Run<TypeIdBenchmarks>(aotConfig);

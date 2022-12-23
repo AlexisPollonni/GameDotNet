@@ -3,7 +3,7 @@ using GameDotNet.Core.ECS;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public struct LocalToWorld : IComponent
+public struct LocalToWorld
 {
     public Matrix4x4 Value;
 

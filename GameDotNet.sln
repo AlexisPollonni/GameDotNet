@@ -11,8 +11,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.Tests", "GameDot
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generators", "Generators", "{DE1E45DA-98FB-4EA7-808A-2FF15B003E64}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.Generators.Component", "GameDotNet.Generators.Component\GameDotNet.Generators.Component.csproj", "{05DB94D8-781E-4F0B-8342-5F502704E41D}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.Generators.Shader", "GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj", "{1F511BAA-4256-4E85-816A-D2CE60F2F0C1}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.SampleGame", "GameDotNet.SampleGame\GameDotNet.SampleGame.csproj", "{FFACFDC3-5E18-422A-945C-BB1BE982E9A9}"
@@ -42,10 +40,6 @@ Global
 		{71DE0E94-2960-4A62-A8FA-A9C21CFAE610}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{71DE0E94-2960-4A62-A8FA-A9C21CFAE610}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{71DE0E94-2960-4A62-A8FA-A9C21CFAE610}.Release|Any CPU.Build.0 = Release|Any CPU
-		{05DB94D8-781E-4F0B-8342-5F502704E41D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{05DB94D8-781E-4F0B-8342-5F502704E41D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{05DB94D8-781E-4F0B-8342-5F502704E41D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{05DB94D8-781E-4F0B-8342-5F502704E41D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{1F511BAA-4256-4E85-816A-D2CE60F2F0C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1F511BAA-4256-4E85-816A-D2CE60F2F0C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1F511BAA-4256-4E85-816A-D2CE60F2F0C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -59,7 +53,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{05DB94D8-781E-4F0B-8342-5F502704E41D} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
 		{1F511BAA-4256-4E85-816A-D2CE60F2F0C1} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
 		{2F8C763B-0E95-4DA6-8C9D-55E5865ED538} = {DE1E45DA-98FB-4EA7-808A-2FF15B003E64}
 	EndGlobalSection

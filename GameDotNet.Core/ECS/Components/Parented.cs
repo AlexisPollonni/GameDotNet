@@ -1,7 +1,7 @@
+using Arch.Core;
+
 namespace GameDotNet.Core.ECS.Components;
 
-public struct Parented : IComponent
-{
-    public EntityId? Parent;
-    public List<EntityId> Children;
-}
+public readonly record struct ParentEntityComponent(Entity Parent);
+
+public readonly record struct ChildrenEntityComponent(List<Entity> Children);

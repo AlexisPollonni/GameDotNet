@@ -2,7 +2,7 @@ using GameDotNet.Core.ECS;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public struct Scale : IComponent
+public struct Scale
 {
     public float Value;
 

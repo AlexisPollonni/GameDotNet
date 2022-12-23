@@ -1,22 +1,25 @@
-using System.Buffers;
 using System.Diagnostics;
 using System.Drawing;
 using System.Numerics;
+using Arch.Core;
+using Arch.Core.Extensions;
 using GameDotNet.Core.ECS;
+using GameDotNet.Core.ECS.Components;
 using GameDotNet.Core.Graphics.Vulkan;
 using GameDotNet.Core.Physics.Components;
 using Silk.NET.Windowing;
+using Query = GameDotNet.Core.ECS.Query;
 
 namespace GameDotNet.Core.Graphics;
 
-public sealed class VulkanRenderSystem : GenericSystem<Translation, RenderMesh>, IDisposable
+public sealed class VulkanRenderSystem : SystemBase, IDisposable
 {
     private readonly VulkanRenderer _renderer;
     private readonly Thread _renderThread;
     private readonly IView _view;
     private readonly Stopwatch _drawWatch;
 
-    public VulkanRenderSystem(World world, IView view) : base(world)
+    public VulkanRenderSystem(IView view) : base(Query.All(typeof(RenderMesh), typeof(Translation)))
     {
         _view = view;
         _drawWatch = new();
@@ -41,9 +44,10 @@ public sealed class VulkanRenderSystem : GenericSystem<Translation, RenderMesh>,
             new(new(1, 1, 0), new(4, 4, 4), Color.Green)
         });
 
-        var e = World.EntityManager.CreateEntity("Triangle")
-                     .Add<Translation>(new(Vector3.One))
-                     .Add<RenderMesh>(new(m));
+        var e = ParentWorld.Create(new Tag("Triangle"),
+            new Translation(Vector3.One),
+            new RenderMesh(m));
+
 
         _renderer.UploadMesh(ref e.Get<RenderMesh>().Mesh);
 
@@ -60,14 +64,7 @@ public sealed class VulkanRenderSystem : GenericSystem<Translation, RenderMesh>,
     {
         while (!_view.IsClosing)
         {
-            var entities = World.EntityManager.Get(GetBoundEntities());
-
-            var m = ArrayPool<Mesh>.Shared.Rent(entities.Length);
-            for (var i = 0; i < entities.Length; i++) 
-                m[i] = entities[i].Get<RenderMesh>().Mesh;
-
-            _renderer.Draw(_drawWatch.Elapsed, m.AsSpan(..entities.Length));
-            ArrayPool<Mesh>.Shared.Return(m);
+            _renderer.Draw(_drawWatch.Elapsed,  ParentWorld.Query(Description).GetChunkIterator());
 
             _drawWatch.Restart();
         }

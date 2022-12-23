@@ -3,7 +3,7 @@ using GameDotNet.Core.ECS;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public struct Translation : IComponent
+public struct Translation
 {
     public Vector3 Value;
 

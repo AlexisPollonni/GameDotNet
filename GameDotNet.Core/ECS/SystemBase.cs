@@ -1,31 +1,26 @@
+using System.Diagnostics;
+using Arch.Core;
+
 namespace GameDotNet.Core.ECS;
 
 public abstract class SystemBase
 {
-    protected readonly World World;
-    protected Entity[] Entities { get; private set; }
+    public QueryDescription Description { get; }
+    public World ParentWorld { get; internal set; }
 
-    protected SystemBase(World world)
+    internal Stopwatch UpdateWatch { get; }
+
+
+    protected SystemBase(QueryDescription description)
     {
-        World = world;
-        Entities = Array.Empty<Entity>();
-    }
-
-    public void RefreshEntities()
-    {
-        var ids = GetBoundEntities();
-
-        Entities = new Entity[ids.Length];
-        var i = 0;
-        foreach (ref readonly var id in ids)
-        {
-            Entities[i] = World.EntityManager.Get(id);
-            i++;
-        }
+        UpdateWatch = new();
+        Description = description;
     }
 
     public virtual bool Initialize() => true;
     public abstract void Update(TimeSpan delta);
 
-    protected abstract ReadOnlySpan<EntityId> GetBoundEntities();
+    public virtual void OnEntityAdded(Entity entity)
+    { }
+    
 }

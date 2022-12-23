@@ -9,16 +9,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.13.2"/>
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.2" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GameDotNet.Generators.Component\GameDotNet.Generators.Component.csproj" OutputItemType="Analyzer"/>
-    <ProjectReference Include="..\GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" OutputItemType="Analyzer"/>
+    <ProjectReference Include="..\GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" OutputItemType="Analyzer" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
+    <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
   </ItemGroup>
 
 </Project>

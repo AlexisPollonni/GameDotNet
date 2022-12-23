@@ -3,7 +3,7 @@ using GameDotNet.Core.ECS;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public struct Rotation : IComponent
+public struct Rotation
 {
     public Quaternion Value;
 

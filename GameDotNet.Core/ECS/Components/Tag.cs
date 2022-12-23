@@ -1,11 +1,6 @@
 namespace GameDotNet.Core.ECS.Components;
 
-public struct Tag : IComponent
+public record struct Tag(string Name)
 {
-    public string Name;
-
-    public Tag(string name)
-    {
-        Name = name;
-    }
+    public string Name = Name;
 }

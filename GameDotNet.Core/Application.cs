@@ -1,5 +1,5 @@
+using Arch.Core;
 using GameDotNet.Core.ECS;
-using GameDotNet.Core.ECS.Generated;
 using GameDotNet.Core.Graphics;
 using Serilog;
 using Serilog.Events;
@@ -11,7 +11,7 @@ namespace GameDotNet.Core;
 public class Application : IDisposable
 {
     private readonly IView _mainView;
-    private readonly World _world;
+    private readonly Universe _universe;
 
     public Application(string appName)
     {
@@ -39,11 +39,11 @@ public class Application : IDisposable
             _mainView = Window.Create(opt);
         }
 
-        _world = new World(new ComponentStore());
+        _universe = new();
         _mainView.Load += OnWindowLoad;
-        _mainView.Update += d => _world.Update();
+        _mainView.Update += d => _universe.Update();
 
-        _world.RegisterSystem(new VulkanRenderSystem(_world, _mainView));
+        _universe.RegisterSystem(new VulkanRenderSystem(_mainView));
     }
 
     public string ApplicationName { get; }
@@ -57,7 +57,7 @@ public class Application : IDisposable
 
     public void Dispose()
     {
-        _world.Dispose();
+        _universe.Dispose();
         _mainView.Dispose();
 
         GC.SuppressFinalize(this);
@@ -77,7 +77,7 @@ public class Application : IDisposable
             };
         }
 
-        _world.Initialize();
+        _universe.Initialize();
     }
 
 

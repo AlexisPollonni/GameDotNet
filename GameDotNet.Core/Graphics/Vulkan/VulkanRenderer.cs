@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Arch.Core;
 using GameDotNet.Core.Graphics.MemoryAllocation;
 using GameDotNet.Core.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Core.Shaders.Generated;
@@ -73,7 +74,7 @@ public sealed class VulkanRenderer : IDisposable
         CreatePipeline();
     }
 
-    public unsafe void Draw(TimeSpan dt, ReadOnlySpan<Mesh> meshes)
+    public unsafe void Draw(TimeSpan dt, QueryChunkIterator chunks)
     {
         var vk = _instance.Vk;
         // wait until the GPU has finished rendering the last frame. Timeout of 1 second
@@ -114,10 +115,13 @@ public sealed class VulkanRenderer : IDisposable
         // RENDERING COMMANDS
         vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
 
-        foreach (var mesh in meshes)
+        foreach (ref var chunk in chunks)
         {
-            vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, mesh.Buffer, 0);
-            vk.CmdDraw(_mainCommandBuffer, (uint)mesh.Vertices.Count, 1, 0, 0);
+            foreach (ref var render in chunk.GetSpan<RenderMesh>())
+            {
+                vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, render.Mesh.Buffer, 0);
+                vk.CmdDraw(_mainCommandBuffer, (uint)render.Mesh.Vertices.Count, 1, 0, 0);
+            }
         }
 
         vk.CmdEndRenderPass(_mainCommandBuffer);

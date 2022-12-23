@@ -1,13 +1,6 @@
-using GameDotNet.Core.ECS;
-
 namespace GameDotNet.Core.Graphics;
 
-public struct RenderMesh : IComponent
+public record struct RenderMesh(Mesh Mesh)
 {
-    public Mesh Mesh;
-
-    public RenderMesh(Mesh mesh)
-    {
-        Mesh = mesh;
-    }
+    public Mesh Mesh = Mesh;
 }
