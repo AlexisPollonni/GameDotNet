@@ -11,29 +11,30 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\GameDotNet.Generators.Component\GameDotNet.Generators.Component.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
-        <ProjectReference Include="..\GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\GameDotNet.Generators.Component\GameDotNet.Generators.Component.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="dotVariant" Version="0.5.2"/>
-        <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2"/>
-        <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.1-dev-00944"/>
-        <PackageReference Include="Silk.NET" Version="2.16.0"/>
-        <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.16.0"/>
-        <PackageReference Include="Serilog" Version="2.11.0"/>
-        <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0"/>
-        <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0"/>
-        <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947"/>
+        <PackageReference Include="Arch" Version="1.1.0" />
+        <PackageReference Include="dotVariant" Version="0.5.2" />
+        <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2" />
+        <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.1-dev-00944" />
+        <PackageReference Include="Silk.NET" Version="2.16.0" />
+        <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.16.0" />
+        <PackageReference Include="Serilog" Version="2.11.0" />
+        <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
+        <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0" />
+        <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947" />
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="Physics\"/>
+        <Folder Include="Physics\" />
     </ItemGroup>
 
     <ItemGroup>
-        <AdditionalFiles Include="Graphics\Shaders\Mesh.frag"/>
-        <AdditionalFiles Include="Graphics\Shaders\Mesh.vert"/>
+        <AdditionalFiles Include="Graphics\Shaders\Mesh.frag" />
+        <AdditionalFiles Include="Graphics\Shaders\Mesh.vert" />
     </ItemGroup>
 
 </Project>
