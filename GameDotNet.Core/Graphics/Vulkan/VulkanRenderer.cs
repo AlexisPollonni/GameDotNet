@@ -114,11 +114,13 @@ public sealed class VulkanRenderer : IDisposable
 
         // RENDERING COMMANDS
         vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
-
+        
         foreach (ref var chunk in chunks)
         {
-            foreach (ref var render in chunk.GetSpan<RenderMesh>())
+            foreach (var index in chunk)
             {
+                ref var render = ref chunk.Get<RenderMesh>(index);
+                
                 vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, render.Mesh.Buffer, 0);
                 vk.CmdDraw(_mainCommandBuffer, (uint)render.Mesh.Vertices.Count, 1, 0, 0);
             }
