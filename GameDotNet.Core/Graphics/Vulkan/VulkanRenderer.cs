@@ -332,7 +332,7 @@ public sealed class VulkanRenderer : IDisposable
         _meshPipeline = new PipelineBuilder(_instance, _device)
             .Build(new()
             {
-                VertexInputDescription = Vertex.GetDescription(),
+                VertexInputDescription = meshVertShader.GetVertexDescription(),
                 ShaderStages = new[] { meshFragShader, meshVertShader },
                 RenderPass = _renderPass,
                 Viewport = new(0, 0,

@@ -50,21 +50,4 @@ public struct Vertex
         _normal = normal;
         Color = color;
     }
-
-    public static unsafe VertexInputDescription GetDescription()
-    {
-        var dummy = new Vertex();
-        return new()
-        {
-            //we will have just 1 vertex buffer binding, with a per-vertex rate
-            Bindings = new() { new(0, (uint)sizeof(Vertex), VertexInputRate.Vertex) },
-
-            Attributes = new()
-            {
-                new(0, 0, Format.R32G32B32Sfloat, (uint)dummy.ByteOffset(ref dummy._position)),
-                new(1, 0, Format.R32G32B32Sfloat, (uint)dummy.ByteOffset(ref dummy._normal)),
-                new(2, 0, Format.R32G32B32A32Sfloat, (uint)dummy.ByteOffset(ref dummy._color))
-            }
-        };
-    }
 }
