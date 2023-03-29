@@ -4,7 +4,7 @@
 		<Description>A .NET wrapper for SPIRV-Reflect.</Description>
 		<AssemblyVersion>1.0</AssemblyVersion>
 		<Authors>Hyblocker</Authors>
-		<TargetFramework>netstandard2.0</TargetFramework>
+		<TargetFramework>net6.0</TargetFramework>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<DebugType>portable</DebugType>
 		<AssemblyName>SpirvReflectSharp</AssemblyName>
@@ -12,6 +12,8 @@
 		<PackageProjectUrl>https://github.com/hyblocker/spirv-reflect-sharp</PackageProjectUrl>
 		<RootNamespace>SpirvReflectSharp</RootNamespace>
 		<Platforms>AnyCPU;x64;x86</Platforms>
+		<LangVersion>default</LangVersion>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<!-- TODO: Detect platform and choose right shared binaries to include in output	-->

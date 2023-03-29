@@ -1,15 +1,14 @@
 ﻿using System;
 
-namespace SpirvReflectSharp
+namespace SpirvReflectSharp;
+
+public static class SpirvReflectUtils
 {
-	public static class SpirvReflectUtils
+	public static void Assert(bool condition)
 	{
-		public static void Assert(bool condition)
+		if (!condition)
 		{
-			if (!condition)
-			{
-				throw new Exception("Failed assert!");
-			}
+			throw new("Failed assert!");
 		}
 	}
 }

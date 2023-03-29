@@ -1,36 +1,35 @@
 ﻿using System;
 using System.Runtime.Serialization;
 
-namespace SpirvReflectSharp
+namespace SpirvReflectSharp;
+
+public class SpirvReflectException : Exception
 {
-	public class SpirvReflectException : Exception
+	public SpirvReflectException()
 	{
-		public SpirvReflectException()
-		{
 
-		}
+	}
 
-		public SpirvReflectException(string message)
-			: base(message)
-		{
+	public SpirvReflectException(string message)
+		: base(message)
+	{
 
-		}
+	}
 
-		public SpirvReflectException(string message, Exception innerException)
-			: base(message, innerException)
-		{
+	public SpirvReflectException(string message, Exception innerException)
+		: base(message, innerException)
+	{
 
-		}
+	}
 
-		protected SpirvReflectException(SerializationInfo info, StreamingContext context)
-			: base(info, context)
-		{
+	protected SpirvReflectException(SerializationInfo info, StreamingContext context)
+		: base(info, context)
+	{
 
-		}
+	}
 
-		internal SpirvReflectException(SpirvReflectNative.SpvReflectResult result)
-			: base(result.ToString())
-		{
-		}
+	internal SpirvReflectException(SpirvReflectNative.SpvReflectResult result)
+		: base(result.ToString())
+	{
 	}
 }
