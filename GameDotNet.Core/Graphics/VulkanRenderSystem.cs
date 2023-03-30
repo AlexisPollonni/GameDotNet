@@ -1,14 +1,12 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Numerics;
-using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.ECS;
 using GameDotNet.Core.ECS.Components;
 using GameDotNet.Core.Graphics.Vulkan;
 using GameDotNet.Core.Physics.Components;
 using Silk.NET.Windowing;
-using Query = GameDotNet.Core.ECS.Query;
 
 namespace GameDotNet.Core.Graphics;
 
@@ -45,11 +43,11 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         });
 
         var e = ParentWorld.Create(new Tag("Triangle"),
-            new Translation(Vector3.One),
-            new RenderMesh(m));
+                                   new Translation(Vector3.One),
+                                   new RenderMesh(m));
 
 
-        _renderer.UploadMesh(ref e.Get<RenderMesh>().Mesh);
+        _renderer.UploadMesh(ref e.Get<RenderMesh>());
 
         return true;
     }
@@ -64,7 +62,7 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     {
         while (!_view.IsClosing)
         {
-            _renderer.Draw(_drawWatch.Elapsed,  ParentWorld.Query(Description).GetChunkIterator());
+            _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator());
 
             _drawWatch.Restart();
         }

@@ -114,14 +114,14 @@ public sealed class VulkanRenderer : IDisposable
 
         // RENDERING COMMANDS
         vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
-        
+
         foreach (ref var chunk in chunks)
         {
             foreach (var index in chunk)
             {
                 ref var render = ref chunk.Get<RenderMesh>(index);
-                
-                vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, render.Mesh.Buffer, 0);
+
+                vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, render.RenderBuffer!.Buffer, 0);
                 vk.CmdDraw(_mainCommandBuffer, (uint)render.Mesh.Vertices.Count, 1, 0, 0);
             }
         }
@@ -173,8 +173,10 @@ public sealed class VulkanRenderer : IDisposable
         _frameNumber++;
     }
 
-    public unsafe void UploadMesh(ref Mesh mesh)
+    public unsafe void UploadMesh(ref RenderMesh renderMesh)
     {
+        ref var mesh = ref renderMesh.Mesh;
+
         var bufferInfo =
             new
                 BufferCreateInfo(size: (ulong)(sizeof(Vertex) * mesh.Vertices.Count),
@@ -182,9 +184,9 @@ public sealed class VulkanRenderer : IDisposable
 
         var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
 
-        mesh.Buffer = _allocator.CreateBuffer(bufferInfo, allocInfo, out var allocation);
+        var buff = _allocator.CreateBuffer(bufferInfo, allocInfo, out var allocation);
 
-        allocation.DisposeWith(_bufferDisposable);
+        renderMesh.RenderBuffer = new DisposableBuffer(buff, allocation).DisposeWith(_bufferDisposable);
 
         allocation.Map();
         if (!allocation.TryGetSpan(out Span<Vertex> span))
@@ -197,13 +199,13 @@ public sealed class VulkanRenderer : IDisposable
     private void InitVulkan()
     {
         _instance = new InstanceBuilder
-            {
-                ApplicationName = "App",
-                EngineName = "GamesDotNet",
-                EngineVersion = new Version32(0, 0, 1),
-                RequiredApiVersion = Vk.Version11,
-                Extensions = GetGlfwRequiredVulkanExtensions(),
-                IsHeadless = false,
+                    {
+                        ApplicationName = "App",
+                        EngineName = "GamesDotNet",
+                        EngineVersion = new Version32(0, 0, 1),
+                        RequiredApiVersion = Vk.Version11,
+                        Extensions = GetGlfwRequiredVulkanExtensions(),
+                        IsHeadless = false,
 #if DEBUG
                         EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
                         {
@@ -214,11 +216,11 @@ public sealed class VulkanRenderer : IDisposable
                         },
                         IsValidationLayersRequested = true
 #endif
-            }
+                    }
 #if DEBUG
                     .UseDefaultDebugMessenger()
 #endif
-            .Build();
+                    .Build();
 
         _surface = CreateSurface(_window);
 
