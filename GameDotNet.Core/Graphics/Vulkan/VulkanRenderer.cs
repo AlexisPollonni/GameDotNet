@@ -209,10 +209,10 @@ public sealed class VulkanRenderer : IDisposable
 #if DEBUG
                         EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
                         {
-                            ValidationFeatureEnableEXT.ValidationFeatureEnableBestPracticesExt,
-                            ValidationFeatureEnableEXT.ValidationFeatureEnableSynchronizationValidationExt,
-                            ValidationFeatureEnableEXT.ValidationFeatureEnableDebugPrintfExt,
-                            ValidationFeatureEnableEXT.ValidationFeatureEnableGpuAssistedReserveBindingSlotExt
+                            ValidationFeatureEnableEXT.BestPracticesExt,
+                            ValidationFeatureEnableEXT.SynchronizationValidationExt,
+                            ValidationFeatureEnableEXT.DebugPrintfExt,
+                            ValidationFeatureEnableEXT.GpuAssistedReserveBindingSlotExt
                         },
                         IsValidationLayersRequested = true
 #endif
