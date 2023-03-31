@@ -1,4 +1,3 @@
-using Arch.Core;
 using GameDotNet.Core.ECS;
 using GameDotNet.Core.Graphics;
 using Serilog;
@@ -44,6 +43,7 @@ public class Application : IDisposable
         _mainView.Update += d => _universe.Update();
 
         _universe.RegisterSystem(new VulkanRenderSystem(_mainView));
+        _universe.RegisterSystem(new CameraSystem(_mainView));
     }
 
     public string ApplicationName { get; }
@@ -65,7 +65,7 @@ public class Application : IDisposable
 
     private void OnWindowLoad()
     {
-        var input = _mainView.CreateInput();
+        using var input = _mainView.CreateInput();
         foreach (var kb in input.Keyboards)
         {
             kb.KeyUp += (_, key, _) =>

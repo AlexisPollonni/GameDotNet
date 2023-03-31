@@ -9,6 +9,8 @@ namespace GameDotNet.Core.Graphics.Vulkan;
 
 public sealed class VulkanShader : IDisposable
 {
+    public ShaderStageFlags ShaderStage => (ShaderStageFlags)_reflectModule.ShaderStage;
+
     private readonly Vk _vk;
     private readonly VulkanDevice _device;
 
@@ -18,7 +20,7 @@ public sealed class VulkanShader : IDisposable
     private readonly SpirvReflectSharp.ShaderModule _reflectModule;
 
     public VulkanShader(Vk vk, VulkanDevice device, ShaderStageFlags stage, ReadOnlySpan<byte> bytecode,
-        string? entryPoint = null)
+                        string? entryPoint = null)
     {
         _vk = vk;
         _stage = stage;
@@ -28,22 +30,6 @@ public sealed class VulkanShader : IDisposable
         _reflectModule = SpirvReflect.ReflectCreateShaderModule(bytecode);
 
         _entryPointMem = (entryPoint ?? _reflectModule.EntryPointName).ToGlobalMemory();
-    }
-
-    internal unsafe PipelineShaderStageCreateInfo GetPipelineShaderInfo() =>
-        new(stage: _stage, module: _module, pName: _entryPointMem.AsPtr<byte>());
-
-    private unsafe ShaderModule CreateShaderModule(ReadOnlySpan<byte> code)
-    {
-        ShaderModule module;
-        fixed (uint* pBytecode = code.Cast<byte, uint>())
-        {
-            var shaderModuleInfo = new ShaderModuleCreateInfo(codeSize: (nuint?) code.Length, pCode: pBytecode);
-
-            _vk.CreateShaderModule(_device, shaderModuleInfo, null, out module).ThrowOnError();
-        }
-
-        return module;
     }
 
     public VertexInputDescription GetVertexDescription()
@@ -57,23 +43,47 @@ public sealed class VulkanShader : IDisposable
         var inputs = _reflectModule.EnumerateInputVariables();
 
         var attrDescList = inputs
-            .Select(reflVar =>
-                new VertexInputAttributeDescription(reflVar.Location, bindingDesc.Binding, (Format) reflVar.Format, 0))
-            .OrderBy(desc => desc.Location)
-            .Select(attribute =>
-            {
-                var formatSize = FormatSize(attribute.Format);
-                var attribute2 = attribute with {Offset = bindingDesc.Stride};
-                bindingDesc.Stride += formatSize;
-                return attribute2;
-            })
-            .ToList();
+                           .Select(reflVar =>
+                                       new VertexInputAttributeDescription(reflVar.Location, bindingDesc.Binding,
+                                                                           (Format)reflVar.Format, 0))
+                           .OrderBy(desc => desc.Location)
+                           .Select(attribute =>
+                           {
+                               var formatSize = FormatSize(attribute.Format);
+                               var attribute2 = attribute with { Offset = bindingDesc.Stride };
+                               bindingDesc.Stride += formatSize;
+                               return attribute2;
+                           })
+                           .ToList();
 
         return new()
         {
-            Bindings = new() {bindingDesc},
+            Bindings = new() { bindingDesc },
             Attributes = attrDescList
         };
+    }
+
+    public IEnumerable<PushConstantRange> GetPushConstantRanges()
+    {
+        return _reflectModule.EnumeratePushConstants()
+                             .OrderBy(block => block.Offset)
+                             .Select(constant => new PushConstantRange(ShaderStage, constant.Offset, constant.Size));
+    }
+
+    internal unsafe PipelineShaderStageCreateInfo GetPipelineShaderInfo() =>
+        new(stage: _stage, module: _module, pName: _entryPointMem.AsPtr<byte>());
+
+    private unsafe ShaderModule CreateShaderModule(ReadOnlySpan<byte> code)
+    {
+        ShaderModule module;
+        fixed (uint* pBytecode = code.Cast<byte, uint>())
+        {
+            var shaderModuleInfo = new ShaderModuleCreateInfo(codeSize: (nuint?)code.Length, pCode: pBytecode);
+
+            _vk.CreateShaderModule(_device, shaderModuleInfo, null, out module).ThrowOnError();
+        }
+
+        return module;
     }
 
     private unsafe void ReleaseUnmanagedResources()

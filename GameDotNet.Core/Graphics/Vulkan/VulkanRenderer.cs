@@ -1,7 +1,10 @@
 using System.Diagnostics;
+using System.Numerics;
 using Arch.Core;
+using Arch.Core.Extensions;
 using GameDotNet.Core.Graphics.MemoryAllocation;
 using GameDotNet.Core.Graphics.Vulkan.Bootstrap;
+using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Shaders.Generated;
 using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
@@ -9,6 +12,7 @@ using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
+using Silk.NET.Maths;
 using Silk.NET.Vulkan;
 using Silk.NET.Windowing;
 using static GameDotNet.Core.Graphics.Vulkan.Constants;
@@ -56,6 +60,8 @@ public sealed class VulkanRenderer : IDisposable
 
         _instance.Vk.DestroyCommandPool(_device, _commandPool, NullAlloc);
 
+        _meshPipeline.Dispose();
+
         // Order is important
         _allocator.Dispose();
         _swapchain?.Dispose();
@@ -74,7 +80,7 @@ public sealed class VulkanRenderer : IDisposable
         CreatePipeline();
     }
 
-    public unsafe void Draw(TimeSpan dt, QueryChunkIterator chunks)
+    public unsafe void Draw(TimeSpan dt, in QueryChunkIterator chunks, in Entity camera)
     {
         var vk = _instance.Vk;
         // wait until the GPU has finished rendering the last frame. Timeout of 1 second
@@ -114,6 +120,28 @@ public sealed class VulkanRenderer : IDisposable
 
         // RENDERING COMMANDS
         vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
+
+        // camera position
+        var camPos = camera.Get<Translation>().Value;
+        var camRot = camera.Get<Rotation>().Value;
+
+        var view = Matrix4x4.CreateTranslation(camPos) * Matrix4x4.CreateFromQuaternion(camRot);
+
+        var projection = Matrix4x4
+            .CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
+                                          (float)_window.FramebufferSize.X / _window.FramebufferSize.Y,
+                                          0.1f, 200f);
+        projection.M22 *= -1;
+
+        //model rotation
+        var model = Matrix4x4.CreateRotationY(Scalar.DegreesToRadians(_frameNumber * 0.4f));
+
+        var meshMatrix = projection * view * model;
+        var constants = (Vector4.Zero, meshMatrix);
+        var size = (uint)sizeof((Vector4, Matrix4x4));
+
+        vk.CmdPushConstants(_mainCommandBuffer, _meshPipeline.Layout, ShaderStageFlags.VertexBit, 0, size,
+                            ref constants);
 
         foreach (ref var chunk in chunks)
         {
@@ -337,12 +365,8 @@ public sealed class VulkanRenderer : IDisposable
                 VertexInputDescription = meshVertShader.GetVertexDescription(),
                 ShaderStages = new[] { meshFragShader, meshVertShader },
                 RenderPass = _renderPass,
-                Viewport = new(0, 0,
-                               _window.Size.X, _window.Size.Y, 0, 1f),
-                Scissor =
-                    new(new(0, 0),
-                        new Extent2D((uint)_window.Size.X,
-                                     (uint)_window.Size.Y))
+                Viewport = new(0, 0, _window.Size.X, _window.Size.Y, 0, 1f),
+                Scissor = new(new(0, 0), new Extent2D((uint)_window.Size.X, (uint)_window.Size.Y))
             });
     }
 

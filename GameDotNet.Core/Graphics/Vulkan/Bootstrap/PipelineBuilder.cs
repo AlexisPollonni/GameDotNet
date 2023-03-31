@@ -36,7 +36,7 @@ public class PipelineBuilder
         var rasterizer = CreateRasterizationStateInfo(options.PolygonMode);
         var multisampling = CreateMultisampleStateInfo();
 
-        var layoutInfo = CreatePipelineLayoutInfo();
+        var layoutInfo = CreatePipelineLayoutInfo(options.ShaderStages, d);
 
         _instance.Vk.CreatePipelineLayout(_device, layoutInfo, null, out var layout)
                  .ThrowOnError("Failed to create graphics pipeline layout");
@@ -69,9 +69,18 @@ public class PipelineBuilder
         _instance.Vk.CreateGraphicsPipelines(_device, new(), 1, &pipelineInfo, null, out var pipeline)
                  .ThrowOnError("Couldn't create graphics pipeline");
 
-        return new(pipeline);
+        return new(_instance.Vk, _device, pipeline, layout);
     }
 
+
+    private static unsafe PipelineLayoutCreateInfo CreatePipelineLayoutInfo(
+        IEnumerable<VulkanShader> stages, ICompositeDisposable d)
+    {
+        var ranges = stages.SelectMany(shader => shader.GetPushConstantRanges()).ToList();
+
+        return new(flags: 0, setLayoutCount: 0, pSetLayouts: null, pushConstantRangeCount: (uint)ranges.Count,
+                   pPushConstantRanges: ranges.AsPtr(d));
+    }
 
     private static unsafe PipelineVertexInputStateCreateInfo CreateVertexInputStageInfo(VertexInputDescription d)
     {
@@ -109,8 +118,4 @@ public class PipelineBuilder
     private static PipelineColorBlendAttachmentState CreateColorBlendAttachmentState() =>
         new(colorWriteMask: ColorComponentFlags.RBit | ColorComponentFlags.GBit | ColorComponentFlags.BBit | ColorComponentFlags.ABit,
             blendEnable: false);
-
-    private static unsafe PipelineLayoutCreateInfo CreatePipelineLayoutInfo() =>
-        new(flags: 0, setLayoutCount: 0, pSetLayouts: null, pushConstantRangeCount: 0,
-            pPushConstantRanges: null);
 }

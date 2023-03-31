@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Numerics;
+using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.ECS;
 using GameDotNet.Core.ECS.Components;
@@ -12,12 +13,15 @@ namespace GameDotNet.Core.Graphics;
 
 public sealed class VulkanRenderSystem : SystemBase, IDisposable
 {
+    private static readonly QueryDescription MeshQueryDesc = new QueryDescription().WithAll<RenderMesh, Translation>();
+    private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAll<Camera>();
+
     private readonly VulkanRenderer _renderer;
     private readonly Thread _renderThread;
     private readonly IView _view;
     private readonly Stopwatch _drawWatch;
 
-    public VulkanRenderSystem(IView view) : base(Query.All(typeof(RenderMesh), typeof(Translation)))
+    public VulkanRenderSystem(IView view) : base(MeshQueryDesc)
     {
         _view = view;
         _drawWatch = new();
@@ -33,13 +37,9 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         _renderer.Initialize();
         Mesh m = new(new()
         {
-            new(new(1, 1, 0), new(2, 2, 2), Color.Blue),
-            new(new(-1, 1, 0), new(3, 3, 3), Color.Red),
-            new(new(0, 0, 0), new(4, 4, 4), Color.Green),
-
-            new(new(0, 0, 0), new(2, 2, 2), Color.Blue),
-            new(new(1, 0, 0), new(3, 3, 3), Color.Red),
-            new(new(1, 1, 0), new(4, 4, 4), Color.Green)
+            new(new(1, 1, 0), new(), Color.Blue),
+            new(new(-1, 1, 0), new(), Color.Red),
+            new(new(0, -1, 0), new(), Color.Green),
         });
 
         var e = ParentWorld.Create(new Tag("Triangle"),
@@ -62,7 +62,9 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     {
         while (!_view.IsClosing)
         {
-            _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator());
+            var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
+
+            _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
 
             _drawWatch.Restart();
         }
