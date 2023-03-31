@@ -5,11 +5,10 @@ using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.ECS;
 using GameDotNet.Core.ECS.Components;
-using GameDotNet.Core.Graphics.Vulkan;
 using GameDotNet.Core.Physics.Components;
 using Silk.NET.Windowing;
 
-namespace GameDotNet.Core.Graphics;
+namespace GameDotNet.Core.Graphics.Vulkan;
 
 public sealed class VulkanRenderSystem : SystemBase, IDisposable
 {

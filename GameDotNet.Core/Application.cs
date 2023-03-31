@@ -1,5 +1,6 @@
 using GameDotNet.Core.ECS;
 using GameDotNet.Core.Graphics;
+using GameDotNet.Core.Graphics.Vulkan;
 using Serilog;
 using Serilog.Events;
 using Silk.NET.Input;
