@@ -205,23 +205,17 @@ public sealed class VulkanRenderer : IDisposable
     {
         ref var mesh = ref renderMesh.Mesh;
 
-        var bufferInfo =
-            new
-                BufferCreateInfo(size: (ulong)(sizeof(Vertex) * mesh.Vertices.Count),
-                                 usage: BufferUsageFlags.VertexBufferBit);
-
+        var bufferInfo = new BufferCreateInfo(size: mesh.Vertices.SizeOf(), usage: BufferUsageFlags.VertexBufferBit);
         var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
 
-        var buff = _allocator.CreateBuffer(bufferInfo, allocInfo, out var allocation);
+        renderMesh.RenderBuffer = new DisposableBuffer(_allocator, bufferInfo, allocInfo)
+            .DisposeWith(_bufferDisposable);
 
-        renderMesh.RenderBuffer = new DisposableBuffer(buff, allocation).DisposeWith(_bufferDisposable);
-
-        allocation.Map();
-        if (!allocation.TryGetSpan(out Span<Vertex> span))
+        using var mapping = renderMesh.RenderBuffer.Map<Vertex>();
+        if (!mapping.TryGetSpan(out var span))
             throw new AllocationException("Couldn't get vertices span from allocation");
 
         mesh.Vertices.AsSpan().CopyTo(span);
-        allocation.Unmap();
     }
 
     private void InitVulkan()

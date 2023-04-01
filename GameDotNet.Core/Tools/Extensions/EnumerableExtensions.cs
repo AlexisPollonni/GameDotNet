@@ -28,4 +28,9 @@ public static class EnumerableExtensions
     }
 
     public static void Resize<T>(this List<T> list, int size) => list.Resize(size, default!);
+
+    public static unsafe ulong SizeOf<T>(this ICollection<T> list) where T : unmanaged
+    {
+        return (ulong)(sizeof(T) * list.Count);
+    }
 }
