@@ -1,6 +1,6 @@
 namespace GameDotNet.Core.Graphics;
 
-public struct Mesh
+public class Mesh
 {
     public List<Vertex> Vertices { get; set; }
 

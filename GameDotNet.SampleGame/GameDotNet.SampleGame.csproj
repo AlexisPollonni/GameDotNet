@@ -21,4 +21,10 @@
         <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="7.0.0-preview.7.22375.6"/>
     </ItemGroup>
 
+    <ItemGroup>
+        <None Update="Assets\MonkeyScene.dae">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
+
 </Project>

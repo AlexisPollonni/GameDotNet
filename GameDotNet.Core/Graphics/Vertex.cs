@@ -50,4 +50,11 @@ public struct Vertex
         _normal = normal;
         Color = color;
     }
+
+    public Vertex(Vector3 position, Vector3 normal, Vector4 color)
+    {
+        _position = position;
+        _normal = normal;
+        _color = color;
+    }
 }
