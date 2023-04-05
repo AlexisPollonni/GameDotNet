@@ -12,7 +12,11 @@ namespace GameDotNet.Core.Graphics.Vulkan;
 
 public sealed class VulkanRenderSystem : SystemBase, IDisposable
 {
-    private static readonly QueryDescription MeshQueryDesc = new QueryDescription().WithAll<RenderMesh, Translation>();
+    private static readonly QueryDescription RenderQueryDesc = new QueryDescription().WithAll<RenderMesh>();
+
+    private static readonly QueryDescription MeshQueryDesc =
+        new QueryDescription().WithAll<Mesh>().WithNone<RenderMesh>();
+
     private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAll<Camera>();
 
     private readonly VulkanRenderer _renderer;
@@ -20,7 +24,7 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     private readonly IView _view;
     private readonly Stopwatch _drawWatch;
 
-    public VulkanRenderSystem(IView view) : base(MeshQueryDesc)
+    public VulkanRenderSystem(IView view) : base(RenderQueryDesc)
     {
         _view = view;
         _drawWatch = new();
@@ -41,12 +45,18 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
             new(new(0, -1, 0), new(), Color.Green),
         });
 
-        var e = ParentWorld.Create(new Tag("Triangle"),
-                                   new Translation(Vector3.One),
-                                   new RenderMesh(m));
+        ParentWorld.Create(new Tag("Triangle"),
+                           new Translation(Vector3.Zero),
+                           m);
 
 
-        _renderer.UploadMesh(ref e.Get<RenderMesh>());
+        //TODO: Move this to asset manager when its implemented
+        ParentWorld.Query(MeshQueryDesc, (in Entity e, ref Mesh mesh) =>
+        {
+            var render = new RenderMesh(mesh);
+            _renderer.UploadMesh(ref render);
+            e.Add(render);
+        });
 
         return true;
     }
