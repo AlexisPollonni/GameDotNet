@@ -28,5 +28,5 @@ void main()
     //                    r[2][0], r[2][1], r[2][2], r[2][3],
     //                    r[3][0], r[3][1], r[3][2], r[3][3]
     //    );
-    //debugPrintfEXT("Position = %v3f, Normal = %v3f, Color = %v4f", PushConstants.render_matrix, vPosition, vNormal, vColor);
+    //debugPrintfEXT("gl_position = %v4f, Position = %v3f, Normal = %v3f, Color = %v4f", gl_Position, vPosition, vNormal, vColor);
 }
