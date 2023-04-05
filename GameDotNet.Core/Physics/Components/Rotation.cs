@@ -2,17 +2,10 @@ using System.Numerics;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public struct Rotation
+public record struct Rotation(Quaternion Value)
 {
-    public Quaternion Value;
+    public Rotation() : this(Quaternion.Identity)
+    { }
 
-    public Rotation()
-    {
-        Value = Quaternion.Identity;
-    }
-
-    public Rotation(Quaternion value)
-    {
-        Value = value;
-    }
+    public static implicit operator Quaternion(Rotation r) => r.Value;
 }

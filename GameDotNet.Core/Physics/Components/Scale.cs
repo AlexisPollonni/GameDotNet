@@ -1,13 +1,11 @@
-using GameDotNet.Core.ECS;
+using System.Numerics;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public struct Scale
+public record struct Scale(Vector3 Value)
 {
-    public float Value;
+    public Scale() : this(Vector3.One)
+    { }
 
-    public Scale(float value)
-    {
-        Value = value;
-    }
+    public static implicit operator Vector3(Scale s) => s.Value;
 }

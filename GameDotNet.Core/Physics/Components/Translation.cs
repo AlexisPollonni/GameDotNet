@@ -1,14 +1,8 @@
 using System.Numerics;
-using GameDotNet.Core.ECS;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public struct Translation
+public record struct Translation(Vector3 Value)
 {
-    public Vector3 Value;
-
-    public Translation(Vector3 value)
-    {
-        Value = value;
-    }
+    public static implicit operator Vector3(Translation t) => t.Value;
 }
