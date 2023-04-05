@@ -44,10 +44,14 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
         _lastMousePos = _mouse.Position;
 
+
+        Matrix4x4.Decompose(Matrix4x4.CreateLookAt(new(0, 0, -3), Vector3.Zero, -Vector3.UnitY),
+                            out _, out var rot, out var pos);
+
         _camera = ParentWorld.Create(new Tag("Camera"),
                                      new Camera(),
-                                     new Translation(new(0, 0, -2)),
-                                     new Rotation())
+                                     new Translation(pos),
+                                     new Rotation(rot))
                              .Reference();
 
         return true;
