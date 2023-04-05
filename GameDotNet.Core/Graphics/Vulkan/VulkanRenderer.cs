@@ -41,6 +41,9 @@ public sealed class VulkanRenderer : IDisposable
     private RenderPass _renderPass;
     private Semaphore _presentSemaphore, _renderSemaphore;
     private Fence _renderFence;
+    private VulkanImage? _depthImage;
+    private VulkanImageView? _depthImageView;
+    private const Format DepthFormat = Format.D32Sfloat;
 
     public VulkanRenderer(IView window)
     {
@@ -63,8 +66,11 @@ public sealed class VulkanRenderer : IDisposable
         _meshPipeline.Dispose();
 
         // Order is important
-        _allocator.Dispose();
+        _depthImage?.Dispose();
+        _depthImageView?.Dispose();
         _swapchain?.Dispose();
+
+        _allocator.Dispose();
         _device.Dispose();
         _surface.Dispose();
         _instance.Dispose();
@@ -109,12 +115,14 @@ public sealed class VulkanRenderer : IDisposable
 
         // make a clear-color from frame number. This will flash with a 120*pi frame period.
         var clearValue = new ClearValue(new(0, 0, (float)Math.Abs(Math.Sin(_frameNumber / 120D)), 0));
+        var depthClear = new ClearValue(depthStencil: new(1f));
+        var clearValues = new[] { clearValue, depthClear };
 
         var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
                                              renderArea: new Rect2D(new Offset2D(0, 0), _swapchain.Extent),
                                              framebuffer: _frameBuffers[swImgIndex],
-                                             clearValueCount: 1,
-                                             pClearValues: &clearValue);
+                                             clearValueCount: (uint)clearValues.Length,
+                                             pClearValues: clearValues.AsPtr());
 
         vk.CmdBeginRenderPass(_mainCommandBuffer, rpInfo, SubpassContents.Inline);
 
@@ -128,8 +136,8 @@ public sealed class VulkanRenderer : IDisposable
         var view = Matrix4x4.CreateFromQuaternion(camRot) * Matrix4x4.CreateTranslation(camPos);
 
         var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
-                                                                (float)_window.FramebufferSize.X /
-                                                                _window.FramebufferSize.Y,
+                                                                (float)_swapchain.Extent.Width /
+                                                                _swapchain.Extent.Height,
                                                                 0.1f, 200f);
 
 
@@ -218,7 +226,7 @@ public sealed class VulkanRenderer : IDisposable
         var bufferInfo = new BufferCreateInfo(size: mesh.Vertices.SizeOf(), usage: BufferUsageFlags.VertexBufferBit);
         var allocInfo = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
 
-        renderMesh.RenderBuffer = new DisposableBuffer(_allocator, bufferInfo, allocInfo)
+        renderMesh.RenderBuffer = new VulkanBuffer(_allocator, bufferInfo, allocInfo)
             .DisposeWith(_bufferDisposable);
 
         using var mapping = renderMesh.RenderBuffer.Map<Vertex>();
@@ -263,10 +271,10 @@ public sealed class VulkanRenderer : IDisposable
 
         _device = new DeviceBuilder(_instance, _physDevice).Build();
 
+        _allocator = new(new(_instance.VkVersion, _instance.Vk, _instance, _physDevice, _device));
+
         CreateSwapchain();
         _graphicsQueue = _device.GetQueue(QueueType.Graphics)!.Value;
-
-        _allocator = new(new(_instance.VkVersion, _instance.Vk, _instance, _physDevice, _device));
     }
 
     private unsafe VulkanSurface CreateSurface(IVkSurfaceSource window)
@@ -287,7 +295,19 @@ public sealed class VulkanRenderer : IDisposable
             .Build();
 
         _swapchain?.Dispose();
+        _depthImage?.Dispose();
+        _depthImageView?.Dispose();
         _swapchain = swapchain;
+
+        var depthImageExtent = new Extent3D(swapchain.Extent.Width, swapchain.Extent.Height, 1);
+        var depthImgInfo =
+            VulkanImage.GetImageCreateInfo(DepthFormat, ImageUsageFlags.DepthStencilAttachmentBit, depthImageExtent);
+
+        var allocInfo =
+            new AllocationCreateInfo(usage: MemoryUsage.GPU_Only, requiredFlags: MemoryPropertyFlags.DeviceLocalBit);
+
+        _depthImage = new(_instance.Vk, _device, _allocator, depthImgInfo, allocInfo);
+        _depthImageView = _depthImage.GetImageView(DepthFormat, _depthImage, ImageAspectFlags.DepthBit);
     }
 
     private unsafe void CreateCommands()
@@ -319,11 +339,40 @@ public sealed class VulkanRenderer : IDisposable
 
         var colorAttachmentRef = new AttachmentReference(0, ImageLayout.AttachmentOptimal);
 
-        var subpass = new SubpassDescription(pipelineBindPoint: PipelineBindPoint.Graphics,
-                                             colorAttachmentCount: 1, pColorAttachments: &colorAttachmentRef);
+        var depthAttachment = new AttachmentDescription(format: DepthFormat,
+                                                        samples: SampleCountFlags.Count1Bit,
+                                                        loadOp: AttachmentLoadOp.Clear,
+                                                        storeOp: AttachmentStoreOp.Store,
+                                                        stencilLoadOp: AttachmentLoadOp.Clear,
+                                                        stencilStoreOp: AttachmentStoreOp.DontCare,
+                                                        initialLayout: ImageLayout.Undefined,
+                                                        finalLayout: ImageLayout.DepthStencilAttachmentOptimal);
+        var depthAttachmentRef = new AttachmentReference(attachment: 1, ImageLayout.DepthStencilAttachmentOptimal);
 
-        var renderPassInfo = new RenderPassCreateInfo(attachmentCount: 1, pAttachments: &colorAttachment,
-                                                      subpassCount: 1, pSubpasses: &subpass);
+        var subpass = new SubpassDescription(pipelineBindPoint: PipelineBindPoint.Graphics,
+                                             colorAttachmentCount: 1, pColorAttachments: &colorAttachmentRef,
+                                             pDepthStencilAttachment: &depthAttachmentRef);
+
+
+        var dependency = new SubpassDependency(Vk.SubpassExternal, 0, PipelineStageFlags.ColorAttachmentOutputBit,
+                                               PipelineStageFlags.ColorAttachmentOutputBit, 0,
+                                               AccessFlags.ColorAttachmentWriteBit);
+        var depthDependency = new SubpassDependency(Vk.SubpassExternal, 0,
+                                                    PipelineStageFlags.EarlyFragmentTestsBit |
+                                                    PipelineStageFlags.LateFragmentTestsBit,
+                                                    PipelineStageFlags.EarlyFragmentTestsBit |
+                                                    PipelineStageFlags.LateFragmentTestsBit, 0,
+                                                    AccessFlags.DepthStencilAttachmentWriteBit);
+
+
+        var attachments = new[] { colorAttachment, depthAttachment };
+        var dependencies = new[] { dependency, depthDependency };
+
+        var renderPassInfo = new RenderPassCreateInfo(attachmentCount: 2,
+                                                      pAttachments: attachments.AsPtr(),
+                                                      subpassCount: 1, pSubpasses: &subpass,
+                                                      dependencyCount: (uint)dependencies.Length,
+                                                      pDependencies: dependencies.AsPtr());
 
         _instance.Vk.CreateRenderPass(_device, renderPassInfo, NullAlloc, out _renderPass);
     }
@@ -333,11 +382,12 @@ public sealed class VulkanRenderer : IDisposable
         var frameBuffers = new Framebuffer[_swapchain!.ImageCount];
         var fbInfo = new FramebufferCreateInfo(renderPass: _renderPass,
                                                width: _swapchain.Extent.Width, height: _swapchain.Extent.Height,
-                                               attachmentCount: 1, layers: 1);
+                                               attachmentCount: 2, layers: 1);
 
         foreach (var (imageView, i) in _swapchain.GetImageViews().WithIndex())
         {
-            fbInfo.PAttachments = &imageView;
+            var attachments = new[] { imageView, _depthImageView!.ImageView };
+            fbInfo.PAttachments = attachments.AsPtr();
             _instance.Vk.CreateFramebuffer(_device, fbInfo, NullAlloc, out frameBuffers[i]);
         }
 
@@ -370,7 +420,8 @@ public sealed class VulkanRenderer : IDisposable
                 ShaderStages = new[] { meshFragShader, meshVertShader },
                 RenderPass = _renderPass,
                 Viewport = new(0, 0, _window.Size.X, _window.Size.Y, 0, 1f),
-                Scissor = new(new(0, 0), new Extent2D((uint)_window.Size.X, (uint)_window.Size.Y))
+                Scissor = new(new(0, 0), _swapchain!.Extent),
+                EnableDepthTest = true, EnableDepthWrite = true, DepthStencilCompare = CompareOp.LessOrEqual
             });
     }
 

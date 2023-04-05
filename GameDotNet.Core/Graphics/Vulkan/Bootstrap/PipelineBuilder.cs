@@ -18,6 +18,10 @@ public class PipelineBuilder
         public PolygonMode PolygonMode { get; set; } = PolygonMode.Fill;
         public Viewport Viewport { get; set; }
         public Rect2D Scissor { get; set; }
+
+        public bool EnableDepthTest { get; set; }
+        public bool EnableDepthWrite { get; set; }
+        public CompareOp DepthStencilCompare { get; set; }
     }
 
     public PipelineBuilder(VulkanInstance instance, VulkanDevice device)
@@ -53,6 +57,9 @@ public class PipelineBuilder
                                                                   attachmentCount: 1,
                                                                   pAttachments: &colorBlendAttachment);
 
+        var depthStencil =
+            CreateDepthStencilStateInfo(options.EnableDepthTest, options.EnableDepthWrite, options.DepthStencilCompare);
+
         var pipelineInfo = new GraphicsPipelineCreateInfo(stageCount: (uint)shaderStages.Length,
                                                           pStages: shaderStages.AsPtr(d),
                                                           pVertexInputState: vertexCreateInfo.AsPtr(d),
@@ -64,7 +71,8 @@ public class PipelineBuilder
                                                           layout: layout,
                                                           renderPass: options.RenderPass,
                                                           subpass: 0,
-                                                          basePipelineHandle: null);
+                                                          basePipelineHandle: null,
+                                                          pDepthStencilState: &depthStencil);
 
         _instance.Vk.CreateGraphicsPipelines(_device, new(), 1, &pipelineInfo, null, out var pipeline)
                  .ThrowOnError("Couldn't create graphics pipeline");
@@ -118,4 +126,14 @@ public class PipelineBuilder
     private static PipelineColorBlendAttachmentState CreateColorBlendAttachmentState() =>
         new(colorWriteMask: ColorComponentFlags.RBit | ColorComponentFlags.GBit | ColorComponentFlags.BBit | ColorComponentFlags.ABit,
             blendEnable: false);
+
+    private static unsafe PipelineDepthStencilStateCreateInfo CreateDepthStencilStateInfo(
+        bool depthTest, bool depthWrite, CompareOp compareOp) =>
+        new(depthTestEnable: depthTest,
+            depthWriteEnable: depthWrite,
+            depthCompareOp: depthTest ? compareOp : CompareOp.Always,
+            depthBoundsTestEnable: false,
+            minDepthBounds: 0f,
+            maxDepthBounds: 1f,
+            stencilTestEnable: false);
 }
