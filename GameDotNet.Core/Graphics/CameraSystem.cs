@@ -104,11 +104,16 @@ public sealed class CameraSystem : SystemBase, IDisposable
         }
 
         AddMovement(Key.Z, Vector3.UnitZ);
+        AddMovement(Key.W, Vector3.UnitZ);
+
         AddMovement(Key.S, -Vector3.UnitZ);
         AddMovement(Key.D, Vector3.UnitX);
+
         AddMovement(Key.A, -Vector3.UnitX);
+        AddMovement(Key.Q, -Vector3.UnitX);
+
         AddMovement(Key.Space, -Vector3.UnitY);
-        AddMovement(Key.Space, Vector3.UnitY);
+        AddMovement(Key.ControlLeft, Vector3.UnitY);
 
         if (moveInput == Vector3.Zero)
             return Vector3.Zero;
