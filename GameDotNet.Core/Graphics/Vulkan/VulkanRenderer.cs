@@ -125,31 +125,41 @@ public sealed class VulkanRenderer : IDisposable
         var camPos = camera.Get<Translation>().Value;
         var camRot = camera.Get<Rotation>().Value;
 
-        var view = Matrix4x4.CreateTranslation(camPos) * Matrix4x4.CreateFromQuaternion(camRot);
+        var view = Matrix4x4.CreateFromQuaternion(camRot) * Matrix4x4.CreateTranslation(camPos);
 
-        var projection = Matrix4x4
-            .CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
-                                          (float)_window.FramebufferSize.X / _window.FramebufferSize.Y,
-                                          0.1f, 200f);
-        projection.M22 *= -1;
+        var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
+                                                                (float)_window.FramebufferSize.X /
+                                                                _window.FramebufferSize.Y,
+                                                                0.1f, 200f);
 
-        //model rotation
-        var model = Matrix4x4.CreateRotationY(Scalar.DegreesToRadians(_frameNumber * 0.4f));
 
-        var meshMatrix = projection * view * model;
-        var constants = (Vector4.Zero, meshMatrix);
         var size = (uint)sizeof((Vector4, Matrix4x4));
-
-        vk.CmdPushConstants(_mainCommandBuffer, _meshPipeline.Layout, ShaderStageFlags.VertexBit, 0, size,
-                            ref constants);
 
         foreach (ref var chunk in chunks)
         {
             foreach (var index in chunk)
             {
                 ref var render = ref chunk.Get<RenderMesh>(index);
-
                 vk.CmdBindVertexBuffers(_mainCommandBuffer, 0, 1, render.RenderBuffer!.Buffer, 0);
+
+                var e = chunk.Entities[index];
+
+                if (!e.TryGet<Scale>(out var scale)) scale = new();
+                if (!e.TryGet<Rotation>(out var rot)) rot = new();
+                if (!e.TryGet<Translation>(out var translation)) translation = new();
+
+                //model rotation
+                var model = Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(rot) *
+                            Matrix4x4.CreateTranslation(translation);
+
+
+                var meshMatrix = model * view * projection;
+                var constants = (Vector4.Zero, Matrix4x4.Transpose(meshMatrix));
+
+
+                vk.CmdPushConstants(_mainCommandBuffer, _meshPipeline.Layout, ShaderStageFlags.VertexBit, 0, size,
+                                    ref constants);
+
                 vk.CmdDraw(_mainCommandBuffer, (uint)render.Mesh.Vertices.Count, 1, 0, 0);
             }
         }
