@@ -103,8 +103,8 @@ public class AssetImporter : IDisposable
         return new(vertices);
     }
 
-    private unsafe void CopyNodesWithMeshes(in Node node, SceneObject targetParent, Matrix4x4 accTransform,
-                                            IReadOnlyList<Mesh> loadedMeshes)
+    private static unsafe void CopyNodesWithMeshes(in Node node, SceneObject targetParent, Matrix4x4 accTransform,
+                                                   IReadOnlyList<Mesh> loadedMeshes)
     {
         SceneObject parent;
         Matrix4x4 transform;
@@ -132,7 +132,7 @@ public class AssetImporter : IDisposable
         }
     }
 
-    private unsafe IReadOnlyList<Mesh> GetMeshesFromNode(in Node node, IReadOnlyList<Mesh> loadedMeshes)
+    private static unsafe IReadOnlyList<Mesh> GetMeshesFromNode(in Node node, IReadOnlyList<Mesh> loadedMeshes)
     {
         var meshIndexes = new ReadOnlySpan<uint>(node.MMeshes, (int)node.MNumMeshes).Cast<uint, int>();
         var meshList = new List<Mesh>((int)node.MNumMeshes);
