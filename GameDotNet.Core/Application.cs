@@ -10,8 +10,9 @@ namespace GameDotNet.Core;
 
 public class Application : IDisposable
 {
+    public Universe Universe { get; }
+
     private readonly IView _mainView;
-    private readonly Universe _universe;
 
     public Application(string appName)
     {
@@ -39,12 +40,12 @@ public class Application : IDisposable
             _mainView = Window.Create(opt);
         }
 
-        _universe = new();
+        Universe = new();
         _mainView.Load += OnWindowLoad;
-        _mainView.Update += d => _universe.Update();
+        _mainView.Update += d => Universe.Update();
 
-        _universe.RegisterSystem(new VulkanRenderSystem(_mainView));
-        _universe.RegisterSystem(new CameraSystem(_mainView));
+        Universe.RegisterSystem(new VulkanRenderSystem(_mainView));
+        Universe.RegisterSystem(new CameraSystem(_mainView));
     }
 
     public string ApplicationName { get; }
@@ -58,7 +59,7 @@ public class Application : IDisposable
 
     public void Dispose()
     {
-        _universe.Dispose();
+        Universe.Dispose();
         _mainView.Dispose();
 
         GC.SuppressFinalize(this);
@@ -78,7 +79,7 @@ public class Application : IDisposable
             };
         }
 
-        _universe.Initialize();
+        Universe.Initialize();
     }
 
 

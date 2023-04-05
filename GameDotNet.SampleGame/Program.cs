@@ -11,4 +11,6 @@ using var assetManager = new AssetImporter();
 
 assetManager.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
 
+app.Universe.LoadScene(scene!);
+
 return app.Run();
