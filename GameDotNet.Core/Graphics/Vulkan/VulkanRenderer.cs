@@ -130,15 +130,15 @@ public sealed class VulkanRenderer : IDisposable
         vk.CmdBindPipeline(_mainCommandBuffer, PipelineBindPoint.Graphics, _meshPipeline);
 
         // camera position
-        var camPos = camera.Get<Translation>().Value;
-        var camRot = camera.Get<Rotation>().Value;
+        var camPos = camera.Get<Translation>();
+        var camRot = camera.Get<Rotation>();
 
         var view = Matrix4x4.CreateFromQuaternion(camRot) * Matrix4x4.CreateTranslation(camPos);
 
         var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
                                                                 (float)_swapchain.Extent.Width /
                                                                 _swapchain.Extent.Height,
-                                                                0.1f, 200f);
+                                                                0.1f, 5000f);
 
 
         var size = (uint)sizeof((Vector4, Matrix4x4));
@@ -162,7 +162,7 @@ public sealed class VulkanRenderer : IDisposable
 
 
                 var meshMatrix = model * view * projection;
-                var constants = (Vector4.Zero, Matrix4x4.Transpose(meshMatrix));
+                var constants = (Vector4.Zero, meshMatrix);
 
 
                 vk.CmdPushConstants(_mainCommandBuffer, _meshPipeline.Layout, ShaderStageFlags.VertexBit, 0, size,
