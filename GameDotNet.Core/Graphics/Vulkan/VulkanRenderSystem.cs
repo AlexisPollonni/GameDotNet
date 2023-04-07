@@ -6,6 +6,7 @@ using Arch.Core.Extensions;
 using GameDotNet.Core.ECS;
 using GameDotNet.Core.ECS.Components;
 using GameDotNet.Core.Physics.Components;
+using Silk.NET.Maths;
 using Silk.NET.Windowing;
 
 namespace GameDotNet.Core.Graphics.Vulkan;
@@ -23,16 +24,22 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     private readonly Thread _renderThread;
     private readonly IView _view;
     private readonly Stopwatch _drawWatch;
+    private readonly SemaphoreSlim _renderSem;
+
+    private Vector2D<int> _lastFramebufferSize;
 
     public VulkanRenderSystem(IView view) : base(RenderQueryDesc)
     {
         _view = view;
         _drawWatch = new();
         _renderer = new(_view);
+        _lastFramebufferSize = new(-1, -1);
+        _renderSem = new(1, 1);
         _renderThread = new(RenderLoop)
         {
             Name = "GameDotNet Render"
         };
+        _view.FramebufferResize += OnFramebufferResize;
     }
 
     public override bool Initialize()
@@ -67,22 +74,47 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
             _renderThread.Start();
     }
 
+    public void Dispose()
+    {
+        _renderSem.Dispose();
+        _renderThread.Join();
+
+        _renderer.Dispose();
+    }
+
     private void RenderLoop()
     {
         while (!_view.IsClosing)
         {
-            var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
+            _renderSem.Wait();
+            try
+            {
+                var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
 
-            _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
+                _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
+            }
+            finally
+            {
+                _renderSem.Release();
+            }
 
             _drawWatch.Restart();
         }
     }
 
-    public void Dispose()
+    private void OnFramebufferResize(Vector2D<int> size)
     {
-        _renderThread.Join();
+        var last = _lastFramebufferSize;
+        if (size.X is 0 || size.Y is 0)
+        {
+            if (last.X is not 0 || last.Y is not 0)
+                _renderSem.WaitAsync();
+        }
+        else if (last.X is 0 || last.Y is 0)
+        {
+            _renderSem.Release();
+        }
 
-        _renderer.Dispose();
+        _lastFramebufferSize = size;
     }
 }

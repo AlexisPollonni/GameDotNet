@@ -285,7 +285,7 @@ public sealed class VulkanRenderer : IDisposable
         return new(_instance, handle.ToSurface());
     }
 
-    private void CreateSwapchain()
+    private bool CreateSwapchain()
     {
         var swapchain = new SwapchainBuilder(_instance, _physDevice, _device, new SwapchainBuilder.Info(_surface)
             {
@@ -299,6 +299,8 @@ public sealed class VulkanRenderer : IDisposable
         _depthImageView?.Dispose();
         _swapchain = swapchain;
 
+        if (swapchain.Extent.Height is 0 || swapchain.Extent.Width is 0) return false;
+
         var depthImageExtent = new Extent3D(swapchain.Extent.Width, swapchain.Extent.Height, 1);
         var depthImgInfo =
             VulkanImage.GetImageCreateInfo(DepthFormat, ImageUsageFlags.DepthStencilAttachmentBit, depthImageExtent);
@@ -308,6 +310,8 @@ public sealed class VulkanRenderer : IDisposable
 
         _depthImage = new(_instance.Vk, _device, _allocator, depthImgInfo, allocInfo);
         _depthImageView = _depthImage.GetImageView(DepthFormat, _depthImage, ImageAspectFlags.DepthBit);
+
+        return true;
     }
 
     private unsafe void CreateCommands()
@@ -436,7 +440,7 @@ public sealed class VulkanRenderer : IDisposable
             vk.DestroyFramebuffer(_device, framebuffer, NullAlloc);
         }
 
-        CreateSwapchain();
+        if (!CreateSwapchain()) return;
         CreateFrameBuffers();
         CreateCommands();
     }
