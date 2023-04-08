@@ -19,21 +19,24 @@ public sealed class CameraSystem : SystemBase, IDisposable
 {
     public float Acceleration = 50;
     public float AccSprintMultiplier = 4;
-    public float LookSensitivity = 1;
+    public float LookSensitivity = 1f;
     public float DampingCoefficient = 5;
 
     private readonly IView _view;
     private IInputContext? _input;
     private EntityReference _camera;
     private IKeyboard _keyboard = null!;
-    private IMouse _mouse = null!;
+    private IMouse? _mouse;
+    private bool _isFocused;
 
-    private Vector3 _velocity = default;
+    private Vector3 _velocity;
+    private float _yaw, _pitch;
     private Vector2 _lastMousePos;
 
     public CameraSystem(IView view) : base(Query.All(typeof(Translation), typeof(Camera)))
     {
         _view = view;
+        _view.FocusChanged += ChangeFocusState;
     }
 
     public override bool Initialize()
@@ -41,6 +44,12 @@ public sealed class CameraSystem : SystemBase, IDisposable
         _input = _view.CreateInput();
         _keyboard = _input.Keyboards[0];
         _mouse = _input.Mice[0];
+        _keyboard.KeyUp += (_, key, _) =>
+        {
+            if (key is not Key.Escape) return;
+
+            ChangeFocusState(false);
+        };
 
         _lastMousePos = _mouse.Position;
 
@@ -63,7 +72,10 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
         ref var camPos = ref _camera.Entity.Get<Translation>();
 
-        UpdateInput(delta);
+        if (_isFocused)
+            UpdateInput(delta);
+        else if (_mouse.IsButtonPressed(MouseButton.Left))
+            ChangeFocusState(true);
 
         _velocity = Vector3.Lerp(_velocity, Vector3.Zero, (float)(DampingCoefficient * delta.TotalSeconds));
         camPos.Value += _velocity * (float)delta.TotalSeconds;
@@ -79,18 +91,22 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
     private void UpdateInput(TimeSpan delta)
     {
-        _velocity += GetAccelerationVector() * (float)delta.TotalSeconds;
+        var mousePos = _mouse.Position;
+        var winSize = new Vector2(_view.FramebufferSize.X, _view.FramebufferSize.Y);
 
-        var mouseDeltaPixels = _mouse.Position - _lastMousePos;
-        var mouseDelta = LookSensitivity * new Vector2(mouseDeltaPixels.X / _view.FramebufferSize.X,
-                                                       mouseDeltaPixels.Y / _view.FramebufferSize.Y);
+        var mouseDeltaPixels = mousePos - _lastMousePos;
+        _lastMousePos = _mouse.Position;
 
-        ref var rotation = ref _camera.Entity.Get<Rotation>();
+        var mouseDelta = LookSensitivity * mouseDeltaPixels / winSize;
+        var mouseDeltaRad = -(mouseDelta * MathF.PI);
 
-        var horiz = Quaternion.CreateFromAxisAngle(Vector3.UnitY, mouseDelta.X);
-        var vert = Quaternion.CreateFromAxisAngle(Vector3.UnitX, mouseDelta.Y);
+        _yaw += mouseDeltaRad.X;
+        _pitch = Math.Clamp(_pitch + mouseDeltaRad.Y, -MathF.PI / 2, MathF.PI / 2);
 
-        rotation.Value = horiz * rotation.Value * vert;
+        var finalRot = Quaternion.CreateFromYawPitchRoll(_yaw, _pitch, 0);
+        _camera.Entity.Get<Rotation>().Value = finalRot;
+
+        _velocity += Vector3.Transform(GetAccelerationVector() * (float)delta.TotalSeconds, finalRot);
     }
 
     private Vector3 GetAccelerationVector()
@@ -103,17 +119,18 @@ public sealed class CameraSystem : SystemBase, IDisposable
                 moveInput += dir;
         }
 
-        AddMovement(Key.Z, Vector3.UnitZ);
-        AddMovement(Key.W, Vector3.UnitZ);
+        AddMovement(Key.Z, -Vector3.UnitZ);
+        AddMovement(Key.W, -Vector3.UnitZ);
 
-        AddMovement(Key.S, -Vector3.UnitZ);
+        AddMovement(Key.S, Vector3.UnitZ);
+
         AddMovement(Key.D, Vector3.UnitX);
 
         AddMovement(Key.A, -Vector3.UnitX);
         AddMovement(Key.Q, -Vector3.UnitX);
 
-        AddMovement(Key.Space, -Vector3.UnitY);
-        AddMovement(Key.ControlLeft, Vector3.UnitY);
+        AddMovement(Key.Space, Vector3.UnitY);
+        AddMovement(Key.ControlLeft, -Vector3.UnitY);
 
         if (moveInput == Vector3.Zero)
             return Vector3.Zero;
@@ -124,5 +141,20 @@ public sealed class CameraSystem : SystemBase, IDisposable
             return direction * (Acceleration * AccSprintMultiplier);
 
         return direction * Acceleration;
+    }
+
+    private void ChangeFocusState(bool focused)
+    {
+        if (_mouse is not null)
+        {
+            _mouse.Cursor.CursorMode = _isFocused switch
+            {
+                true when !focused => CursorMode.Normal,
+                false when focused => CursorMode.Raw,
+                _ => _mouse.Cursor.CursorMode
+            };
+        }
+
+        _isFocused = focused;
     }
 }
