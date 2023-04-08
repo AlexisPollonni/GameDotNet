@@ -141,7 +141,8 @@ public sealed class VulkanRenderer : IDisposable
                                                                 (float)_swapchain.Extent.Width /
                                                                 _swapchain.Extent.Height,
                                                                 0.1f, 5000f);
-
+        // Invert Y axis as vulkan points downwards
+        projection.M22 *= -1;
 
         var size = (uint)sizeof((Vector4, Matrix4x4));
 
