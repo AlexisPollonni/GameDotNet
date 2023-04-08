@@ -134,6 +134,8 @@ public sealed class VulkanRenderer : IDisposable
         var camRot = camera.Get<Rotation>();
 
         var view = Matrix4x4.CreateFromQuaternion(camRot) * Matrix4x4.CreateTranslation(camPos);
+        Matrix4x4.Invert(view, out view);
+
 
         var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
                                                                 (float)_swapchain.Extent.Width /
