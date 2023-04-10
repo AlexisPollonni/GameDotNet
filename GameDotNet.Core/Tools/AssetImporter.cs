@@ -50,11 +50,13 @@ public class AssetImporter : IDisposable
         }
 
         var nodeRoot = *impScene->MRootNode;
-        var sceneRoot = new SceneObject(nodeRoot.MName, nodeRoot.MTransformation, GetMeshesFromNode(nodeRoot, meshes));
+        var sceneRoot = new SceneObject(nodeRoot.MName, Matrix4x4.Transpose(nodeRoot.MTransformation),
+                                        GetMeshesFromNode(nodeRoot, meshes));
 
         for (var i = 0; i < nodeRoot.MNumChildren; i++)
         {
-            CopyNodesWithMeshes(*nodeRoot.MChildren[i], sceneRoot, nodeRoot.MTransformation, meshes);
+            CopyNodesWithMeshes(*nodeRoot.MChildren[i], sceneRoot, Matrix4x4.Transpose(nodeRoot.MTransformation),
+                                meshes);
         }
 
         _assimp.ReleaseImport(impScene);
@@ -91,6 +93,13 @@ public class AssetImporter : IDisposable
         var vertices = new List<Vertex>(faces.Length * 3);
         foreach (ref readonly var face in faces)
         {
+            if (face.MNumIndices != 3)
+            {
+                Log.Warning("Mesh {Name} has a face with {NberVertices}, this is not supported. Face was skipped...",
+                            mesh.MName, face.MNumIndices);
+                continue;
+            }
+
             // Only 3 indices because meshes are triangulated
             for (var j = 0; j < 3; j++)
             {
@@ -109,10 +118,12 @@ public class AssetImporter : IDisposable
         SceneObject parent;
         Matrix4x4 transform;
 
+        var nodeTransformAcc = accTransform * Matrix4x4.Transpose(node.MTransformation);
+
         // If node has meshes, create a new scene object for it
         if (node.MNumMeshes > 0)
         {
-            var newObject = new SceneObject(node.MName.AsString, node.MTransformation * accTransform,
+            var newObject = new SceneObject(node.MName.AsString, nodeTransformAcc,
                                             GetMeshesFromNode(node, loadedMeshes));
 
             targetParent.AddChild(newObject);
@@ -123,7 +134,7 @@ public class AssetImporter : IDisposable
         else
         {
             parent = targetParent;
-            transform = node.MTransformation * accTransform;
+            transform = nodeTransformAcc;
         }
 
         for (var i = 0; i < node.MNumChildren; i++)

@@ -92,7 +92,7 @@ public class Universe : IDisposable
     {
         var transform = accTransform * obj.Transform;
 
-        if (!Matrix4x4.Decompose(Matrix4x4.Transpose(transform), out var scale, out var rotation, out var translation))
+        if (!Matrix4x4.Decompose(transform, out var scale, out var rotation, out var translation))
         {
             Log.Error("<Scene> Scene object {ObjectName} has invalid transform matrix, ignoring it", obj.Name);
 

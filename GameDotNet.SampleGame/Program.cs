@@ -9,7 +9,7 @@ using var app = new Application("SampleGame");
 
 using var assetManager = new AssetImporter();
 
-assetManager.LoadSceneFromFile("Assets/Monkey.dae", out var scene);
+assetManager.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
 
 app.Universe.LoadScene(scene!);
 
