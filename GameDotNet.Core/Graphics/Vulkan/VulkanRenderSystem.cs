@@ -6,6 +6,7 @@ using Arch.Core.Extensions;
 using GameDotNet.Core.ECS;
 using GameDotNet.Core.ECS.Components;
 using GameDotNet.Core.Physics.Components;
+using Serilog;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
 
@@ -60,6 +61,12 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         //TODO: Move this to asset manager when its implemented
         ParentWorld.Query(MeshQueryDesc, (in Entity e, ref Mesh mesh) =>
         {
+            if (mesh.Vertices.Count is 0)
+            {
+                Log.Warning("Skipped mesh {Name} with no vertices", e.Get<Tag>().Name);
+                return;
+            }
+
             var render = new RenderMesh(mesh);
             _renderer.UploadMesh(ref render);
             e.Add(render);
