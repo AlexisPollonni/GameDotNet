@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\GameDotNet.Graphics.Shaders\GameDotNet.Graphics.Shaders.csproj"/>
+        <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj"/>
+        <ProjectReference Include="..\GameDotNet.Management\GameDotNet.Management.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Silk.NET" Version="2.16.0"/>
+        <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.16.0"/>
+    </ItemGroup>
+
+</Project>

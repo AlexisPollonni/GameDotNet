@@ -4,14 +4,13 @@
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <LangVersion>default</LangVersion>
+        <LangVersion>latest</LangVersion>
         <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
         <CompilerGeneratedFilesOutputPath>$(BaseIntermediateOutputPath)Generated</CompilerGeneratedFilesOutputPath>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
     </ItemGroup>
 
@@ -20,22 +19,15 @@
         <PackageReference Include="dotVariant" Version="0.5.2" />
         <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2" />
         <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.1-dev-00944" />
-        <PackageReference Include="Silk.NET" Version="2.16.0" />
-        <PackageReference Include="Silk.NET.Assimp" Version="2.16.0"/>
-        <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.16.0" />
         <PackageReference Include="Serilog" Version="2.11.0" />
         <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
         <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0" />
         <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947" />
+        <PackageReference Include="Silk.NET.Core" Version="2.16.0"/>
     </ItemGroup>
 
     <ItemGroup>
         <Folder Include="Physics\" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <AdditionalFiles Include="Graphics\Shaders\Mesh.frag" />
-        <AdditionalFiles Include="Graphics\Shaders\Mesh.vert" />
     </ItemGroup>
 
 </Project>

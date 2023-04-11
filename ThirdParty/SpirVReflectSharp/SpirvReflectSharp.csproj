@@ -12,7 +12,7 @@
 		<PackageProjectUrl>https://github.com/hyblocker/spirv-reflect-sharp</PackageProjectUrl>
 		<RootNamespace>SpirvReflectSharp</RootNamespace>
 		<Platforms>AnyCPU;x64;x86</Platforms>
-		<LangVersion>default</LangVersion>
+		<LangVersion>latest</LangVersion>
 		<Nullable>enable</Nullable>
 	</PropertyGroup>
 

@@ -1,5 +1,4 @@
 using System.Numerics;
-using GameDotNet.Core.ECS;
 
 namespace GameDotNet.Core.Physics.Components;
 

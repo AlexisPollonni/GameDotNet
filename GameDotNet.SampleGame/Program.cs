@@ -1,7 +1,7 @@
 ﻿// See https://aka.ms/new-console-template for more information
 
-using GameDotNet.Core;
-using GameDotNet.Core.Tools;
+using GameDotNet.Graphics;
+using GameDotNet.Hosting;
 
 Console.WriteLine("Hello, World!");
 

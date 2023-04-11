@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Silk.NET.Assimp" Version="2.16.0"/>
+        <PackageReference Include="Silk.NET.Input" Version="2.16.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
+    </ItemGroup>
+
+</Project>
