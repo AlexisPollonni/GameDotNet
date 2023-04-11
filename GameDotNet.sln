@@ -31,6 +31,13 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.Management", "Ga
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.Hosting", "GameDotNet.Hosting\GameDotNet.Hosting.csproj", "{9940F8B2-1CB7-4965-929B-F191F888F5BA}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{B474408B-6750-400C-8DB7-DF4D0CF42F75}"
+	ProjectSection(SolutionItems) = preProject
+		global.json = global.json
+		NuGet.Config = NuGet.Config
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.projitems*{05db94d8-781e-4f0b-8342-5f502704e41d}*SharedItemsImports = 5
