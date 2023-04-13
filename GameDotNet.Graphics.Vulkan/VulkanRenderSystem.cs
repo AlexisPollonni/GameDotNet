@@ -26,8 +26,8 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     private readonly Thread _renderThread;
     private readonly IView _view;
     private readonly Stopwatch _drawWatch;
-    private readonly SemaphoreSlim _renderSem;
 
+    private bool _isRenderPaused;
     private Vector2D<int> _lastFramebufferSize;
 
     public VulkanRenderSystem(IView view) : base(RenderQueryDesc)
@@ -35,8 +35,8 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         _view = view;
         _drawWatch = new();
         _renderer = new(_view);
+        _isRenderPaused = false;
         _lastFramebufferSize = new(-1, -1);
-        _renderSem = new(1, 1);
         _renderThread = new(RenderLoop)
         {
             Name = "GameDotNet Render"
@@ -84,7 +84,7 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
 
     public void Dispose()
     {
-        _renderSem.Dispose();
+        _renderThread.Interrupt();
         _renderThread.Join();
 
         _renderer.Dispose();
@@ -94,19 +94,23 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     {
         while (!_view.IsClosing)
         {
-            _renderSem.Wait();
-            try
-            {
-                var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
+            var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
 
-                _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
-            }
-            finally
-            {
-                _renderSem.Release();
-            }
+            _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
 
             _drawWatch.Restart();
+
+            if (!Volatile.Read(ref _isRenderPaused)) continue;
+
+            Log.Information("<Render> Render thread {Id} entering sleep", Environment.CurrentManagedThreadId);
+            try
+            {
+                Thread.Sleep(Timeout.Infinite);
+            }
+            catch (ThreadInterruptedException e)
+            {
+                Log.Information("<Render> Render thread {Id} resumed", Environment.CurrentManagedThreadId);
+            }
         }
     }
 
@@ -116,11 +120,12 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         if (size.X is 0 || size.Y is 0)
         {
             if (last.X is not 0 || last.Y is not 0)
-                _renderSem.WaitAsync();
+                Volatile.Write(ref _isRenderPaused, true);
         }
         else if (last.X is 0 || last.Y is 0)
         {
-            _renderSem.Release();
+            Volatile.Write(ref _isRenderPaused, false);
+            _renderThread.Interrupt();
         }
 
         _lastFramebufferSize = size;
