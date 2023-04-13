@@ -37,6 +37,9 @@ public sealed class VulkanRenderer : IDisposable
     private VulkanPipeline _meshPipeline = null!;
     private VulkanMemoryAllocator _allocator = null!;
 
+    private VulkanShader _meshFragShader = null!;
+    private VulkanShader _meshVertShader = null!;
+
     private Queue _graphicsQueue;
     private Framebuffer[] _frameBuffers;
     private CommandPool _commandPool;
@@ -57,6 +60,8 @@ public sealed class VulkanRenderer : IDisposable
 
     public void Dispose()
     {
+        _meshVertShader.Dispose();
+        _meshVertShader.Dispose();
         _bufferDisposable.Dispose();
         _instance.Vk.DestroyRenderPass(_device, _renderPass, NullAlloc);
         foreach (var framebuffer in _frameBuffers)
@@ -82,6 +87,10 @@ public sealed class VulkanRenderer : IDisposable
     public void Initialize()
     {
         InitVulkan();
+
+        _meshFragShader = new(_instance.Vk, _device, ShaderStageFlags.FragmentBit, MeshFragmentShader);
+        _meshVertShader = new(_instance.Vk, _device, ShaderStageFlags.VertexBit, MeshVertexShader);
+
         CreateCommands();
         CreateRenderPass();
         CreateFrameBuffers();
@@ -245,13 +254,13 @@ public sealed class VulkanRenderer : IDisposable
     private void InitVulkan()
     {
         _instance = new InstanceBuilder
-                    {
-                        ApplicationName = "App",
-                        EngineName = "GamesDotNet",
-                        EngineVersion = new Version32(0, 0, 1),
-                        RequiredApiVersion = Vk.Version11,
-                        Extensions = GetGlfwRequiredVulkanExtensions(),
-                        IsHeadless = false,
+            {
+                ApplicationName = "App",
+                EngineName = "GamesDotNet",
+                EngineVersion = new Version32(0, 0, 1),
+                RequiredApiVersion = Vk.Version11,
+                Extensions = GetGlfwRequiredVulkanExtensions(),
+                IsHeadless = false,
 #if DEBUG
                         EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
                         {
@@ -262,11 +271,11 @@ public sealed class VulkanRenderer : IDisposable
                         },
                         IsValidationLayersRequested = true
 #endif
-                    }
+            }
 #if DEBUG
                     .UseDefaultDebugMessenger()
 #endif
-                    .Build();
+            .Build();
 
         _surface = CreateSurface(_window);
 
@@ -418,16 +427,11 @@ public sealed class VulkanRenderer : IDisposable
 
     private void CreatePipeline()
     {
-        using var meshFragShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.FragmentBit,
-                                                    MeshFragmentShader);
-        using var meshVertShader = new VulkanShader(_instance.Vk, _device, ShaderStageFlags.VertexBit,
-                                                    MeshVertexShader);
-
         _meshPipeline = new PipelineBuilder(_instance, _device)
             .Build(new()
             {
-                VertexInputDescription = meshVertShader.GetVertexDescription(),
-                ShaderStages = new[] { meshFragShader, meshVertShader },
+                VertexInputDescription = _meshVertShader.GetVertexDescription(),
+                ShaderStages = new[] { _meshFragShader, _meshVertShader },
                 RenderPass = _renderPass,
                 Viewport = new(0, 0, _window.Size.X, _window.Size.Y, 0, 1f),
                 Scissor = new(new(0, 0), _swapchain!.Extent),
@@ -440,14 +444,13 @@ public sealed class VulkanRenderer : IDisposable
         var vk = _instance.Vk;
         vk.DeviceWaitIdle(_device);
 
+        foreach (var framebuffer in _frameBuffers) vk.DestroyFramebuffer(_device, framebuffer, NullAlloc);
         vk.DestroyCommandPool(_device, _commandPool, NullAlloc);
-        foreach (var framebuffer in _frameBuffers)
-        {
-            vk.DestroyFramebuffer(_device, framebuffer, NullAlloc);
-        }
+        _meshPipeline.Dispose();
 
         if (!CreateSwapchain()) return;
         CreateFrameBuffers();
+        CreatePipeline();
         CreateCommands();
     }
 
