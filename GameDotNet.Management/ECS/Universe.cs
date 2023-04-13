@@ -1,10 +1,9 @@
-using System.Numerics;
 using Arch.Core;
 using Arch.Core.Extensions;
 using Collections.Pooled;
 using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Graphics;
+using GameDotNet.Graphics.Assets;
 using GameDotNet.Management.ECS.Components;
 using Serilog;
 
@@ -60,7 +59,7 @@ public class Universe : IDisposable
         // Make sure scene is unloaded before loading another
         UnloadScene();
 
-        CreateFromSceneObject(scene.Root, Matrix4x4.Identity);
+        CreateFromSceneObject(scene.Root, new());
 
         return true;
     }
@@ -88,24 +87,17 @@ public class Universe : IDisposable
         World.Destroy(World);
     }
 
-    private void CreateFromSceneObject(SceneObject obj, Matrix4x4 accTransform)
+    private void CreateFromSceneObject(SceneObject obj, in Transform accTransform)
     {
         var transform = accTransform * obj.Transform;
-
-        if (!Matrix4x4.Decompose(transform, out var scale, out var rotation, out var translation))
-        {
-            Log.Error("<Scene> Scene object {ObjectName} has invalid transform matrix, ignoring it", obj.Name);
-
-            Matrix4x4.Decompose(accTransform, out scale, out rotation, out translation);
-        }
 
         foreach (var meshes in obj.Meshes.WithIndex())
         {
             var e = World.Create(new Tag($"{obj.Name}_{meshes.Index}"),
                                  meshes.Item,
-                                 new Translation(translation),
-                                 new Rotation(rotation),
-                                 new Scale(scale));
+                                 transform.ToTranslation(),
+                                 transform.ToRotation(),
+                                 transform.ToScale());
 
             _loadedSceneEntities.Add(e.Reference());
         }

@@ -145,7 +145,7 @@ public sealed class VulkanRenderer : IDisposable
         var camPos = camera.Get<Translation>();
         var camRot = camera.Get<Rotation>();
 
-        var view = Matrix4x4.CreateFromQuaternion(camRot) * Matrix4x4.CreateTranslation(camPos);
+        var view = Transform.ToMatrix(Vector3.One, camRot, camPos);
         Matrix4x4.Invert(view, out view);
 
 
@@ -172,8 +172,7 @@ public sealed class VulkanRenderer : IDisposable
                 if (!e.TryGet<Translation>(out var translation)) translation = new();
 
                 //model rotation
-                var model = Matrix4x4.CreateScale(scale) * Matrix4x4.CreateFromQuaternion(rot) *
-                            Matrix4x4.CreateTranslation(translation);
+                var model = Transform.ToMatrix(scale, rot, translation);
 
 
                 var meshMatrix = model * view * projection;
@@ -254,13 +253,13 @@ public sealed class VulkanRenderer : IDisposable
     private void InitVulkan()
     {
         _instance = new InstanceBuilder
-            {
-                ApplicationName = "App",
-                EngineName = "GamesDotNet",
-                EngineVersion = new Version32(0, 0, 1),
-                RequiredApiVersion = Vk.Version11,
-                Extensions = GetGlfwRequiredVulkanExtensions(),
-                IsHeadless = false,
+                    {
+                        ApplicationName = "App",
+                        EngineName = "GamesDotNet",
+                        EngineVersion = new Version32(0, 0, 1),
+                        RequiredApiVersion = Vk.Version11,
+                        Extensions = GetGlfwRequiredVulkanExtensions(),
+                        IsHeadless = false,
 #if DEBUG
                         EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
                         {
@@ -271,11 +270,11 @@ public sealed class VulkanRenderer : IDisposable
                         },
                         IsValidationLayersRequested = true
 #endif
-            }
+                    }
 #if DEBUG
                     .UseDefaultDebugMessenger()
 #endif
-            .Build();
+                    .Build();
 
         _surface = CreateSurface(_window);
 
