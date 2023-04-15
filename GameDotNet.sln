@@ -38,6 +38,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.Editor", "GameDotNet.Editor\GameDotNet.Editor.csproj", "{667EA375-B9B1-4536-8FFD-17B8C2975818}"
+EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
 		GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.projitems*{05db94d8-781e-4f0b-8342-5f502704e41d}*SharedItemsImports = 5
@@ -93,6 +95,10 @@ Global
 		{9940F8B2-1CB7-4965-929B-F191F888F5BA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9940F8B2-1CB7-4965-929B-F191F888F5BA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9940F8B2-1CB7-4965-929B-F191F888F5BA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{667EA375-B9B1-4536-8FFD-17B8C2975818}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{667EA375-B9B1-4536-8FFD-17B8C2975818}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{667EA375-B9B1-4536-8FFD-17B8C2975818}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{667EA375-B9B1-4536-8FFD-17B8C2975818}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
