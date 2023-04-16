@@ -1,11 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net7.0</TargetFramework>
         <Nullable>enable</Nullable>
         <!--Avalonia doesen't support TrimMode=link currently,but we are working on that https://github.com/AvaloniaUI/Avalonia/issues/6892 -->
         <TrimMode>copyused</TrimMode>
         <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+        <LangVersion>default</LangVersion>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <ItemGroup>
         <Folder Include="Models\" />
@@ -27,5 +29,8 @@
         <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.0-preview6" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0-preview6" />
         <PackageReference Include="XamlNameReferenceGenerator" Version="1.6.1" />
+    </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\GameDotNet.Graphics.Vulkan\GameDotNet.Graphics.Vulkan.csproj" />
     </ItemGroup>
 </Project>
