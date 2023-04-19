@@ -2,8 +2,9 @@ using System;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Rendering.Composition;
+using GpuInterop.VulkanDemo;
 
-namespace GpuInterop.VulkanDemo;
+namespace GameDotNet.Editor.VulkanDemo;
 
 public class VulkanDemoControl : DrawingSurfaceDemoBase
 {
@@ -19,6 +20,7 @@ public class VulkanDemoControl : DrawingSurfaceDemoBase
             Swapchain = swapchain;
             Content = content;
         }
+
         public async ValueTask DisposeAsync()
         {
             Context.Pool.FreeUsedCommandBuffers();
@@ -31,7 +33,9 @@ public class VulkanDemoControl : DrawingSurfaceDemoBase
     private VulkanResources? _resources;
 
     protected override (bool success, string info) InitializeGraphicsResources(Compositor compositor,
-        CompositionDrawingSurface compositionDrawingSurface, ICompositionGpuInterop gpuInterop)
+                                                                               CompositionDrawingSurface
+                                                                                   compositionDrawingSurface,
+                                                                               ICompositionGpuInterop gpuInterop)
     {
         var (context, info) = VulkanContext.TryCreate(gpuInterop);
         if (context == null)
@@ -39,11 +43,10 @@ public class VulkanDemoControl : DrawingSurfaceDemoBase
         try
         {
             var content = new VulkanContent(context);
-            _resources = new VulkanResources(context,
-                new VulkanSwapchain(context, gpuInterop, compositionDrawingSurface), content);
+            _resources = new(context, new(context, gpuInterop, compositionDrawingSurface), content);
             return (true, info);
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             return (false, e.ToString());
         }
@@ -55,33 +58,11 @@ public class VulkanDemoControl : DrawingSurfaceDemoBase
         _resources = null;
     }
 
-    protected override unsafe void RenderFrame(PixelSize pixelSize)
+    protected override void RenderFrame(PixelSize pixelSize)
     {
         if (_resources == null)
             return;
         using (_resources.Swapchain.BeginDraw(pixelSize, out var image))
-        {
-            /*
-            var commandBuffer = _resources.Context.Pool.CreateCommandBuffer();
-            commandBuffer.BeginRecording();
-            image.TransitionLayout(commandBuffer.InternalHandle, ImageLayout.TransferDstOptimal, AccessFlags.None);
-
-            var range = new ImageSubresourceRange
-            {
-                AspectMask = ImageAspectFlags.ColorBit,
-                LayerCount = 1,
-                LevelCount = 1,
-                BaseArrayLayer = 0,
-                BaseMipLevel = 0
-            };
-            var color = new ClearColorValue
-            {
-                Float32_0 = 1, Float32_1 = 0, Float32_2 = 0, Float32_3 = 1
-            };
-            _resources.Context.Api.CmdClearColorImage(commandBuffer.InternalHandle, image.InternalHandle.Value, ImageLayout.TransferDstOptimal,
-                &color, 1, &range);
-            commandBuffer.Submit();*/
-            _resources.Content.Render(image, Yaw, Pitch, Roll, Disco);
-        }
+            _resources.Content.Render(image);
     }
 }
