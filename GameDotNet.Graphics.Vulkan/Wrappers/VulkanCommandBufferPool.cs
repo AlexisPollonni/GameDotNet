@@ -21,7 +21,7 @@ public sealed class VulkanCommandBufferPool : IDisposable
         _queue = queue;
 
         var commandPoolCreateInfo = new CommandPoolCreateInfo(flags: CommandPoolCreateFlags.ResetCommandBufferBit,
-            queueFamilyIndex: queueFamilyIndex);
+                                                              queueFamilyIndex: queueFamilyIndex);
 
         _api.CreateCommandPool(_device, commandPoolCreateInfo, null, out _commandPool)
             .ThrowOnError();
@@ -91,7 +91,8 @@ public sealed class VulkanCommandBufferPool : IDisposable
 
         internal CommandBuffer InternalHandle { get; }
 
-        internal unsafe VulkanCommandBuffer(Vk api, Device device, Queue queue, VulkanCommandBufferPool commandBufferPool)
+        internal unsafe VulkanCommandBuffer(Vk api, Device device, Queue queue,
+                                            VulkanCommandBufferPool commandBufferPool)
         {
             _api = api;
             _device = device;
@@ -109,6 +110,8 @@ public sealed class VulkanCommandBufferPool : IDisposable
             api.CreateFence(device, fenceCreateInfo, null, out _fence);
         }
 
+        public static implicit operator CommandBuffer(VulkanCommandBuffer buffer) => buffer.InternalHandle;
+
         public unsafe void Dispose()
         {
             _api.WaitForFences(_device, 1, _fence, true, ulong.MaxValue);
@@ -116,6 +119,7 @@ public sealed class VulkanCommandBufferPool : IDisposable
             {
                 _api.FreeCommandBuffers(_device, _commandBufferPool._commandPool, 1, InternalHandle);
             }
+
             _api.DestroyFence(_device, _fence, null);
         }
 
@@ -156,7 +160,7 @@ public sealed class VulkanCommandBufferPool : IDisposable
             public ulong? ReleaseKey { get; set; }
             public DeviceMemory DeviceMemory { get; set; }
         }
-            
+
         public unsafe void Submit(
             ReadOnlySpan<Semaphore> waitSemaphores,
             ReadOnlySpan<PipelineStageFlags> waitDstStageMask = default,
@@ -184,7 +188,7 @@ public sealed class VulkanCommandBufferPool : IDisposable
                     PReleaseSyncs = &devMem,
                     PAcquireTimeouts = &timeout
                 };
-                
+
             fixed (Semaphore* pWaitSemaphores = waitSemaphores, pSignalSemaphores = signalSemaphores)
             {
                 fixed (PipelineStageFlags* pWaitDstStageMask = waitDstStageMask)
