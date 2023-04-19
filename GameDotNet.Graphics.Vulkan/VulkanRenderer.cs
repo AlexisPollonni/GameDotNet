@@ -323,7 +323,7 @@ public sealed class VulkanRenderer : IDisposable
             new AllocationCreateInfo(usage: MemoryUsage.GPU_Only, requiredFlags: MemoryPropertyFlags.DeviceLocalBit);
 
         _depthImage = new(_instance.Vk, _device, _allocator, depthImgInfo, allocInfo);
-        _depthImageView = _depthImage.GetImageView(DepthFormat, _depthImage, ImageAspectFlags.DepthBit);
+        _depthImageView = _depthImage.GetImageView(DepthFormat, ImageAspectFlags.DepthBit);
 
         return true;
     }
