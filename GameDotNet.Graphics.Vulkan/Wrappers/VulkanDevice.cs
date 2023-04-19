@@ -11,9 +11,9 @@ public sealed class VulkanDevice : IDisposable
     private readonly VulkanInstance _instance;
     private readonly VulkanPhysDevice _physDevice;
     private readonly IReadOnlyList<QueueFamilyProperties> _queueFamilies;
-    private readonly SurfaceKHR _surface;
+    private readonly SurfaceKHR? _surface;
 
-    internal VulkanDevice(VulkanInstance instance, VulkanPhysDevice physDevice, Device device, SurfaceKHR surface,
+    internal VulkanDevice(VulkanInstance instance, VulkanPhysDevice physDevice, Device device, SurfaceKHR? surface,
                           IReadOnlyList<QueueFamilyProperties> queueFamilies, AllocationCallbacks? allocationCallbacks)
     {
         _instance = instance;
@@ -35,7 +35,8 @@ public sealed class VulkanDevice : IDisposable
     {
         var index = type switch
         {
-            QueueType.Present => QueueTools.GetPresentQueueIndex(_instance, _physDevice, _surface, _queueFamilies),
+            QueueType.Present => QueueTools.GetPresentQueueIndex(_instance, _physDevice, _surface!.Value,
+                                                                 _queueFamilies),
             QueueType.Graphics => QueueTools.GetFirstQueueIndex(_queueFamilies, QueueFlags.GraphicsBit),
             QueueType.Compute => QueueTools.GetSeparateQueueIndex(_queueFamilies, QueueFlags.ComputeBit,
                                                                   QueueFlags.TransferBit),

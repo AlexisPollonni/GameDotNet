@@ -14,22 +14,23 @@ public class PhysicalDeviceSelector
     private readonly VulkanInstance _instance;
     private readonly Vk _vk;
 
-    public PhysicalDeviceSelector(VulkanInstance instance, VulkanSurface surface,
-                                  SelectionCriteria? selectionCriteria = default)
+    public PhysicalDeviceSelector(VulkanInstance instance, VulkanSurface? surface = null,
+                                  SelectionCriteria? criteria = default)
     {
         Surface = surface;
-        Criteria = selectionCriteria ?? new SelectionCriteria();
+        Criteria = criteria ?? new SelectionCriteria();
         _instance = instance;
         _vk = instance.Vk;
     }
 
-    public VulkanSurface Surface { get; }
+    public VulkanSurface? Surface { get; }
 
     public SelectionCriteria Criteria { get; }
 
     public VulkanPhysDevice Select()
     {
-        if (!_instance.IsHeadless && !Criteria.DeferSurfaceInit && Surface.AsSurfaceKhr().Handle is 0)
+        if (!_instance.IsHeadless && !Criteria.DeferSurfaceInit &&
+            (Surface is null || Surface.AsSurfaceKhr().Handle is 0))
             throw new ArgumentException("No initialized vulkan surface provided.");
 
         var devices = _instance.GetPhysicalDevices();
@@ -69,7 +70,7 @@ public class PhysicalDeviceSelector
         return new()
         {
             Device = selectedDevice.Value.Device,
-            Surface = Surface,
+            Surface = Surface?.AsSurfaceKhr(),
             InstanceVersion = _instance.VkVersion,
             Features = selectedDevice.Value.DeviceFeatures,
             Properties = selectedDevice.Value.DeviceProperties,
@@ -88,12 +89,24 @@ public class PhysicalDeviceSelector
                                                             IEnumerable<GenericFeaturesNextNode>
                                                                 srcExtendedFeaturesChain)
     {
+        var physDeviceIdProperties = new PhysicalDeviceIDProperties
+        {
+            SType = StructureType.PhysicalDeviceIDProperties
+        };
+        var physDeviceProperties2 = new PhysicalDeviceProperties2
+        {
+            SType = StructureType.PhysicalDeviceProperties2,
+            PNext = &physDeviceIdProperties
+        };
+
         uint familyCount = 0;
         _vk.GetPhysicalDeviceQueueFamilyProperties(device, ref familyCount, null);
         var familyProperties = new QueueFamilyProperties[familyCount];
         _vk.GetPhysicalDeviceQueueFamilyProperties(device, familyCount.AsSpan(), familyProperties);
 
         _vk.GetPhysicalDeviceProperties(device, out var deviceProperties);
+        _vk.GetPhysicalDeviceProperties2(device, &physDeviceProperties2);
+
         _vk.GetPhysicalDeviceFeatures(device, out var deviceFeatures);
         _vk.GetPhysicalDeviceMemoryProperties(device, out var deviceMemoryProperties);
 
@@ -130,14 +143,36 @@ public class PhysicalDeviceSelector
         return new()
         {
             Device = device, DeviceFeatures = deviceFeatures, DeviceFeatures2 = localFeatures,
-            DeviceProperties = deviceProperties, MemProperties = deviceMemoryProperties,
+            DeviceIdProperties = physDeviceIdProperties,
+            DeviceProperties = deviceProperties, DeviceProperties2 = physDeviceProperties2,
+            MemProperties = deviceMemoryProperties,
             QueueFamilies = familyProperties, ExtendedFeaturesChain = fillChain
         };
     }
 
-    private Suitable IsDeviceSuitable(in PhysicalDeviceDesc dsc)
+    private unsafe Suitable IsDeviceSuitable(in PhysicalDeviceDesc dsc)
     {
         var suitable = Suitable.Yes;
+
+        if (Criteria.RequiredDeviceId is not null)
+        {
+            var idProp = dsc.DeviceIdProperties;
+            if (dsc.DeviceIdProperties.DeviceLuidvalid)
+            {
+                var luid = new ReadOnlySpan<byte>(idProp.DeviceLuid, 8);
+
+                if (!luid.SequenceEqual(Criteria.RequiredDeviceId))
+                    return Suitable.No;
+            }
+            else
+            {
+                var uuid = new ReadOnlySpan<byte>(idProp.DeviceUuid, 16);
+
+                if (!uuid.SequenceEqual(Criteria.RequiredDeviceId))
+                    return Suitable.No;
+            }
+        }
+
         if (Criteria.RequiredVersion > dsc.DeviceProperties.ApiVersion)
             return Suitable.No;
         if (Criteria.DesiredVersion > dsc.DeviceProperties.ApiVersion)
@@ -153,7 +188,9 @@ public class PhysicalDeviceSelector
         var separateTransfer =
             QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
 
-        var presentQueue = QueueTools.GetPresentQueueIndex(_instance, dsc.Device, Surface, dsc.QueueFamilies);
+        var presentQueue = Surface is null
+                               ? null
+                               : QueueTools.GetPresentQueueIndex(_instance, dsc.Device, Surface, dsc.QueueFamilies);
 
         if (Criteria.RequireDedicatedComputeQueue && dedicatedCompute is null) return Suitable.No;
         if (Criteria.RequireDedicatedTransferQueue && dedicatedTransfer is null) return Suitable.No;
@@ -179,10 +216,10 @@ public class PhysicalDeviceSelector
                 unsafe
                 {
                     uint formatCounts = 0;
-                    surfaceExt.GetPhysicalDeviceSurfaceFormats(dsc.Device, Surface, ref formatCounts, null);
+                    surfaceExt.GetPhysicalDeviceSurfaceFormats(dsc.Device, Surface!, ref formatCounts, null);
 
                     uint presentModeCounts = 0;
-                    surfaceExt.GetPhysicalDeviceSurfacePresentModes(dsc.Device, Surface, ref presentModeCounts, null);
+                    surfaceExt.GetPhysicalDeviceSurfacePresentModes(dsc.Device, Surface!, ref presentModeCounts, null);
 
                     swapChainAdequate = formatCounts > 0 && presentModeCounts > 0;
                 }
@@ -333,6 +370,8 @@ public class PhysicalDeviceSelector
         public bool RequireSeparateTransferQueue = false;
         public bool UseFirstGpuUnconditionally = false;
 
+        public byte[]? RequiredDeviceId { get; set; }
+
         public SelectionCriteria()
         {
             RequiredExtensions = new();
@@ -363,7 +402,9 @@ internal struct PhysicalDeviceDesc
     public IReadOnlyList<QueueFamilyProperties> QueueFamilies { get; set; }
 
     public PhysicalDeviceFeatures DeviceFeatures { get; set; }
+    public PhysicalDeviceIDProperties DeviceIdProperties { get; set; }
     public PhysicalDeviceProperties DeviceProperties { get; set; }
+    public PhysicalDeviceProperties2 DeviceProperties2 { get; set; }
     public PhysicalDeviceMemoryProperties MemProperties { get; set; }
 
     //If vulkan version is 1.1 the variant uses PhysicalDeviceFeatures2

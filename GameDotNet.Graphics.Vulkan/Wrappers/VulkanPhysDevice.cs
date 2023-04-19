@@ -8,7 +8,7 @@ public sealed class VulkanPhysDevice
 {
     //My kingdom for C#11 required !!
     public PhysicalDevice Device { get; init; }
-    public SurfaceKHR Surface { get; init; }
+    public SurfaceKHR? Surface { get; init; }
 
     public PhysicalDeviceFeatures Features { get; init; }
     public PhysicalDeviceProperties Properties { get; init; }

@@ -64,7 +64,7 @@ public class DeviceBuilder
         }
 
         var extensions = _physDevice.ExtensionsToEnable.ToList();
-        if (_physDevice.Surface.Handle != 0 || _physDevice.DeferSurfaceInit)
+        if (_physDevice.Surface?.Handle != 0 || _physDevice.DeferSurfaceInit)
         {
             extensions.Add(KhrSwapchain.ExtensionName);
         }
