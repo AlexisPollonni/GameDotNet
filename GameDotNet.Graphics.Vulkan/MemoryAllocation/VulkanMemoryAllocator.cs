@@ -1173,7 +1173,8 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             return AllocateDedicatedMemory(size, suballocType, memoryTypeIndex,
                                            (finalCreateInfo.Flags & AllocationCreateFlags.WithinBudget) != 0,
                                            (finalCreateInfo.Flags & AllocationCreateFlags.Mapped) != 0,
-                                           finalCreateInfo.UserData, in dedicatedInfo);
+                                           finalCreateInfo.UserData, in dedicatedInfo,
+                                           finalCreateInfo.MemoryAllocateNext);
         }
 
         private Allocation AllocateDedicatedMemoryPage(
@@ -1214,7 +1215,8 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
         private Allocation AllocateDedicatedMemory(long size, SuballocationType suballocType, int memTypeIndex,
                                                    bool withinBudget, bool map, object? userData,
-                                                   in DedicatedAllocationInfo dedicatedInfo)
+                                                   in DedicatedAllocationInfo dedicatedInfo,
+                                                   IChain<MemoryAllocateInfo>? memoryAllocateNext)
         {
             var heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
 
@@ -1273,6 +1275,17 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                     allocFlagsInfo.PNext = allocInfo.PNext;
                     allocInfo.PNext = &allocFlagsInfo;
                 }
+            }
+
+            if (memoryAllocateNext?.Count > 1)
+            {
+                var ptr = (BaseInStructure*)allocInfo.PNext;
+                while (ptr->PNext is not null)
+                {
+                    ptr = ptr->PNext;
+                }
+
+                ptr->PNext = memoryAllocateNext[0].PNext;
             }
 
             var alloc = AllocateDedicatedMemoryPage(size, suballocType, memTypeIndex, in allocInfo, map, userData);
