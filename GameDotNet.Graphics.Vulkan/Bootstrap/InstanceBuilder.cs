@@ -21,6 +21,8 @@ namespace GameDotNet.Graphics.Vulkan.Bootstrap;
 [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
 public class InstanceBuilder
 {
+    private readonly Vk _api;
+
     public static readonly unsafe DebugUtilsMessengerCallbackFunctionEXT DefaultDebugMessenger =
         (severity, types, data, _) =>
         {
@@ -70,8 +72,9 @@ public class InstanceBuilder
 
     private readonly ILogger _logger;
 
-    public InstanceBuilder()
+    public InstanceBuilder(Vk api)
     {
+        _api = api;
         _logger = Log.ForContext<InstanceBuilder>();
         Layers = Enumerable.Empty<string>();
         Extensions = Enumerable.Empty<string>();
@@ -79,6 +82,9 @@ public class InstanceBuilder
         EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>();
         DisabledValidationFeatures = new List<ValidationFeatureDisableEXT>();
     }
+
+    public InstanceBuilder() : this(Vk.GetApi())
+    { }
 
 
     public bool IsHeadless { get; set; }
@@ -123,10 +129,9 @@ public class InstanceBuilder
 
         unsafe
         {
-            var vk = Vk.GetApi();
             var sysInfo = new SystemInfo();
 
-            var apiVersion = ChooseApiVersion(vk);
+            var apiVersion = ChooseApiVersion(_api);
             _logger.Information("Bootstrapper chose Vulkan version {VulkanVersion}", (Version)apiVersion);
 
             var supportsProperties2Ext = sysInfo.IsExtensionAvailable(KhrGetPhysicalDeviceProperties2.ExtensionName);
@@ -198,23 +203,23 @@ public class InstanceBuilder
             CreateAppInfo(out var appInfo, apiVersion).DisposeWith(disposables);
             CreateInstanceInfo(out var vkInstanceInfo, extensions, layers, appInfo).DisposeWith(disposables);
 
-            var res2 = vk.CreateInstance(in vkInstanceInfo, null, out var instance);
+            var res2 = _api.CreateInstance(in vkInstanceInfo, null, out var instance);
             if (res2 != Result.Success)
                 throw new PlatformException("Failed to bootstrap vulkan instance", new VulkanException(res2));
 
             if (DebugCallback is null)
-                return new(vk, instance, apiVersion, supportsProperties2Ext);
+                return new(_api, instance, apiVersion, supportsProperties2Ext);
 
             CreateDebugMessengerInfo(out var messengerInfo);
 
             var info = messengerInfo!.Value;
-            vk.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
+            _api.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
 
             res2 = debugUtilsExt.CreateDebugUtilsMessenger(instance, in info, null, out var debugMessenger);
             if (res2 != Result.Success)
                 throw new PlatformException("Couldn't create Vulkan debug messenger", new VulkanException(res2));
 
-            return new(vk, instance, apiVersion, supportsProperties2Ext, IsValidationLayersEnabled, debugMessenger);
+            return new(_api, instance, apiVersion, supportsProperties2Ext, IsValidationLayersEnabled, debugMessenger);
         }
     }
 
