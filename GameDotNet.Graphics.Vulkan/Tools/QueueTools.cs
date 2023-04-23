@@ -7,7 +7,7 @@ namespace GameDotNet.Graphics.Vulkan.Tools;
 
 internal static class QueueTools
 {
-    public static int? GetFirstQueueIndex(IEnumerable<QueueFamilyProperties> families, QueueFlags desiredFlags)
+    public static int? GetFirstQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families, QueueFlags desiredFlags)
     {
         foreach (var (family, i) in families.WithIndex())
         {
@@ -33,7 +33,7 @@ internal static class QueueTools
         return null;
     }
 
-    public static int? GetSeparateQueueIndex(IEnumerable<QueueFamilyProperties> families,
+    public static int? GetSeparateQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families,
                                              QueueFlags desiredFlags, QueueFlags undesiredFlags)
     {
         int? index = null;
@@ -53,7 +53,7 @@ internal static class QueueTools
         return index;
     }
 
-    public static int? GetPresentQueueIndex(VulkanInstance instance, PhysicalDevice device, SurfaceKHR surface,
+    public static int? GetPresentQueueFamilyIndex(VulkanInstance instance, PhysicalDevice device, SurfaceKHR surface,
                                             IReadOnlyList<QueueFamilyProperties> families)
     {
         if (surface.Handle == 0)

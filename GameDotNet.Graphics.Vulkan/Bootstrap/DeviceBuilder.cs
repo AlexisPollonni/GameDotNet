@@ -14,15 +14,15 @@ public class DeviceBuilder
 {
     private readonly DeviceInfo _info;
     private readonly VulkanInstance _instance;
-    private readonly VulkanPhysDevice _physDevice;
+    private readonly SelectedPhysDevice _selectedPhysDevice;
     private readonly Vk _vk;
 
 
-    public DeviceBuilder(VulkanInstance instance, VulkanPhysDevice physDevice)
+    public DeviceBuilder(VulkanInstance instance, SelectedPhysDevice selectedPhysDevice)
     {
         _vk = instance.Vk;
         _instance = instance;
-        _physDevice = physDevice;
+        _selectedPhysDevice = selectedPhysDevice;
         _info = new();
     }
 
@@ -44,7 +44,7 @@ public class DeviceBuilder
 
         var queueDesc = _info.QueueDescriptions.ToList();
         if (queueDesc.Count == 0)
-            for (uint i = 0; i < _physDevice.QueueFamilies.Count; i++)
+            for (uint i = 0; i < _selectedPhysDevice.QueueFamilies.Count; i++)
                 queueDesc.Add(new(i, 1, new[] { 1f }));
 
         var queueCreateInfos = new List<DeviceQueueCreateInfo>();
@@ -63,8 +63,8 @@ public class DeviceBuilder
             }
         }
 
-        var extensions = _physDevice.ExtensionsToEnable.ToList();
-        if (_physDevice.Surface?.Handle != 0 || _physDevice.DeferSurfaceInit)
+        var extensions = _selectedPhysDevice.ExtensionsToEnable.ToList();
+        if (_selectedPhysDevice.Surface?.Handle != 0 || _selectedPhysDevice.DeferSurfaceInit)
         {
             extensions.Add(KhrSwapchain.ExtensionName);
         }
@@ -76,14 +76,14 @@ public class DeviceBuilder
         var finalNextChain = new List<GlobalMemory>();
         var deviceCreateInfo = new DeviceCreateInfo();
 
-        var physicalDeviceExtensionFeatures = _physDevice.ExtendedFeaturesChain.ToList();
+        var physicalDeviceExtensionFeatures = _selectedPhysDevice.ExtendedFeaturesChain.ToList();
         var localFeatures2 = new PhysicalDeviceFeatures2();
 
         if (!userDefinedPhysDevFeatures2)
         {
-            if (_physDevice.InstanceVersion > Vk.Version11)
+            if (_selectedPhysDevice.InstanceVersion > Vk.Version11)
             {
-                localFeatures2.Features = _physDevice.Features;
+                localFeatures2.Features = _selectedPhysDevice.Features;
                 finalNextChain.Add(localFeatures2.ToGlobalMemory().DisposeWith(d));
                 hasPhysDevFeatures2 = true;
                 finalNextChain.AddRange(physicalDeviceExtensionFeatures.Select(node => node.ToGlobalMemory()
@@ -99,7 +99,7 @@ public class DeviceBuilder
         {
             unsafe
             {
-                deviceCreateInfo.PEnabledFeatures = _physDevice.Features
+                deviceCreateInfo.PEnabledFeatures = _selectedPhysDevice.Features
                                                                .ToGlobalMemory()
                                                                .DisposeWith(d)
                                                                .AsPtr<PhysicalDeviceFeatures>();
@@ -133,15 +133,15 @@ public class DeviceBuilder
         {
             unsafe
             {
-                res = _vk.CreateDevice(_physDevice.Device, deviceCreateInfo, null, out device);
+                res = _vk.CreateDevice(_selectedPhysDevice.Device, deviceCreateInfo, null, out device);
             }
         }
-        else res = _vk.CreateDevice(_physDevice.Device, deviceCreateInfo, AllocationCallbacks.Value, out device);
+        else res = _vk.CreateDevice(_selectedPhysDevice.Device, deviceCreateInfo, AllocationCallbacks.Value, out device);
 
         if (res != Result.Success)
             throw new VulkanException(res);
 
-        return new(_instance, _physDevice, device, _physDevice.Surface, _physDevice.QueueFamilies, AllocationCallbacks);
+        return new(_instance, _selectedPhysDevice.Device, device, _selectedPhysDevice.Surface, _selectedPhysDevice.QueueFamilies, AllocationCallbacks);
     }
 
     public struct CustomQueueDescription

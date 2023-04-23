@@ -27,7 +27,7 @@ public class PhysicalDeviceSelector
 
     public SelectionCriteria Criteria { get; }
 
-    public VulkanPhysDevice Select()
+    public SelectedPhysDevice Select()
     {
         if (!_instance.IsHeadless && !Criteria.DeferSurfaceInit &&
             (Surface is null || Surface.AsSurfaceKhr().Handle is 0))
@@ -69,7 +69,7 @@ public class PhysicalDeviceSelector
 
         return new()
         {
-            Device = selectedDevice.Value.Device,
+            Device = new(_vk, selectedDevice.Value.Device),
             Surface = Surface?.AsSurfaceKhr(),
             InstanceVersion = _instance.VkVersion,
             Features = selectedDevice.Value.DeviceFeatures,
@@ -184,13 +184,13 @@ public class PhysicalDeviceSelector
             QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
 
         var separateCompute =
-            QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
+            QueueTools.GetSeparateQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
         var separateTransfer =
-            QueueTools.GetSeparateQueueIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
+            QueueTools.GetSeparateQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
 
         var presentQueue = Surface is null
                                ? null
-                               : QueueTools.GetPresentQueueIndex(_instance, dsc.Device, Surface, dsc.QueueFamilies);
+                               : QueueTools.GetPresentQueueFamilyIndex(_instance, dsc.Device, Surface, dsc.QueueFamilies);
 
         if (Criteria.RequireDedicatedComputeQueue && dedicatedCompute is null) return Suitable.No;
         if (Criteria.RequireDedicatedTransferQueue && dedicatedTransfer is null) return Suitable.No;

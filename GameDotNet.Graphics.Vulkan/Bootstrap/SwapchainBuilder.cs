@@ -28,9 +28,9 @@ public class SwapchainBuilder
         _device = device;
         _info = info;
 
-        _info.GraphicsQueueIndex = device.GetQueueIndex(QueueType.Graphics)
+        _info.GraphicsQueueFamilyIndex = device.GetQueueFamilyIndex(QueueType.Graphics)
                                    ?? throw new ArgumentException("Couldn't find graphics queue of Vulkan device");
-        _info.PresentQueueIndex = device.GetQueueIndex(QueueType.Present)
+        _info.PresentQueueFamilyIndex = device.GetQueueFamilyIndex(QueueType.Present)
                                   ?? throw new ArgumentException("Couldn't find present queue of Vulkan device");
 
         if (!instance.Vk.TryGetDeviceExtension(instance, _device, out _extension))
@@ -69,7 +69,7 @@ public class SwapchainBuilder
         if (_info.ArrayLayerCount is 0)
             imageArrayLayers = 1;
 
-        var queueFamilyIndices = new[] { _info.GraphicsQueueIndex, _info.PresentQueueIndex };
+        var queueFamilyIndices = new[] { _info.GraphicsQueueFamilyIndex, _info.PresentQueueFamilyIndex };
         var presentMode = FindPresentMode(surfaceSupport.PresentModes, _info.DesiredPresentModes);
 
         var preTransform = _info.PreTransform;
@@ -92,7 +92,7 @@ public class SwapchainBuilder
             Clipped = _info.Clipped
         };
         if (_info.OldSwapchain is not null) swapchainCreateInfo.OldSwapchain = _info.OldSwapchain;
-        if (_info.GraphicsQueueIndex != _info.PresentQueueIndex)
+        if (_info.GraphicsQueueFamilyIndex != _info.PresentQueueFamilyIndex)
         {
             unsafe
             {
@@ -209,11 +209,11 @@ public class SwapchainBuilder
 
         public uint DesiredWidth = 256;
         public FormatFeatureFlags FormatFeatureFlags = FormatFeatureFlags.SampledImageBit;
-        public uint GraphicsQueueIndex;
+        public uint GraphicsQueueFamilyIndex;
         public ImageUsageFlags ImageUsageFlags = ImageUsageFlags.ColorAttachmentBit;
 
         public VulkanSwapchain? OldSwapchain;
-        public uint PresentQueueIndex;
+        public uint PresentQueueFamilyIndex;
         public SurfaceTransformFlagsKHR PreTransform = 0;
         public VulkanSurface Surface;
 

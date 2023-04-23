@@ -278,12 +278,13 @@ public sealed class VulkanRenderer : IDisposable
 
         _surface = CreateSurface(_window);
 
-        _physDevice = new PhysicalDeviceSelector(_instance, _surface, new()
+        var selected = new PhysicalDeviceSelector(_instance, _surface, new()
         {
             RequiredVersion = Vk.Version11
         }).Select();
+        _physDevice = selected.Device;
 
-        _device = new DeviceBuilder(_instance, _physDevice).Build();
+        _device = new DeviceBuilder(_instance, selected).Build();
 
         _allocator = new(new(_instance.VkVersion, _instance.Vk, _instance, _physDevice, _device));
 
@@ -332,7 +333,7 @@ public sealed class VulkanRenderer : IDisposable
     {
         var commandPoolInfo =
             new CommandPoolCreateInfo(flags: CommandPoolCreateFlags.ResetCommandBufferBit,
-                                      queueFamilyIndex: _device.GetQueueIndex(QueueType.Graphics)!.Value);
+                                      queueFamilyIndex: _device.GetQueueFamilyIndex(QueueType.Graphics)!.Value);
 
 
         _instance.Vk.CreateCommandPool(_device, commandPoolInfo, NullAlloc, out _commandPool);
