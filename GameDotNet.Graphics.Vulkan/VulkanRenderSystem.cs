@@ -1,8 +1,6 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.Physics.Components;
@@ -17,7 +15,7 @@ namespace GameDotNet.Graphics.Vulkan;
 
 public sealed class VulkanRenderSystem : SystemBase, IDisposable
 {
-    //private static readonly QueryDescription RenderQueryDesc = new QueryDescription().WithAll<RenderMesh>();
+    private static readonly QueryDescription RenderQueryDesc = new QueryDescription().WithAll<RenderMesh>();
 
     private static readonly QueryDescription MeshQueryDesc =
         new QueryDescription().WithAll<Mesh>().WithNone<RenderMesh>();
@@ -32,10 +30,8 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     private bool _isRenderPaused;
     private Vector2D<int> _lastFramebufferSize;
 
-    public VulkanRenderSystem(IView view) : base(new QueryDescription())
+    public VulkanRenderSystem(IView view) : base(RenderQueryDesc)
     {
-        var s = Unsafe.SizeOf<RenderMesh>();
-        var s2 = Marshal.SizeOf<RenderMesh>();
         _view = view;
         _drawWatch = new();
         _renderer = new(_view);
