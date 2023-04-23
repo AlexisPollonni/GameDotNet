@@ -62,8 +62,8 @@ internal sealed class VulkanContext : IDisposable
     {
         Allocator.Dispose();
         Pool.Dispose();
-        Device.Dispose();
-        Instance.Dispose();
+        // Device.Dispose();
+        // Instance.Dispose();
         Api.Dispose();
     }
 
