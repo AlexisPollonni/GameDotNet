@@ -1,68 +1,98 @@
 using System;
-using System.Threading.Tasks;
-using Avalonia;
-using Avalonia.Rendering.Composition;
-using GpuInterop.VulkanDemo;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Runtime.CompilerServices;
+using Avalonia.Logging;
+using Avalonia.Vulkan;
+using Silk.NET.Vulkan;
+using Image = Silk.NET.Vulkan.Image;
 
 namespace GameDotNet.Editor.VulkanDemo;
 
-public class VulkanDemoControl : DrawingSurfaceDemoBase
+public class VulkanDemoControl : VulkanControlBase
 {
-    class VulkanResources : IAsyncDisposable
+    private VulkanResources? _resources;
+
+    protected override void OnVulkanInit(IVulkanSharedDevice sharedDevice)
+    {
+        using var l = sharedDevice.Device.Lock();
+
+        var res = VulkanContext.TryCreate(sharedDevice);
+        if (res.context is null)
+        {
+            Logger.TryGet(LogEventLevel.Error, "Vulkan")
+                  ?.Log(this, "Couldn't initialize vulkan context: {Info}", res.info);
+            return;
+        }
+
+        _resources = new(res.context, new(res.context));
+    }
+
+    protected override void OnVulkanDeInit(IVulkanSharedDevice device)
+    {
+        _resources?.Dispose();
+        _resources = null;
+    }
+
+    protected override void OnVulkanRender(IVulkanSharedDevice device, ISwapchain image)
+    {
+        using var l = device.Device.Lock();
+
+        _resources?.Content.Render(new AvaloniaSwapchain(image));
+    }
+
+    private class VulkanResources : IDisposable
     {
         public VulkanContext Context { get; }
-        public VulkanSwapchain Swapchain { get; }
         public VulkanContent Content { get; }
 
-        public VulkanResources(VulkanContext context, VulkanSwapchain swapchain, VulkanContent content)
+        public VulkanResources(VulkanContext context, VulkanContent content)
         {
             Context = context;
-            Swapchain = swapchain;
             Content = content;
         }
 
-        public async ValueTask DisposeAsync()
+        public void Dispose()
         {
-            Context.Pool.FreeUsedCommandBuffers();
             Content.Dispose();
-            await Swapchain.DisposeAsync();
             Context.Dispose();
         }
     }
 
-    private VulkanResources? _resources;
-
-    protected override (bool success, string info) InitializeGraphicsResources(Compositor compositor,
-                                                                               CompositionDrawingSurface
-                                                                                   compositionDrawingSurface,
-                                                                               ICompositionGpuInterop gpuInterop)
+    private class AvaloniaSwapchain : GameDotNet.Editor.VulkanDemo.ISwapchain
     {
-        var (context, info) = VulkanContext.TryCreate(gpuInterop);
-        if (context == null)
-            return (false, info);
-        try
+        public IReadOnlyList<SwapchainImage> Images { get; }
+        public int ImageCount { get; }
+        public int CurrentImageIndex { get; }
+
+        public AvaloniaSwapchain(ISwapchain swapchain)
         {
-            var content = new VulkanContent(context);
-            _resources = new(context, new(context, gpuInterop, compositionDrawingSurface), content);
-            return (true, info);
-        }
-        catch (Exception e)
-        {
-            return (false, e.ToString());
-        }
-    }
+            ImageCount = swapchain.ImageCount;
+            CurrentImageIndex = swapchain.CurrentImageIndex;
 
-    protected override void FreeGraphicsResources()
-    {
-        _resources?.DisposeAsync();
-        _resources = null;
-    }
+            var imgs = new SwapchainImage[ImageCount];
+            for (var i = 0; i < ImageCount; i++)
+            {
+                var img = swapchain.GetImage(i);
+                ref var img2 = ref Unsafe.As<VulkanImageInfo, SwapchainImage>(ref img);
 
-    protected override void RenderFrame(PixelSize pixelSize)
-    {
-        if (_resources == null)
-            return;
-        using (_resources.Swapchain.BeginDraw(pixelSize, out var image))
-            _resources.Content.Render(image);
+                imgs[i] = img2;
+            }
+
+            Images = imgs;
+        }
     }
 }
+
+internal interface ISwapchain
+{
+    public IReadOnlyList<SwapchainImage> Images { get; }
+
+    public int ImageCount { get; }
+    public int CurrentImageIndex { get; }
+}
+
+internal readonly record struct SwapchainImage(Format Format, Size Size, Image Handle, ImageLayout Layout,
+                                               ImageTiling Tiling, ImageUsageFlags UsageFlags, uint LevelCount,
+                                               uint SampleCount, DeviceMemory MemoryHandle, ImageView ViewHandle,
+                                               ulong MemorySize, bool IsProtected);

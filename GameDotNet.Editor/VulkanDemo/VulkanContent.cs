@@ -1,6 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using Avalonia;
+using System.Drawing;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Shaders;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
@@ -15,20 +16,18 @@ internal class VulkanContent : IDisposable
 {
     private const Format DepthFormat = Format.D32Sfloat;
     private readonly Stopwatch St = Stopwatch.StartNew();
-    private ulong _frameNber = 0;
+    private ulong _frameNber;
 
     private readonly VulkanContext _context;
     private readonly VulkanShader _vertShader, _fragShader;
     private RenderPass _renderPass;
     private VulkanPipeline _pipeline;
 
-    private Framebuffer _framebuffer;
-    private VulkanImage _colorAttachment;
-    private VulkanImageView _colorImageView;
+    private Framebuffer[] _framebuffers;
     private VulkanImage _depthImage;
     private VulkanImageView _depthImageView;
 
-    private PixelSize _previousImageSize = PixelSize.Empty;
+    private Size _previousImageSize = Size.Empty;
     private bool _isInit;
 
     public VulkanContent(VulkanContext context)
@@ -38,21 +37,23 @@ internal class VulkanContent : IDisposable
         _fragShader = new(_context.Api, _context.Device, ShaderStageFlags.FragmentBit, Shaders.MeshFragmentShader);
     }
 
-    public unsafe void Render(VulkanImage image)
+    public unsafe void Render(ISwapchain swapchain)
     {
-        var api = _context.Api;
+        var curFrameIndex = swapchain.CurrentImageIndex;
+        var curImage = swapchain.Images[curFrameIndex];
 
-        var size = new PixelSize((int)image.Extent.Width, (int)image.Extent.Height);
+        var api = _context.Api;
+        _context.Pool.FreeUsedCommandBuffers();
+
+        var size = curImage.Size;
         if (size != _previousImageSize)
-            RecreateTemporalObjects(size);
+            RecreateTemporalObjects(in curImage, swapchain);
 
         _previousImageSize = size;
 
         var cmd = _context.Pool.CreateCommandBuffer();
         cmd.BeginRecording();
 
-        _colorAttachment.TransitionLayout(cmd, ImageLayout.Undefined, AccessFlags.None,
-                                          ImageLayout.ColorAttachmentOptimal, AccessFlags.ColorAttachmentWriteBit);
 
         // make a clear-color from frame number. This will flash with a 120*pi frame period.
         var clearValue = new ClearValue(new(0, 0, (float)Math.Abs(Math.Sin(_frameNber / 120D)), 0));
@@ -61,9 +62,8 @@ internal class VulkanContent : IDisposable
 
         var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
                                              renderArea: new Rect2D(new Offset2D(0, 0),
-                                                                    new(_colorAttachment.Extent.Width,
-                                                                        _colorAttachment.Extent.Height)),
-                                             framebuffer: _framebuffer,
+                                                                    new((uint)size.Width, (uint)size.Height)),
+                                             framebuffer: _framebuffers[curFrameIndex],
                                              clearValueCount: (uint)clearValues.Length,
                                              pClearValues: clearValues.AsPtr());
 
@@ -74,29 +74,6 @@ internal class VulkanContent : IDisposable
 
         api.CmdEndRenderPass(cmd);
 
-        _colorAttachment.TransitionLayout(cmd, ImageLayout.TransferSrcOptimal, AccessFlags.TransferReadBit);
-        image.TransitionLayout(cmd, ImageLayout.TransferDstOptimal, AccessFlags.TransferWriteBit);
-
-        var elem1 = new Offset3D((int)image.Extent.Width, (int)image.Extent.Height, 1);
-        var srcBlitRegion = new ImageBlit
-        {
-            SrcOffsets = new()
-            {
-                Element0 = new(0, 0, 0),
-                Element1 = elem1
-            },
-            DstOffsets = new()
-            {
-                Element0 = new(0, 0, 0),
-                Element1 = elem1
-            },
-            SrcSubresource = new(ImageAspectFlags.ColorBit, 0, 0, 1),
-            DstSubresource = new(ImageAspectFlags.ColorBit, 0, 0, 1)
-        };
-
-        api.CmdBlitImage(cmd, _colorAttachment, ImageLayout.TransferSrcOptimal,
-                         image, ImageLayout.TransferDstOptimal,
-                         1, srcBlitRegion, Filter.Linear);
 
         cmd.Submit();
 
@@ -111,14 +88,14 @@ internal class VulkanContent : IDisposable
         _fragShader.Dispose();
     }
 
-    private void RecreateTemporalObjects(in PixelSize size)
+    private void RecreateTemporalObjects(in SwapchainImage image, ISwapchain swapchain)
     {
         DestroyTemporalObjects();
 
-        CreateImages(size);
-        CreateRenderPass();
-        CreateFrameBuffer(size);
-        CreatePipeline(size);
+        CreateImages(image.Size);
+        CreateRenderPass(in image);
+        CreateFrameBuffers(swapchain.Images);
+        CreatePipeline(image.Size);
 
         _isInit = true;
     }
@@ -133,20 +110,15 @@ internal class VulkanContent : IDisposable
         _depthImageView.Dispose();
         _depthImage.Dispose();
 
-        vk.DestroyFramebuffer(_context.Device, _framebuffer, null);
+        foreach (var framebuffer in _framebuffers)
+            vk.DestroyFramebuffer(_context.Device, framebuffer, null);
+
         _pipeline.Dispose();
         vk.DestroyRenderPass(_context.Device, _renderPass, null);
-
-        _colorImageView.Dispose();
-        _colorAttachment.Dispose();
     }
 
-    private void CreateImages(in PixelSize size)
+    private void CreateImages(in Size size)
     {
-        _colorAttachment = _context.CreateVulkanImage((uint)Format.R8G8B8A8Unorm, size, false).image;
-        _colorImageView = _colorAttachment.GetImageView(_colorAttachment.Format, ImageAspectFlags.ColorBit);
-        _colorAttachment.TransitionLayout(_context.Pool, ImageLayout.ColorAttachmentOptimal, AccessFlags.NoneKhr);
-
         var depthImgInfo = VulkanImage.GetImageCreateInfo(DepthFormat, ImageUsageFlags.DepthStencilAttachmentBit,
                                                           new((uint)size.Width, (uint)size.Height, 1));
         var allocInfo =
@@ -155,9 +127,9 @@ internal class VulkanContent : IDisposable
         _depthImageView = _depthImage.GetImageView(DepthFormat, ImageAspectFlags.DepthBit);
     }
 
-    private unsafe void CreateRenderPass()
+    private unsafe void CreateRenderPass(in SwapchainImage swapchainImage)
     {
-        var colorAttachment = new AttachmentDescription(format: _colorAttachment.Format,
+        var colorAttachment = new AttachmentDescription(format: swapchainImage.Format,
                                                         samples: SampleCountFlags.Count1Bit,
                                                         loadOp: AttachmentLoadOp.Clear,
                                                         storeOp: AttachmentStoreOp.Store,
@@ -206,18 +178,27 @@ internal class VulkanContent : IDisposable
         _context.Api.CreateRenderPass(_context.Device, renderPassInfo, null, out _renderPass);
     }
 
-    private unsafe void CreateFrameBuffer(in PixelSize size)
+    private unsafe void CreateFrameBuffers(IReadOnlyList<SwapchainImage> images)
     {
-        var fbAttachments = new[] { _colorImageView.ImageView, _depthImageView.ImageView };
-        var fbInfo = new FramebufferCreateInfo(renderPass: _renderPass,
-                                               width: (uint)size.Width, height: (uint)size.Height,
-                                               attachmentCount: (uint)fbAttachments.Length,
-                                               pAttachments: fbAttachments.AsPtr(), layers: 1);
+        _framebuffers = new Framebuffer[images.Count];
 
-        _context.Api.CreateFramebuffer(_context.Device, fbInfo, null, out _framebuffer).ThrowOnError();
+        Span<ImageView> fbAttachments = stackalloc[] { images[0].ViewHandle, _depthImageView.ImageView };
+
+        fixed (ImageView* pAttach = fbAttachments)
+            for (var i = 0; i < images.Count; i++)
+            {
+                fbAttachments[0] = images[i].ViewHandle;
+                var fbInfo = new FramebufferCreateInfo(renderPass: _renderPass,
+                                                       width: (uint)images[i].Size.Width,
+                                                       height: (uint)images[i].Size.Height,
+                                                       attachmentCount: (uint)fbAttachments.Length,
+                                                       pAttachments: pAttach, layers: 1);
+
+                _context.Api.CreateFramebuffer(_context.Device, fbInfo, null, out _framebuffers[i]).ThrowOnError();
+            }
     }
 
-    private void CreatePipeline(in PixelSize size)
+    private void CreatePipeline(in Size size)
     {
         _pipeline = new PipelineBuilder(_context.Instance, _context.Device)
             .Build(new()

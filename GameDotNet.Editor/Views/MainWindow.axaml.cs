@@ -1,6 +1,5 @@
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Rendering;
 
 namespace GameDotNet.Editor.Views
 {
@@ -10,7 +9,7 @@ namespace GameDotNet.Editor.Views
         {
             InitializeComponent();
             this.AttachDevTools();
-            Renderer.Diagnostics.DebugOverlays = RendererDebugOverlays.Fps;
+            Renderer.DrawFps = true;
         }
     }
 }

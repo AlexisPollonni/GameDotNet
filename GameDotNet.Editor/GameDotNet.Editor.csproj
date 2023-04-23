@@ -10,7 +10,6 @@
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
     <ItemGroup>
-        <Folder Include="Models\" />
         <AvaloniaResource Include="Assets\**" />
         <None Remove=".gitignore" />
     </ItemGroup>
@@ -22,14 +21,13 @@
         <TrimmableAssembly Include="Avalonia.Themes.Default" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="11.0.0-preview6"/>
-        <PackageReference Include="Avalonia.Desktop" Version="11.0.0-preview6"/>
+        <PackageReference Include="Avalonia" Version="11.0.999-cibuild0027790-beta"/>
+        <PackageReference Include="Avalonia.Desktop" Version="11.0.999-cibuild0027790-beta"/>
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.0-preview6"/>
-        <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.0-preview6"/>
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0-preview6"/>
-        <PackageReference Include="SharpDX.Direct3D11" Version="4.2.0"/>
-        <PackageReference Include="SharpDX.DXGI" Version="4.2.0"/>
+        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.999-cibuild0027790-beta"/>
+        <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.999-cibuild0027790-beta"/>
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.999-cibuild0027790-beta"/>
+        <PackageReference Include="XamlNameReferenceGenerator" Version="1.6.1"/>
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\GameDotNet.Graphics.Vulkan\GameDotNet.Graphics.Vulkan.csproj" />
