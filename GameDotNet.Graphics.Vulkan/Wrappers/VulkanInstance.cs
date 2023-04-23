@@ -10,7 +10,6 @@ public class VulkanInstance : IDisposable
     internal readonly Instance Instance;
 
     internal readonly Vk Vk;
-    internal PhysicalDevice? ActivePhysicalDevice;
 
     public VulkanInstance(Vk context, Instance instance, Version32 vkVersion, bool supportsProperties2Ext,
                           bool isValidationEnabled = false, DebugUtilsMessengerEXT? messenger = null)
