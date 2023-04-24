@@ -1,11 +1,9 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Runtime.CompilerServices;
 using Avalonia.Logging;
+using Avalonia.Threading;
 using Avalonia.Vulkan;
-using Silk.NET.Vulkan;
-using Image = Silk.NET.Vulkan.Image;
 
 namespace GameDotNet.Editor.VulkanDemo;
 
@@ -39,6 +37,8 @@ public class VulkanDemoControl : VulkanControlBase
         using var l = device.Device.Lock();
 
         _resources?.Content.Render(new AvaloniaSwapchain(image));
+
+        Dispatcher.UIThread.InvokeAsync(InvalidateVisual, DispatcherPriority.Background);
     }
 
     private class VulkanResources : IDisposable
@@ -59,40 +59,52 @@ public class VulkanDemoControl : VulkanControlBase
         }
     }
 
-    private class AvaloniaSwapchain : GameDotNet.Editor.VulkanDemo.ISwapchain
+    private class AvaloniaSwapchain : GameDotNet.Editor.VulkanDemo.ISwapchain, IEquatable<AvaloniaSwapchain>
     {
-        public IReadOnlyList<SwapchainImage> Images { get; }
-        public int ImageCount { get; }
-        public int CurrentImageIndex { get; }
+        public int ImageCount => _swapchain.ImageCount;
+
+        public int CurrentImageIndex => _swapchain.CurrentImageIndex;
+
+
+        private readonly ISwapchain _swapchain;
 
         public AvaloniaSwapchain(ISwapchain swapchain)
         {
-            ImageCount = swapchain.ImageCount;
-            CurrentImageIndex = swapchain.CurrentImageIndex;
-
-            var imgs = new SwapchainImage[ImageCount];
-            for (var i = 0; i < ImageCount; i++)
-            {
-                var img = swapchain.GetImage(i);
-                ref var img2 = ref Unsafe.As<VulkanImageInfo, SwapchainImage>(ref img);
-
-                imgs[i] = img2;
-            }
-
-            Images = imgs;
+            _swapchain = swapchain;
         }
+
+        public SwapchainImage GetImage(int index)
+        {
+            var img = _swapchain.GetImage(index);
+            return Unsafe.As<VulkanImageInfo, SwapchainImage>(ref img);
+        }
+
+        public SwapchainImage GetCurrentImage()
+        {
+            return GetImage(CurrentImageIndex);
+        }
+
+        public IReadOnlyList<SwapchainImage> GetImageList()
+        {
+            var images = new SwapchainImage[ImageCount];
+            for (var i = 0; i < ImageCount; i++)
+                images[i] = GetImage(i);
+            return images;
+        }
+
+        public bool Equals(AvaloniaSwapchain? other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            return ReferenceEquals(this, other) || _swapchain.Equals(other._swapchain);
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            return obj.GetType() == GetType() && Equals((AvaloniaSwapchain)obj);
+        }
+
+        public override int GetHashCode() => _swapchain.GetHashCode();
     }
 }
-
-internal interface ISwapchain
-{
-    public IReadOnlyList<SwapchainImage> Images { get; }
-
-    public int ImageCount { get; }
-    public int CurrentImageIndex { get; }
-}
-
-internal readonly record struct SwapchainImage(Format Format, Size Size, Image Handle, ImageLayout Layout,
-                                               ImageTiling Tiling, ImageUsageFlags UsageFlags, uint LevelCount,
-                                               uint SampleCount, DeviceMemory MemoryHandle, ImageView ViewHandle,
-                                               ulong MemorySize, bool IsProtected);

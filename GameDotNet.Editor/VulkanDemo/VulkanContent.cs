@@ -27,7 +27,7 @@ internal class VulkanContent : IDisposable
     private VulkanImage _depthImage;
     private VulkanImageView _depthImageView;
 
-    private Size _previousImageSize = Size.Empty;
+    private ISwapchain? _previousSwapchain;
     private bool _isInit;
 
     public VulkanContent(VulkanContext context)
@@ -39,17 +39,16 @@ internal class VulkanContent : IDisposable
 
     public unsafe void Render(ISwapchain swapchain)
     {
-        var curFrameIndex = swapchain.CurrentImageIndex;
-        var curImage = swapchain.Images[curFrameIndex];
+        var curImage = swapchain.GetCurrentImage();
 
         var api = _context.Api;
         _context.Pool.FreeUsedCommandBuffers();
 
-        var size = curImage.Size;
-        if (size != _previousImageSize)
-            RecreateTemporalObjects(in curImage, swapchain);
 
-        _previousImageSize = size;
+        if (!Equals(swapchain, _previousSwapchain))
+            RecreateTemporalObjects(swapchain);
+
+        _previousSwapchain = swapchain;
 
         var cmd = _context.Pool.CreateCommandBuffer();
         cmd.BeginRecording();
@@ -62,8 +61,9 @@ internal class VulkanContent : IDisposable
 
         var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
                                              renderArea: new Rect2D(new Offset2D(0, 0),
-                                                                    new((uint)size.Width, (uint)size.Height)),
-                                             framebuffer: _framebuffers[curFrameIndex],
+                                                                    new((uint)curImage.Size.Width,
+                                                                        (uint)curImage.Size.Height)),
+                                             framebuffer: _framebuffers[swapchain.CurrentImageIndex],
                                              clearValueCount: (uint)clearValues.Length,
                                              pClearValues: clearValues.AsPtr());
 
@@ -88,14 +88,16 @@ internal class VulkanContent : IDisposable
         _fragShader.Dispose();
     }
 
-    private void RecreateTemporalObjects(in SwapchainImage image, ISwapchain swapchain)
+    private void RecreateTemporalObjects(ISwapchain swapchain)
     {
         DestroyTemporalObjects();
 
-        CreateImages(image.Size);
-        CreateRenderPass(in image);
-        CreateFrameBuffers(swapchain.Images);
-        CreatePipeline(image.Size);
+        var cur = swapchain.GetCurrentImage();
+
+        CreateImages(cur.Size);
+        CreateRenderPass(cur.Format, cur.Layout);
+        CreateFrameBuffers(swapchain.GetImageList());
+        CreatePipeline(cur.Size);
 
         _isInit = true;
     }
@@ -127,16 +129,16 @@ internal class VulkanContent : IDisposable
         _depthImageView = _depthImage.GetImageView(DepthFormat, ImageAspectFlags.DepthBit);
     }
 
-    private unsafe void CreateRenderPass(in SwapchainImage swapchainImage)
+    private unsafe void CreateRenderPass(Format format, ImageLayout layout)
     {
-        var colorAttachment = new AttachmentDescription(format: swapchainImage.Format,
+        var colorAttachment = new AttachmentDescription(format: format,
                                                         samples: SampleCountFlags.Count1Bit,
                                                         loadOp: AttachmentLoadOp.Clear,
                                                         storeOp: AttachmentStoreOp.Store,
                                                         stencilLoadOp: AttachmentLoadOp.DontCare,
                                                         stencilStoreOp: AttachmentStoreOp.DontCare,
-                                                        initialLayout: ImageLayout.Undefined,
-                                                        finalLayout: ImageLayout.PresentSrcKhr);
+                                                        initialLayout: layout,
+                                                        finalLayout: layout);
 
         var colorAttachmentRef = new AttachmentReference(0, ImageLayout.AttachmentOptimal);
 
