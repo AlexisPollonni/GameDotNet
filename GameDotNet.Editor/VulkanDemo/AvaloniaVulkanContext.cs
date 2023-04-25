@@ -1,4 +1,3 @@
-using System;
 using Avalonia.Vulkan;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
 using GameDotNet.Graphics.Vulkan.Wrappers;
@@ -9,7 +8,7 @@ using Silk.NET.Vulkan.Extensions.KHR;
 
 namespace GameDotNet.Editor.VulkanDemo;
 
-internal sealed class VulkanContext : IDisposable
+internal sealed class AvaloniaVulkanContext : IVulkanContext
 {
     public Vk Api { get; }
 
@@ -22,7 +21,7 @@ internal sealed class VulkanContext : IDisposable
 
     public VulkanCommandBufferPool Pool { get; }
 
-    public static unsafe (VulkanContext? context, string info) TryCreate(IVulkanSharedDevice shared)
+    public static unsafe (AvaloniaVulkanContext? context, string info) TryCreate(IVulkanSharedDevice shared)
     {
         var api = GetApi(shared.Device);
         var version = Vk.Version11;
@@ -57,18 +56,15 @@ internal sealed class VulkanContext : IDisposable
         return (new(api, instance, physDevice, device, allocator, cmdBufferPool), deviceName);
     }
 
-
     public void Dispose()
     {
         Allocator.Dispose();
         Pool.Dispose();
-        // Device.Dispose();
-        // Instance.Dispose();
         Api.Dispose();
     }
 
-    private VulkanContext(Vk api, VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device,
-                          VulkanMemoryAllocator allocator, VulkanCommandBufferPool pool)
+    private AvaloniaVulkanContext(Vk api, VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device,
+                                  VulkanMemoryAllocator allocator, VulkanCommandBufferPool pool)
     {
         Api = api;
         Instance = instance;
@@ -86,6 +82,6 @@ internal sealed class VulkanContext : IDisposable
                 return deviceApi;
             var instanceApi = device.Instance.GetInstanceProcAddress(device.Instance.Handle, name);
 
-            return instanceApi != nint.Zero ? instanceApi : device.Instance.GetInstanceProcAddress(IntPtr.Zero, name);
+            return instanceApi != nint.Zero ? instanceApi : device.Instance.GetInstanceProcAddress(nint.Zero, name);
         }));
 }

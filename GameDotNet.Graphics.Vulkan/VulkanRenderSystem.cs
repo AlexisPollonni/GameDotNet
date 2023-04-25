@@ -4,6 +4,7 @@ using System.Numerics;
 using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.Physics.Components;
+using GameDotNet.Graphics.Vulkan.Wrappers;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
@@ -22,7 +23,9 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
 
     private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAll<Camera>();
 
-    private readonly VulkanRenderer _renderer;
+    private DefaultVulkanContext? _context;
+    private VulkanRenderer? _renderer;
+
     private readonly Thread _renderThread;
     private readonly IView _view;
     private readonly Stopwatch _drawWatch;
@@ -34,7 +37,6 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     {
         _view = view;
         _drawWatch = new();
-        _renderer = new(_view);
         _isRenderPaused = false;
         _lastFramebufferSize = new(-1, -1);
         _renderThread = new(RenderLoop)
@@ -46,6 +48,8 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
 
     public override bool Initialize()
     {
+        _context = DefaultVulkanContext.TryCreateForView(_view).context;
+        _renderer = new(_context!);
         _renderer.Initialize();
         Mesh m = new(new()
         {
@@ -87,7 +91,8 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         _renderThread.Interrupt();
         _renderThread.Join();
 
-        _renderer.Dispose();
+        _renderer?.Dispose();
+        _context?.Dispose();
     }
 
     private void RenderLoop()
@@ -96,7 +101,7 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         {
             var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
 
-            _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
+            _renderer?.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
 
             _drawWatch.Restart();
 
@@ -107,7 +112,7 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
             {
                 Thread.Sleep(Timeout.Infinite);
             }
-            catch (ThreadInterruptedException e)
+            catch (ThreadInterruptedException)
             {
                 Log.Information("<Render> Render thread {Id} resumed", Environment.CurrentManagedThreadId);
             }

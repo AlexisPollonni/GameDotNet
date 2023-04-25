@@ -15,7 +15,7 @@ public class VulkanDemoControl : VulkanControlBase
     {
         using var l = sharedDevice.Device.Lock();
 
-        var res = VulkanContext.TryCreate(sharedDevice);
+        var res = AvaloniaVulkanContext.TryCreate(sharedDevice);
         if (res.context is null)
         {
             Logger.TryGet(LogEventLevel.Error, "Vulkan")
@@ -41,12 +41,13 @@ public class VulkanDemoControl : VulkanControlBase
         Dispatcher.UIThread.InvokeAsync(InvalidateVisual, DispatcherPriority.Background);
     }
 
+
     private class VulkanResources : IDisposable
     {
-        public VulkanContext Context { get; }
+        public AvaloniaVulkanContext Context { get; }
         public VulkanContent Content { get; }
 
-        public VulkanResources(VulkanContext context, VulkanContent content)
+        public VulkanResources(AvaloniaVulkanContext context, VulkanContent content)
         {
             Context = context;
             Content = content;

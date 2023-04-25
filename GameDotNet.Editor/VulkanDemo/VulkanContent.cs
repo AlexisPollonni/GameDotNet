@@ -18,7 +18,7 @@ internal class VulkanContent : IDisposable
     private readonly Stopwatch St = Stopwatch.StartNew();
     private ulong _frameNber;
 
-    private readonly VulkanContext _context;
+    private readonly AvaloniaVulkanContext _context;
     private readonly VulkanShader _vertShader, _fragShader;
     private RenderPass _renderPass;
     private VulkanPipeline _pipeline;
@@ -30,7 +30,7 @@ internal class VulkanContent : IDisposable
     private ISwapchain? _previousSwapchain;
     private bool _isInit;
 
-    public VulkanContent(VulkanContext context)
+    public VulkanContent(AvaloniaVulkanContext context)
     {
         _context = context;
         _vertShader = new(_context.Api, _context.Device, ShaderStageFlags.VertexBit, Shaders.MeshVertexShader);
