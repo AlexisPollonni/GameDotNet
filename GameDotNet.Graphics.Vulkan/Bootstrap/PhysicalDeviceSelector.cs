@@ -70,7 +70,7 @@ public class PhysicalDeviceSelector
         return new()
         {
             Device = new(_vk, selectedDevice.Value.Device),
-            Surface = Surface?.AsSurfaceKhr(),
+            Surface = Surface,
             InstanceVersion = _instance.VkVersion,
             Features = selectedDevice.Value.DeviceFeatures,
             Properties = selectedDevice.Value.DeviceProperties,
@@ -179,9 +179,9 @@ public class PhysicalDeviceSelector
             suitable = Suitable.Partial;
 
         var dedicatedCompute =
-            QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
+            QueueTools.GetDedicatedQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
         var dedicatedTransfer =
-            QueueTools.GetDedicatedQueueIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
+            QueueTools.GetDedicatedQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
 
         var separateCompute =
             QueueTools.GetSeparateQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
@@ -190,7 +190,8 @@ public class PhysicalDeviceSelector
 
         var presentQueue = Surface is null
                                ? null
-                               : QueueTools.GetPresentQueueFamilyIndex(_instance, dsc.Device, Surface, dsc.QueueFamilies);
+                               : QueueTools.GetPresentQueueFamilyIndex(_instance, dsc.Device, Surface,
+                                                                       dsc.QueueFamilies);
 
         if (Criteria.RequireDedicatedComputeQueue && dedicatedCompute is null) return Suitable.No;
         if (Criteria.RequireDedicatedTransferQueue && dedicatedTransfer is null) return Suitable.No;

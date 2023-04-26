@@ -8,20 +8,21 @@ public sealed class VulkanCommandBufferPool : IDisposable
 {
     private readonly Vk _api;
     private readonly Device _device;
-    private readonly Queue _queue;
+    private readonly DeviceQueue _queue;
     private readonly CommandPool _commandPool;
 
     private readonly List<VulkanCommandBuffer> _usedCommandBuffers = new();
     private readonly object _lock = new();
 
-    public unsafe VulkanCommandBufferPool(Vk api, Device device, Queue queue, uint queueFamilyIndex)
+
+    public unsafe VulkanCommandBufferPool(Vk api, Device device, DeviceQueue queue)
     {
         _api = api;
         _device = device;
         _queue = queue;
 
         var commandPoolCreateInfo = new CommandPoolCreateInfo(flags: CommandPoolCreateFlags.ResetCommandBufferBit,
-                                                              queueFamilyIndex: queueFamilyIndex);
+                                                              queueFamilyIndex: (uint)queue.FamilyIndex);
 
         _api.CreateCommandPool(_device, commandPoolCreateInfo, null, out _commandPool)
             .ThrowOnError();
@@ -82,16 +83,16 @@ public sealed class VulkanCommandBufferPool : IDisposable
         private readonly VulkanCommandBufferPool _commandBufferPool;
         private readonly Vk _api;
         private readonly Device _device;
-        private readonly Queue _queue;
+        private readonly DeviceQueue _queue;
         private readonly Fence _fence;
         private bool _hasEnded;
         private bool _hasStarted;
 
-        public IntPtr Handle => InternalHandle.Handle;
+        public nint Handle => InternalHandle.Handle;
 
         internal CommandBuffer InternalHandle { get; }
 
-        internal unsafe VulkanCommandBuffer(Vk api, Device device, Queue queue,
+        internal unsafe VulkanCommandBuffer(Vk api, Device device, DeviceQueue queue,
                                             VulkanCommandBufferPool commandBufferPool)
         {
             _api = api;

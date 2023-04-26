@@ -17,8 +17,8 @@ internal static class QueueTools
         return null;
     }
 
-    public static int? GetDedicatedQueueIndex(IEnumerable<QueueFamilyProperties> families,
-                                              QueueFlags desiredFlags, QueueFlags undesiredFlags)
+    public static int? GetDedicatedQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families,
+                                                    QueueFlags desiredFlags, QueueFlags undesiredFlags)
     {
         foreach (var (family, i) in families.WithIndex())
         {
@@ -34,7 +34,7 @@ internal static class QueueTools
     }
 
     public static int? GetSeparateQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families,
-                                             QueueFlags desiredFlags, QueueFlags undesiredFlags)
+                                                   QueueFlags desiredFlags, QueueFlags undesiredFlags)
     {
         int? index = null;
         foreach (var (family, i) in families.WithIndex())
@@ -54,7 +54,7 @@ internal static class QueueTools
     }
 
     public static int? GetPresentQueueFamilyIndex(VulkanInstance instance, PhysicalDevice device, SurfaceKHR surface,
-                                            IReadOnlyList<QueueFamilyProperties> families)
+                                                  IReadOnlyList<QueueFamilyProperties> families)
     {
         if (surface.Handle == 0)
             return null;
@@ -68,7 +68,7 @@ internal static class QueueTools
             if (res != Result.Success)
                 return null;
 
-            if (presentSupport == true)
+            if (presentSupport)
                 return i;
         }
 

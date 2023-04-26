@@ -16,10 +16,6 @@ public class SwapchainBuilder
     private readonly VulkanPhysDevice _physDevice;
     private readonly Vk _vk;
 
-    public SwapchainBuilder(VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device,
-                            VulkanSurface surface) : this(instance, physDevice, device, new Info(surface))
-    { }
-
     public SwapchainBuilder(VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device, Info info)
     {
         _vk = instance.Vk;
@@ -28,10 +24,10 @@ public class SwapchainBuilder
         _device = device;
         _info = info;
 
-        _info.GraphicsQueueFamilyIndex = device.GetQueueFamilyIndex(QueueType.Graphics)
-                                   ?? throw new ArgumentException("Couldn't find graphics queue of Vulkan device");
-        _info.PresentQueueFamilyIndex = device.GetQueueFamilyIndex(QueueType.Present)
-                                  ?? throw new ArgumentException("Couldn't find present queue of Vulkan device");
+        _info.GraphicsQueue ??= device.QueuesManager.GetFirstGraphic()
+                                ?? throw new ArgumentException("Couldn't find graphics queue of Vulkan device");
+        _info.PresentQueue ??= device.QueuesManager.GetFirstPresent(info.Surface)
+                               ?? throw new ArgumentException("Couldn't find present queue of Vulkan device");
 
         if (!instance.Vk.TryGetDeviceExtension(instance, _device, out _extension))
         {
@@ -69,7 +65,8 @@ public class SwapchainBuilder
         if (_info.ArrayLayerCount is 0)
             imageArrayLayers = 1;
 
-        var queueFamilyIndices = new[] { _info.GraphicsQueueFamilyIndex, _info.PresentQueueFamilyIndex };
+        var queueFamilyIndices = new[]
+            { (uint)_info.GraphicsQueue!.FamilyIndex, (uint)_info.PresentQueue!.FamilyIndex };
         var presentMode = FindPresentMode(surfaceSupport.PresentModes, _info.DesiredPresentModes);
 
         var preTransform = _info.PreTransform;
@@ -92,13 +89,13 @@ public class SwapchainBuilder
             Clipped = _info.Clipped
         };
         if (_info.OldSwapchain is not null) swapchainCreateInfo.OldSwapchain = _info.OldSwapchain;
-        if (_info.GraphicsQueueFamilyIndex != _info.PresentQueueFamilyIndex)
+        if (_info.GraphicsQueue.FamilyIndex != _info.PresentQueue.FamilyIndex)
         {
             unsafe
             {
                 swapchainCreateInfo.ImageSharingMode = SharingMode.Concurrent;
                 swapchainCreateInfo.QueueFamilyIndexCount = 2;
-                swapchainCreateInfo.PQueueFamilyIndices = queueFamilyIndices.ToGlobalMemory().AsPtr<uint>();
+                swapchainCreateInfo.PQueueFamilyIndices = queueFamilyIndices.AsPtr();
             }
         }
         else swapchainCreateInfo.ImageSharingMode = SharingMode.Exclusive;
@@ -197,6 +194,10 @@ public class SwapchainBuilder
 
     public class Info
     {
+        public required VulkanSurface Surface { get; init; }
+        public DeviceQueue? PresentQueue { get; set; }
+        public DeviceQueue? GraphicsQueue { get; set; }
+
         public bool Clipped = true;
         public uint ArrayLayerCount = 1;
         public CompositeAlphaFlagsKHR CompositeAlpha = CompositeAlphaFlagsKHR.OpaqueBitKhr;
@@ -209,18 +210,11 @@ public class SwapchainBuilder
 
         public uint DesiredWidth = 256;
         public FormatFeatureFlags FormatFeatureFlags = FormatFeatureFlags.SampledImageBit;
-        public uint GraphicsQueueFamilyIndex;
+
         public ImageUsageFlags ImageUsageFlags = ImageUsageFlags.ColorAttachmentBit;
 
         public VulkanSwapchain? OldSwapchain;
-        public uint PresentQueueFamilyIndex;
         public SurfaceTransformFlagsKHR PreTransform = 0;
-        public VulkanSurface Surface;
-
-        public Info(VulkanSurface surface)
-        {
-            Surface = surface;
-        }
 
         public static IEnumerable<SurfaceFormatKHR> DefaultFormats { get; } = new SurfaceFormatKHR[]
         {

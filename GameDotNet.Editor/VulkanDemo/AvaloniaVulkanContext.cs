@@ -11,14 +11,10 @@ namespace GameDotNet.Editor.VulkanDemo;
 internal sealed class AvaloniaVulkanContext : IVulkanContext
 {
     public Vk Api { get; }
-
     public VulkanInstance Instance { get; }
     public VulkanPhysDevice PhysDevice { get; }
-
     public VulkanDevice Device { get; }
-
     public VulkanMemoryAllocator Allocator { get; }
-
     public VulkanCommandBufferPool Pool { get; }
 
     public static unsafe (AvaloniaVulkanContext? context, string info) TryCreate(IVulkanSharedDevice shared)
@@ -39,15 +35,17 @@ internal sealed class AvaloniaVulkanContext : IVulkanContext
         var physDevice = new VulkanPhysDevice(api, new(shared.Device.PhysicalDeviceHandle));
 
         var vkDevice = new Device(shared.Device.Handle);
-        var device = new VulkanDevice(instance, physDevice, vkDevice, null, physDevice.GetQueueFamilyProperties(),
-                                      null);
+        var device = new VulkanDevice(instance, physDevice, vkDevice, null);
 
         var allocator = new VulkanMemoryAllocator(new(version, api, instance, physDevice, device));
 
 
-        api.GetDeviceQueue(vkDevice, shared.Device.GraphicsQueueFamilyIndex, 0, out var queue);
+        var queue = device.QueuesManager.GetFirstQueueFromIndex((int)shared.Device.GraphicsQueueFamilyIndex);
+        if (queue is null)
+            return (null,
+                    $"Failed to find first device queue from queue family n°{shared.Device.GraphicsQueueFamilyIndex}");
 
-        var cmdBufferPool = new VulkanCommandBufferPool(api, vkDevice, queue, shared.Device.GraphicsQueueFamilyIndex);
+        var cmdBufferPool = new VulkanCommandBufferPool(api, vkDevice, queue);
 
 
         var prop = physDevice.GetProperties();

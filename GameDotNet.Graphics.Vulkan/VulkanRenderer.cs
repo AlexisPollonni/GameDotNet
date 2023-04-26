@@ -6,7 +6,6 @@ using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
-using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Microsoft.Toolkit.HighPerformance;
@@ -30,7 +29,6 @@ public sealed class VulkanRenderer : IDisposable
     private VulkanShader _meshFragShader = null!;
     private VulkanShader _meshVertShader = null!;
 
-    private Queue _graphicsQueue;
     private Framebuffer[] _frameBuffers;
     private RenderPass _renderPass;
     private Semaphore _presentSemaphore, _renderSemaphore;
@@ -67,7 +65,7 @@ public sealed class VulkanRenderer : IDisposable
 
     public void Initialize()
     {
-        InitVulkan();
+        CreateSwapchain();
 
         _meshFragShader = new(_ctx.Api, _ctx.Device, ShaderStageFlags.FragmentBit, MeshFragmentShader);
         _meshVertShader = new(_ctx.Api, _ctx.Device, ShaderStageFlags.VertexBit, MeshVertexShader);
@@ -185,7 +183,7 @@ public sealed class VulkanRenderer : IDisposable
                                                  waitSemaphoreCount: 1, pWaitSemaphores: semaphore,
                                                  pImageIndices: &swImgIndex);
 
-            res = _swapchain.QueuePresent(_graphicsQueue, presentInfo);
+            res = _swapchain.QueuePresent(_ctx.MainGraphicsQueue, presentInfo);
             if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
             {
                 return;
@@ -218,18 +216,12 @@ public sealed class VulkanRenderer : IDisposable
         mesh.Vertices.AsSpan().CopyTo(span);
     }
 
-    private void InitVulkan()
-    {
-        CreateSwapchain();
-        _graphicsQueue = _ctx.Device.GetQueue(QueueType.Graphics)!.Value;
-    }
-
-
     private bool CreateSwapchain()
     {
         var swapchain = new SwapchainBuilder(_ctx.Instance, _ctx.PhysDevice, _ctx.Device,
-                                             new SwapchainBuilder.Info(_ctx.Surface)
+                                             new()
                                              {
+                                                 Surface = _ctx.Surface,
                                                  DesiredPresentModes = new() { PresentModeKHR.FifoKhr },
                                                  OldSwapchain = _swapchain
                                              })

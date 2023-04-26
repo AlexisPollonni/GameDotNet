@@ -105,7 +105,7 @@ public sealed class VulkanSwapchain : IDisposable
                                            ref imageIndex);
     }
 
-    public Result QueuePresent(Queue queue, in PresentInfoKHR info)
+    public Result QueuePresent(DeviceQueue queue, in PresentInfoKHR info)
     {
         return _extension.QueuePresent(queue, info);
     }

@@ -9,7 +9,6 @@ public interface IVulkanContext : IDisposable
     public VulkanInstance Instance { get; }
     public VulkanPhysDevice PhysDevice { get; }
     public VulkanDevice Device { get; }
-
     public VulkanMemoryAllocator Allocator { get; }
     public VulkanCommandBufferPool Pool { get; }
 }

@@ -64,7 +64,7 @@ public class DeviceBuilder
         }
 
         var extensions = _selectedPhysDevice.ExtensionsToEnable.ToList();
-        if (_selectedPhysDevice.Surface?.Handle != 0 || _selectedPhysDevice.DeferSurfaceInit)
+        if (_selectedPhysDevice.Surface is not null || _selectedPhysDevice.DeferSurfaceInit)
         {
             extensions.Add(KhrSwapchain.ExtensionName);
         }
@@ -74,7 +74,7 @@ public class DeviceBuilder
             _info.NextChain.Any(next => next.AsRef<BaseOutStructure>().SType == StructureType.PhysicalDeviceFeatures2);
 
         var finalNextChain = new List<GlobalMemory>();
-        var deviceCreateInfo = new DeviceCreateInfo();
+        DeviceCreateInfo deviceCreateInfo;
 
         var physicalDeviceExtensionFeatures = _selectedPhysDevice.ExtendedFeaturesChain.ToList();
         var localFeatures2 = new PhysicalDeviceFeatures2();
@@ -99,10 +99,7 @@ public class DeviceBuilder
         {
             unsafe
             {
-                deviceCreateInfo.PEnabledFeatures = _selectedPhysDevice.Features
-                                                               .ToGlobalMemory()
-                                                               .DisposeWith(d)
-                                                               .AsPtr<PhysicalDeviceFeatures>();
+                deviceCreateInfo.PEnabledFeatures = _selectedPhysDevice.Features.AsPtr(d);
             }
         }
 
@@ -136,12 +133,13 @@ public class DeviceBuilder
                 res = _vk.CreateDevice(_selectedPhysDevice.Device, deviceCreateInfo, null, out device);
             }
         }
-        else res = _vk.CreateDevice(_selectedPhysDevice.Device, deviceCreateInfo, AllocationCallbacks.Value, out device);
+        else
+            res = _vk.CreateDevice(_selectedPhysDevice.Device, deviceCreateInfo, AllocationCallbacks.Value, out device);
 
         if (res != Result.Success)
             throw new VulkanException(res);
 
-        return new(_instance, _selectedPhysDevice.Device, device, _selectedPhysDevice.Surface, _selectedPhysDevice.QueueFamilies, AllocationCallbacks);
+        return new(_instance, _selectedPhysDevice.Device, device, AllocationCallbacks);
     }
 
     public struct CustomQueueDescription

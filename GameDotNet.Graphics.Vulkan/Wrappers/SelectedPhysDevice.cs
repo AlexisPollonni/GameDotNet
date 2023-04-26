@@ -7,7 +7,7 @@ namespace GameDotNet.Graphics.Vulkan.Wrappers;
 public sealed class SelectedPhysDevice
 {
     public required VulkanPhysDevice Device { get; init; }
-    public SurfaceKHR? Surface { get; init; }
+    public VulkanSurface? Surface { get; init; }
 
     public PhysicalDeviceFeatures Features { get; init; }
     public PhysicalDeviceProperties Properties { get; init; }
@@ -19,5 +19,6 @@ public sealed class SelectedPhysDevice
 
     internal IReadOnlyList<GenericFeaturesNextNode> ExtendedFeaturesChain { get; init; } =
         Array.Empty<GenericFeaturesNextNode>();
+
     internal bool DeferSurfaceInit { get; init; }
 }
