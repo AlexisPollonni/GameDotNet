@@ -4,7 +4,6 @@ using Arch.Core.Extensions;
 using GameDotNet.Core.Physics.Components;
 using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
-using Serilog;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
 using Query = GameDotNet.Management.ECS.Query;
@@ -79,9 +78,6 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
         _velocity = Vector3.Lerp(_velocity, Vector3.Zero, (float)(DampingCoefficient * delta.TotalSeconds));
         camPos.Value += _velocity * (float)delta.TotalSeconds;
-
-        Log.Verbose("Camera position update : {Position}, {Rotation}", camPos.Value,
-                    _camera.Entity.Get<Rotation>().Value);
     }
 
     public void Dispose()
