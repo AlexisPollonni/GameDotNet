@@ -1,4 +1,4 @@
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Graphics.Vulkan.Tools;
 using Silk.NET.Vulkan;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
@@ -9,16 +9,16 @@ public sealed class VulkanDevice : IDisposable
 
     private readonly Device _device;
     private readonly VulkanInstance _instance;
-    private readonly AllocationCallbacks? _allocationCallbacks;
+    private readonly IVulkanAllocCallback _allocationCallbacks;
 
     public VulkanDevice(VulkanInstance instance, VulkanPhysDevice physDevice, Device device,
-                        AllocationCallbacks? allocationCallbacks)
+                        IVulkanAllocCallback callbacks)
     {
         QueuesManager = new(instance, physDevice, this);
 
         _instance = instance;
         _device = device;
-        _allocationCallbacks = allocationCallbacks;
+        _allocationCallbacks = callbacks;
     }
 
     public void Dispose()
@@ -30,6 +30,6 @@ public sealed class VulkanDevice : IDisposable
 
     private void ReleaseUnmanagedResources()
     {
-        _instance.Vk.DestroyDevice(_device, _allocationCallbacks.AsReadOnlyRefOrNull());
+        _instance.Vk.DestroyDevice(_device, _allocationCallbacks.Handle);
     }
 }

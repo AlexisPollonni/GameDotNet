@@ -26,7 +26,7 @@ public class DeviceBuilder
         _info = new();
     }
 
-    public AllocationCallbacks? AllocationCallbacks
+    public IVulkanAllocCallback AllocationCallbacks
     {
         get => _info.AllocationCallbacks;
         set => _info.AllocationCallbacks = value;
@@ -116,30 +116,21 @@ public class DeviceBuilder
                     enabledLayerCount: _instance.IsValidationEnabled
                                            ? (uint)Constants.DefaultValidationLayers.Length
                                            : 0,
-                    pQueueCreateInfos: queueCreateInfos.ToGlobalMemory().DisposeWith(d).AsPtr<DeviceQueueCreateInfo>(),
-                    ppEnabledExtensionNames: extensions.ToGlobalMemory().DisposeWith(d).AsByteDoublePtr(),
+                    pQueueCreateInfos: queueCreateInfos.AsPtr(d),
+                    ppEnabledExtensionNames: extensions.ToByteDoublePtr(d),
                     ppEnabledLayerNames: _instance.IsValidationEnabled
                                              ? Constants.DefaultValidationLayers.AsPtr()
                                              : null,
                     pNext: nextArray.Length is not 0 ? (void*)nextArray[0].Handle : null);
         }
 
-        Device device;
-        Result res;
-        if (AllocationCallbacks is null)
-        {
-            unsafe
-            {
-                res = _vk.CreateDevice(_selectedPhysDevice.Device, deviceCreateInfo, null, out device);
-            }
-        }
-        else
-            res = _vk.CreateDevice(_selectedPhysDevice.Device, deviceCreateInfo, AllocationCallbacks.Value, out device);
+        ref readonly var callback = ref _info.AllocationCallbacks.Handle;
+        var res = _vk.CreateDevice(_selectedPhysDevice.Device, deviceCreateInfo, callback, out var device);
 
         if (res != Result.Success)
             throw new VulkanException(res);
 
-        return new(_instance, _selectedPhysDevice.Device, device, AllocationCallbacks);
+        return new(_instance, _selectedPhysDevice.Device, device, _info.AllocationCallbacks);
     }
 
     public struct CustomQueueDescription
@@ -158,13 +149,14 @@ public class DeviceBuilder
 
     private class DeviceInfo
     {
-        public AllocationCallbacks? AllocationCallbacks;
+        public IVulkanAllocCallback AllocationCallbacks;
         public uint Flags;
         public IList<GlobalMemory> NextChain;
         public IList<CustomQueueDescription> QueueDescriptions;
 
         public DeviceInfo()
         {
+            AllocationCallbacks = new NullAllocator();
             NextChain = new List<GlobalMemory>();
             QueueDescriptions = new List<CustomQueueDescription>();
         }

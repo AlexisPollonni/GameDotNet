@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
 
@@ -8,5 +7,4 @@ public static class Constants
 {
     public static Version32 EngineVersion => Vk.MakeVersion(0, 0, 1);
     public static string[] DefaultValidationLayers => new[] { "VK_LAYER_KHRONOS_validation" };
-    public static ref readonly AllocationCallbacks NullAlloc => ref Unsafe.NullRef<AllocationCallbacks>();
 }

@@ -11,9 +11,7 @@ using GameDotNet.Graphics.Vulkan.Wrappers;
 using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Maths;
 using Silk.NET.Vulkan;
-using static GameDotNet.Graphics.Vulkan.Tools.Constants;
 using static GameDotNet.Graphics.Shaders.Shaders;
-using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 namespace GameDotNet.Graphics.Vulkan;
 
@@ -29,18 +27,18 @@ public sealed class VulkanRenderer : IDisposable
     private VulkanShader _meshFragShader = null!;
     private VulkanShader _meshVertShader = null!;
 
-    private Framebuffer[] _frameBuffers;
-    private RenderPass _renderPass;
-    private Semaphore _presentSemaphore, _renderSemaphore;
-    private Fence _renderFence;
+    private VulkanFramebuffer[] _frameBuffers;
+    private VulkanRenderPass _renderPass;
+    private VulkanSemaphore _presentSemaphore, _renderSemaphore;
     private VulkanImage? _depthImage;
     private VulkanImageView? _depthImageView;
+    private VulkanFence? _renderFence;
     private const Format DepthFormat = Format.D32Sfloat;
 
     public VulkanRenderer(DefaultVulkanContext context)
     {
         _ctx = context;
-        _frameBuffers = Array.Empty<Framebuffer>();
+        _frameBuffers = Array.Empty<VulkanFramebuffer>();
         _bufferDisposable = new();
     }
 
@@ -49,11 +47,8 @@ public sealed class VulkanRenderer : IDisposable
         _meshVertShader.Dispose();
         _meshVertShader.Dispose();
         _bufferDisposable.Dispose();
-        _ctx.Api.DestroyRenderPass(_ctx.Device, _renderPass, NullAlloc);
-        foreach (var framebuffer in _frameBuffers)
-        {
-            _ctx.Instance.Vk.DestroyFramebuffer(_ctx.Device, framebuffer, NullAlloc);
-        }
+        _renderPass.Dispose();
+        _frameBuffers.DisposeAll();
 
         _meshPipeline.Dispose();
 
@@ -80,7 +75,7 @@ public sealed class VulkanRenderer : IDisposable
     {
         var vk = _ctx.Api;
         // wait until the GPU has finished rendering the last frame. Timeout of 1 second
-        vk.WaitForFences(_ctx.Device, 1, _renderFence, true, 1000000000);
+        _renderFence?.Wait(1000000000);
 
         var res = _swapchain!.AcquireNextImage(1000000000, _presentSemaphore, null, out var swImgIndex);
         if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
@@ -95,23 +90,16 @@ public sealed class VulkanRenderer : IDisposable
             return;
         }
 
-        vk.ResetFences(_ctx.Device, 1, _renderFence);
-        using var cmd = _ctx.Pool.CreateCommandBuffer();
+        using var cmd = _ctx.Pool.CreateCommandBuffer(_renderFence);
 
         cmd.BeginRecording();
 
         // make a clear-color from frame number. This will flash with a 120*pi frame period.
         var clearValue = new ClearValue(new(0, 0, (float)Math.Abs(Math.Sin(_frameNumber / 120D)), 0));
         var depthClear = new ClearValue(depthStencil: new(1f));
-        var clearValues = new[] { clearValue, depthClear };
+        ReadOnlySpan<ClearValue> clearValues = stackalloc[] { clearValue, depthClear };
 
-        var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
-                                             renderArea: new Rect2D(new Offset2D(0, 0), _swapchain.Extent),
-                                             framebuffer: _frameBuffers[swImgIndex],
-                                             clearValueCount: (uint)clearValues.Length,
-                                             pClearValues: clearValues.AsPtr());
-
-        vk.CmdBeginRenderPass(cmd, rpInfo, SubpassContents.Inline);
+        _renderPass.Begin(cmd, new(null, _swapchain.Extent), _frameBuffers[swImgIndex], clearValues);
 
         // RENDERING COMMANDS
         vk.CmdBindPipeline(cmd, PipelineBindPoint.Graphics, _meshPipeline);
@@ -161,39 +149,31 @@ public sealed class VulkanRenderer : IDisposable
             }
         }
 
-        vk.CmdEndRenderPass(cmd);
+        _renderPass.End(cmd);
 
         // prepare the submission to the queue.
         // we want to wait on the _presentSemaphore, as that semaphore is signaled when the swapchain is ready
         // we will signal the _renderSemaphore, to signal that rendering has finished
-        var waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
+        const PipelineStageFlags waitStage = PipelineStageFlags.ColorAttachmentOutputBit;
 
         // submit command buffer to the queue and execute it.
         // _renderFence will now block until the graphic commands finish execution
-        cmd.Submit(_presentSemaphore.AsSpan(), waitStage.AsSpan(), _renderSemaphore.AsSpan(), _renderFence);
+        cmd.Submit(_presentSemaphore, waitStage, _renderSemaphore);
 
 
         // this will put the image we just rendered into the visible window.
         // we want to wait on the _renderSemaphore for that,
         // as it's necessary that drawing commands have finished before the image is displayed to the user
-        fixed (SwapchainKHR* swapchain = &_swapchain.Swapchain)
-        fixed (Semaphore* semaphore = &_renderSemaphore)
+        res = _swapchain.QueuePresent(_ctx.MainGraphicsQueue, _renderSemaphore, swImgIndex);
+        if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
         {
-            var presentInfo = new PresentInfoKHR(swapchainCount: 1, pSwapchains: swapchain,
-                                                 waitSemaphoreCount: 1, pWaitSemaphores: semaphore,
-                                                 pImageIndices: &swImgIndex);
+            return;
+        }
 
-            res = _swapchain.QueuePresent(_ctx.MainGraphicsQueue, presentInfo);
-            if (res is Result.ErrorOutOfDateKhr or Result.SuboptimalKhr)
-            {
-                return;
-            }
-
-            if (res is not Result.Success)
-            {
-                res.LogError("Failed to present swapchain image");
-                return;
-            }
+        if (res is not Result.Success)
+        {
+            res.LogError("Failed to present swapchain image");
+            return;
         }
 
         _frameNumber++;
@@ -295,36 +275,24 @@ public sealed class VulkanRenderer : IDisposable
                                                       dependencyCount: (uint)dependencies.Length,
                                                       pDependencies: dependencies.AsPtr());
 
-        _ctx.Api.CreateRenderPass(_ctx.Device, renderPassInfo, NullAlloc, out _renderPass);
+        _renderPass = new(_ctx.Api, _ctx.Device, _ctx.Callbacks.WithUserData("RenderPass"), renderPassInfo);
     }
 
     private unsafe void CreateFrameBuffers()
     {
-        var frameBuffers = new Framebuffer[_swapchain!.ImageCount];
-        var fbInfo = new FramebufferCreateInfo(renderPass: _renderPass,
-                                               width: _swapchain.Extent.Width, height: _swapchain.Extent.Height,
-                                               attachmentCount: 2, layers: 1);
-
-        foreach (var (imageView, i) in _swapchain.GetImageViews().WithIndex())
+        _frameBuffers = _swapchain!.GetImageViews().Select(view =>
         {
-            var attachments = new[] { imageView, _depthImageView!.ImageView };
-            fbInfo.PAttachments = attachments.AsPtr();
-            _ctx.Api.CreateFramebuffer(_ctx.Device, fbInfo, NullAlloc, out frameBuffers[i]);
-        }
-
-        _frameBuffers = frameBuffers;
+            ReadOnlySpan<ImageView> attach = stackalloc[] { view, _depthImageView!.ImageView };
+            return new VulkanFramebuffer(_ctx, _swapchain.Extent, _renderPass, attach);
+        }).ToArray();
     }
 
-    private unsafe void CreateSyncStructures()
+    private void CreateSyncStructures()
     {
-        var fenceCreateInfo = new FenceCreateInfo(flags: FenceCreateFlags.SignaledBit);
+        _renderFence = new(_ctx.Api, _ctx.Device, FenceCreateFlags.SignaledBit, _ctx.Callbacks);
 
-        _ctx.Api.CreateFence(_ctx.Device, fenceCreateInfo, NullAlloc, out _renderFence);
-
-        var semaphoreInfo = new SemaphoreCreateInfo();
-
-        _ctx.Api.CreateSemaphore(_ctx.Device, semaphoreInfo, NullAlloc, out _presentSemaphore);
-        _ctx.Api.CreateSemaphore(_ctx.Device, semaphoreInfo, NullAlloc, out _renderSemaphore);
+        _presentSemaphore = new(_ctx.Api, _ctx.Device, _ctx.Callbacks);
+        _renderSemaphore = new(_ctx.Api, _ctx.Device, _ctx.Callbacks);
     }
 
     private void CreatePipeline()
@@ -346,7 +314,7 @@ public sealed class VulkanRenderer : IDisposable
         var vk = _ctx.Api;
         vk.DeviceWaitIdle(_ctx.Device);
 
-        foreach (var framebuffer in _frameBuffers) vk.DestroyFramebuffer(_ctx.Device, framebuffer, NullAlloc);
+        _frameBuffers.DisposeAll();
         _meshPipeline.Dispose();
 
         if (!CreateSwapchain()) return;

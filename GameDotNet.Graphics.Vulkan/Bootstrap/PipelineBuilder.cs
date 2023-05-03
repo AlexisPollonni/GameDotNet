@@ -16,7 +16,7 @@ public class PipelineBuilder
     {
         public VertexInputDescription VertexInputDescription { get; set; }
         public IList<VulkanShader> ShaderStages { get; set; } = new List<VulkanShader>();
-        public RenderPass RenderPass { get; set; }
+        public VulkanRenderPass RenderPass { get; set; }
         public PrimitiveTopology Topology { get; set; } = PrimitiveTopology.TriangleList;
         public PolygonMode PolygonMode { get; set; } = PolygonMode.Fill;
         public Viewport Viewport { get; set; }

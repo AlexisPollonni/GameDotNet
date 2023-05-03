@@ -1,6 +1,9 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
+using GameDotNet.Graphics.Vulkan.Tools;
+using Serilog;
 using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
@@ -9,19 +12,28 @@ using Silk.NET.Windowing;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
+[SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 public sealed class DefaultVulkanContext : IVulkanContext
 {
-    public Vk Api { get; }
-    public VulkanInstance Instance { get; }
-    public VulkanPhysDevice PhysDevice { get; }
-    public VulkanSurface Surface { get; }
-    public VulkanDevice Device { get; }
-    public VulkanMemoryAllocator Allocator { get; }
-    public VulkanCommandBufferPool Pool { get; }
-    public DeviceQueue MainGraphicsQueue { get; }
+    public required Vk Api { get; init; }
+    public required VulkanInstance Instance { get; init; }
+    public required IVulkanAllocCallback Callbacks { get; init; }
+    public required VulkanPhysDevice PhysDevice { get; init; }
+    public required VulkanSurface Surface { get; init; }
+    public required VulkanDevice Device { get; init; }
+    public required VulkanMemoryAllocator Allocator { get; init; }
+    public required VulkanCommandBufferPool Pool { get; init; }
+    public required DeviceQueue MainGraphicsQueue { get; init; }
 
     public static unsafe (DefaultVulkanContext? context, string info) TryCreateForView(IView view)
     {
+        var alloc =
+#if DEBUG
+            new DebugLoggingVulkanAllocator(Log.Logger, "Global");
+#else
+            new NullAllocator();
+#endif
+
         var instance = new InstanceBuilder
                        {
                            ApplicationName = "App",
@@ -38,8 +50,9 @@ public sealed class DefaultVulkanContext : IVulkanContext
                                ValidationFeatureEnableEXT.DebugPrintfExt,
                                ValidationFeatureEnableEXT.GpuAssistedReserveBindingSlotExt
                            },
-                           IsValidationLayersRequested = true
+                           IsValidationLayersRequested = true,
 #endif
+                           AllocCallback = alloc.WithUserData("Instance")
                        }
 #if DEBUG
                        .UseDefaultDebugMessenger()
@@ -54,7 +67,10 @@ public sealed class DefaultVulkanContext : IVulkanContext
         }).Select();
         var physDevice = selected.Device;
 
-        var device = new DeviceBuilder(instance, selected).Build();
+        var device = new DeviceBuilder(instance, selected)
+        {
+            AllocationCallbacks = alloc.WithUserData("Device")
+        }.Build();
 
         var allocator = new VulkanMemoryAllocator(new(instance.VkVersion, instance.Vk, instance, physDevice, device));
 
@@ -64,9 +80,20 @@ public sealed class DefaultVulkanContext : IVulkanContext
         var queue = device.QueuesManager.GetFirstGraphic();
         if (queue is null) return (null, "No graphics queue family found");
 
-        var pool = new VulkanCommandBufferPool(instance.Vk, device, queue);
+        var pool = new VulkanCommandBufferPool(instance.Vk, device, queue, alloc);
 
-        return (new(instance.Vk, instance, physDevice, surface, device, allocator, pool, queue), name);
+        return (new()
+                   {
+                       Api = instance.Vk,
+                       Callbacks = alloc,
+                       Instance = instance,
+                       PhysDevice = physDevice,
+                       Device = device,
+                       MainGraphicsQueue = queue,
+                       Pool = pool,
+                       Surface = surface,
+                       Allocator = allocator,
+                   }, name);
     }
 
     public void Dispose()
@@ -77,21 +104,6 @@ public sealed class DefaultVulkanContext : IVulkanContext
         Surface.Dispose();
         Instance.Dispose();
         Api.Dispose();
-    }
-
-    private DefaultVulkanContext(Vk api, VulkanInstance instance, VulkanPhysDevice physDevice, VulkanSurface surface,
-                                 VulkanDevice device,
-                                 VulkanMemoryAllocator allocator, VulkanCommandBufferPool pool,
-                                 DeviceQueue mainGraphicsQueue)
-    {
-        Api = api;
-        Instance = instance;
-        PhysDevice = physDevice;
-        Surface = surface;
-        Device = device;
-        Allocator = allocator;
-        Pool = pool;
-        MainGraphicsQueue = mainGraphicsQueue;
     }
 
     private static unsafe IEnumerable<string> GetGlfwRequiredVulkanExtensions(IVkSurfaceSource view)

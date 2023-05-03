@@ -63,6 +63,15 @@ public static class MemoryExtensions
         }
     }
 
+    public static unsafe byte* ToPtr(this string str, ICompositeDisposable d) =>
+        str.ToGlobalMemory().DisposeWith(d).AsPtr<byte>();
+
+    public static unsafe byte** ToByteDoublePtr(this IEnumerable<string> str, ICompositeDisposable d)
+    {
+        return (byte**)str.ToGlobalMemory().DisposeWith(d).AsPtr<byte>();
+    }
+
+
     public static unsafe T* AsPtr<T>(this T s, ICompositeDisposable dispose) where T : unmanaged
     {
         return new Pinned<T>(s).DisposeWith(dispose).AsPtr();
@@ -88,13 +97,4 @@ public static class MemoryExtensions
 
     public static unsafe byte** AsPtr(this string[] arr)
         => (byte**)Unsafe.AsPointer(ref arr.AsSpan().GetPinnableReference());
-
-    public static unsafe byte** AsByteDoublePtr(this GlobalMemory mem) => (byte**)mem.AsPtr<byte>();
-
-    public static int ByteOffset<T1, T2>(this ref T1 source, ref T2 property)
-        where T1 : struct
-        where T2 : unmanaged
-    {
-        return (int)Unsafe.ByteOffset(ref source, ref Unsafe.As<T2, T1>(ref property));
-    }
 }
