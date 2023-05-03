@@ -1,11 +1,16 @@
+using System.IO.Compression;
 using GameDotNet.Core;
 using GameDotNet.Graphics.Vulkan;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using Serilog;
 using Serilog.Events;
+using Serilog.Formatting.Compact;
+using Serilog.Sinks.Async;
+using Serilog.Sinks.File.GZip;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
+using Timer = System.Timers.Timer;
 
 namespace GameDotNet.Hosting;
 
@@ -63,6 +68,8 @@ public class Application : IDisposable
         Universe.Dispose();
         _mainView.Dispose();
 
+        Log.CloseAndFlush();
+
         GC.SuppressFinalize(this);
     }
 
@@ -83,16 +90,29 @@ public class Application : IDisposable
         Universe.Initialize();
     }
 
-
     private void CreateLogger()
     {
+        var logDirPath = Path.Combine(Constants.LogsDirectoryPath, ApplicationName);
+        var logPath = Path.Combine(logDirPath, "game.gz");
+
+        var monitor = new AsyncSinkMonitorHook();
+
+        foreach (var file in Directory.EnumerateFiles(logDirPath, "*.gz"))
+            File.Delete(file);
+
         Log.Logger = new LoggerConfiguration()
+                     .Enrich.FromLogContext()
                      .MinimumLevel.Verbose()
-                     .WriteTo.Console(LogEventLevel.Information)
-                     .WriteTo.Debug(LogEventLevel.Debug)
-                     .WriteTo.File(Path.Combine(Constants.LogsDirectoryPath, ApplicationName, "game.log"),
-                                   rollingInterval: RollingInterval.Minute, retainedFileCountLimit: 10)
+                     .WriteTo.Async(a =>
+                     {
+                         a.Console(LogEventLevel.Debug);
+                         a.File(new CompactJsonFormatter(), logPath,
+                                hooks: new GZipHooks(CompressionLevel.SmallestSize),
+                                retainedFileCountLimit: 5, rollOnFileSizeLimit: true, buffered: true);
+                     }, monitor, 100000)
                      .CreateLogger();
+
+        monitor.SelfLog = Log.Logger;
 
         Log.Information("Log started for {ApplicationName}", ApplicationName);
         Log.Information(@"
@@ -102,5 +122,62 @@ Running directory: {RunningDirectory}
                         Environment.Is64BitProcess,
                         Environment.CurrentDirectory,
                         Environment.Version);
+    }
+
+    private sealed class AsyncSinkMonitorHook : IAsyncLogEventSinkMonitor
+    {
+        public ILogger? SelfLog { get; set; }
+
+        private readonly object _lock;
+
+        private Timer? _timer;
+        private IAsyncLogEventSinkInspector? _inspector;
+        private long _lastDroppedCount;
+
+        public AsyncSinkMonitorHook()
+        {
+            _lastDroppedCount = 0;
+            _lock = new();
+        }
+
+        public void StartMonitoring(IAsyncLogEventSinkInspector inspector)
+        {
+            _inspector = inspector;
+            if (_timer is not null) return;
+
+            _timer = new();
+            _timer.Interval = 1000;
+            _timer.Elapsed += Timer_Elapsed;
+            _timer.Start();
+        }
+
+        private void Timer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+        {
+            if (_inspector is null) return;
+
+            var usagePct = (float)_inspector.Count / _inspector.BufferSize;
+            if (usagePct <= 0.8) return;
+
+            long dropped;
+            int queueCount;
+            lock (_lock)
+            {
+                queueCount = _inspector.Count;
+                dropped = _inspector.DroppedMessagesCount - _lastDroppedCount;
+                _lastDroppedCount = _inspector.DroppedMessagesCount;
+            }
+
+            if (dropped > 0)
+                SelfLog?.Warning("Log buffer overflow: dropped {DropCount} messages on {QueuedCount}/{BufferSize} ({PercentFill}%)",
+                                 dropped, queueCount, _inspector.BufferSize, (float)queueCount / _inspector.BufferSize);
+        }
+
+        public void StopMonitoring(IAsyncLogEventSinkInspector inspector)
+        {
+            if (_timer is null) return;
+            _timer.Stop();
+            _timer.Dispose();
+            _timer = null;
+        }
     }
 }
