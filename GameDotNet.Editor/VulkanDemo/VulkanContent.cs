@@ -6,7 +6,6 @@ using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Shaders;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
-using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Silk.NET.Vulkan;
 
@@ -20,10 +19,10 @@ internal class VulkanContent : IDisposable
 
     private readonly AvaloniaVulkanContext _context;
     private readonly VulkanShader _vertShader, _fragShader;
-    private RenderPass _renderPass;
+    private VulkanRenderPass _renderPass;
     private VulkanPipeline _pipeline;
 
-    private Framebuffer[] _framebuffers;
+    private VulkanFramebuffer[] _framebuffers;
     private VulkanImage _depthImage;
     private VulkanImageView _depthImageView;
 
@@ -59,15 +58,9 @@ internal class VulkanContent : IDisposable
         var depthClear = new ClearValue(depthStencil: new(1f));
         var clearValues = new[] { clearValue, depthClear };
 
-        var rpInfo = new RenderPassBeginInfo(renderPass: _renderPass,
-                                             renderArea: new Rect2D(new Offset2D(0, 0),
-                                                                    new((uint)curImage.Size.Width,
-                                                                        (uint)curImage.Size.Height)),
-                                             framebuffer: _framebuffers[swapchain.CurrentImageIndex],
-                                             clearValueCount: (uint)clearValues.Length,
-                                             pClearValues: clearValues.AsPtr());
-
-        api.CmdBeginRenderPass(cmd, rpInfo, SubpassContents.Inline);
+        _renderPass.Begin(cmd, new(extent: new((uint)curImage.Size.Width,
+                                               (uint)curImage.Size.Height)), _framebuffers[swapchain.CurrentImageIndex],
+                          clearValues);
 
         api.CmdBindPipeline(cmd, PipelineBindPoint.Graphics, _pipeline);
 
@@ -112,11 +105,10 @@ internal class VulkanContent : IDisposable
         _depthImageView.Dispose();
         _depthImage.Dispose();
 
-        foreach (var framebuffer in _framebuffers)
-            vk.DestroyFramebuffer(_context.Device, framebuffer, null);
+        _framebuffers.DisposeAll();
 
         _pipeline.Dispose();
-        vk.DestroyRenderPass(_context.Device, _renderPass, null);
+        _renderPass.Dispose();
     }
 
     private void CreateImages(in Size size)
@@ -177,27 +169,22 @@ internal class VulkanContent : IDisposable
                                                       dependencyCount: (uint)dependencies.Length,
                                                       pDependencies: dependencies.AsPtr());
 
-        _context.Api.CreateRenderPass(_context.Device, renderPassInfo, null, out _renderPass);
+        _renderPass = new(_context.Api, _context.Device, _context.Callbacks, renderPassInfo);
     }
 
     private unsafe void CreateFrameBuffers(IReadOnlyList<SwapchainImage> images)
     {
-        _framebuffers = new Framebuffer[images.Count];
+        _framebuffers = new VulkanFramebuffer[images.Count];
 
         Span<ImageView> fbAttachments = stackalloc[] { images[0].ViewHandle, _depthImageView.ImageView };
 
-        fixed (ImageView* pAttach = fbAttachments)
-            for (var i = 0; i < images.Count; i++)
-            {
-                fbAttachments[0] = images[i].ViewHandle;
-                var fbInfo = new FramebufferCreateInfo(renderPass: _renderPass,
-                                                       width: (uint)images[i].Size.Width,
-                                                       height: (uint)images[i].Size.Height,
-                                                       attachmentCount: (uint)fbAttachments.Length,
-                                                       pAttachments: pAttach, layers: 1);
+        for (var i = 0; i < images.Count; i++)
+        {
+            fbAttachments[0] = images[i].ViewHandle;
 
-                _context.Api.CreateFramebuffer(_context.Device, fbInfo, null, out _framebuffers[i]).ThrowOnError();
-            }
+            _framebuffers[i] = new(_context, new((uint)images[i].Size.Width, (uint)images[i].Size.Height), _renderPass,
+                                   fbAttachments);
+        }
     }
 
     private void CreatePipeline(in Size size)

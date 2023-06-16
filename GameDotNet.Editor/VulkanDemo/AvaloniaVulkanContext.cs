@@ -1,5 +1,6 @@
 using Avalonia.Vulkan;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
+using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
@@ -10,15 +11,23 @@ namespace GameDotNet.Editor.VulkanDemo;
 
 internal sealed class AvaloniaVulkanContext : IVulkanContext
 {
-    public Vk Api { get; }
-    public VulkanInstance Instance { get; }
-    public VulkanPhysDevice PhysDevice { get; }
-    public VulkanDevice Device { get; }
-    public VulkanMemoryAllocator Allocator { get; }
-    public VulkanCommandBufferPool Pool { get; }
+    public required Vk Api { get; init; }
+    public required VulkanInstance Instance { get; init; }
+    public required IVulkanAllocCallback Callbacks { get; init; }
+    public required VulkanPhysDevice PhysDevice { get; init; }
+    public required VulkanDevice Device { get; init; }
+    public required VulkanMemoryAllocator Allocator { get; init; }
+    public required VulkanCommandBufferPool Pool { get; init; }
 
     public static unsafe (AvaloniaVulkanContext? context, string info) TryCreate(IVulkanSharedDevice shared)
     {
+        var alloc =
+#if DEBUG
+            new DebugLoggingVulkanAllocator(Log.Logger, "Global");
+#else
+            new NullAllocator();
+#endif
+
         var api = GetApi(shared.Device);
         var version = Vk.Version11;
 
@@ -35,7 +44,7 @@ internal sealed class AvaloniaVulkanContext : IVulkanContext
         var physDevice = new VulkanPhysDevice(api, new(shared.Device.PhysicalDeviceHandle));
 
         var vkDevice = new Device(shared.Device.Handle);
-        var device = new VulkanDevice(instance, physDevice, vkDevice, null);
+        var device = new VulkanDevice(instance, physDevice, vkDevice, alloc);
 
         var allocator = new VulkanMemoryAllocator(new(version, api, instance, physDevice, device));
 
@@ -45,13 +54,22 @@ internal sealed class AvaloniaVulkanContext : IVulkanContext
             return (null,
                     $"Failed to find first device queue from queue family n°{shared.Device.GraphicsQueueFamilyIndex}");
 
-        var cmdBufferPool = new VulkanCommandBufferPool(api, vkDevice, queue);
+        var cmdBufferPool = new VulkanCommandBufferPool(api, device, queue, alloc);
 
 
         var prop = physDevice.GetProperties();
         var deviceName = SilkMarshal.PtrToString((nint)prop.DeviceName) ?? "N/A";
 
-        return (new(api, instance, physDevice, device, allocator, cmdBufferPool), deviceName);
+        return (new()
+                   {
+                       Api = api,
+                       Instance = instance,
+                       Callbacks = alloc,
+                       PhysDevice = physDevice,
+                       Device = device,
+                       Allocator = allocator,
+                       Pool = cmdBufferPool
+                   }, deviceName);
     }
 
     public void Dispose()
@@ -59,17 +77,6 @@ internal sealed class AvaloniaVulkanContext : IVulkanContext
         Allocator.Dispose();
         Pool.Dispose();
         Api.Dispose();
-    }
-
-    private AvaloniaVulkanContext(Vk api, VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device,
-                                  VulkanMemoryAllocator allocator, VulkanCommandBufferPool pool)
-    {
-        Api = api;
-        Instance = instance;
-        PhysDevice = physDevice;
-        Device = device;
-        Allocator = allocator;
-        Pool = pool;
     }
 
     private static Vk GetApi(IVulkanDevice device) =>
