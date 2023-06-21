@@ -1,4 +1,3 @@
-using Avalonia;
 using Avalonia.Controls;
 
 namespace GameDotNet.Editor.Views
@@ -8,7 +7,6 @@ namespace GameDotNet.Editor.Views
         public MainWindow()
         {
             InitializeComponent();
-            this.AttachDevTools();
             Renderer.DrawFps = true;
         }
     }

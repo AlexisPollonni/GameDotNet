@@ -15,14 +15,15 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Arch" Version="1.2.3" />
+        <PackageReference Include="Arch" Version="1.2.3"/>
+        <PackageReference Include="ByteSize" Version="2.1.1"/>
         <PackageReference Include="dotVariant" Version="0.5.3"/>
-        <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2" />
-        <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.1-dev-00944" />
-        <PackageReference Include="Serilog" Version="2.11.0" />
-        <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
-        <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0" />
-        <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947" />
+        <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2"/>
+        <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.1-dev-00944"/>
+        <PackageReference Include="Serilog" Version="2.11.0"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0"/>
+        <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0"/>
+        <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947"/>
         <PackageReference Include="Silk.NET.Core" Version="2.17.1"/>
     </ItemGroup>
 
