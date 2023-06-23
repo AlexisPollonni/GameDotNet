@@ -1,5 +1,5 @@
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
-using GameDotNet.Graphics.Vulkan.Tools;
+using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using Silk.NET.Vulkan;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;

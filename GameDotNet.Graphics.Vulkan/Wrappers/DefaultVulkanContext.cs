@@ -2,8 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
-using GameDotNet.Graphics.Vulkan.Tools;
-using Serilog;
+using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
@@ -29,7 +28,7 @@ public sealed class DefaultVulkanContext : IVulkanContext
     {
         var alloc =
 #if DEBUG
-            new DebugLoggingVulkanAllocator(Log.Logger, "Global");
+            new TrackedMemoryAllocator( "Global");
 #else
             new NullAllocator();
 #endif

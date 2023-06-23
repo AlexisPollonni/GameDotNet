@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Tools;
+using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Serilog;

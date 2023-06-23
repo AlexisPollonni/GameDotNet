@@ -1,4 +1,4 @@
-using GameDotNet.Graphics.Vulkan.Tools;
+using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using Silk.NET.Vulkan;
 using static GameDotNet.Graphics.Vulkan.Wrappers.VulkanCommandBufferPool;
