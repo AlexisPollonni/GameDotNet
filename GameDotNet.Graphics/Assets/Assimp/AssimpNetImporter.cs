@@ -169,7 +169,7 @@ internal static class AssimpEx
         return ref Unsafe.As<Vector3D, Vector3>(ref Unsafe.AsRef(vec));
     }
 
-    public static ref readonly System.Numerics.Matrix4x4 AsMatrix4X4(this in Matrix4x4 mat)
+    public static ref readonly System.Numerics.Matrix4x4 AsMatrix4X4(this scoped in Matrix4x4 mat)
     {
         return ref Unsafe.As<Matrix4x4, System.Numerics.Matrix4x4>(ref Unsafe.AsRef(mat));
     }

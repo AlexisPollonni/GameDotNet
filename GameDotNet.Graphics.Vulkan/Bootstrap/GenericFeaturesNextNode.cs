@@ -34,7 +34,7 @@ public unsafe struct GenericFeaturesNextNode : IStructuredType
         var node = new GenericFeaturesNextNode();
         var nSpan = node.AsSpan().AsBytes();
 
-        MemoryMarshal.Write(nSpan, ref feature);
+        MemoryMarshal.Write(nSpan, in feature);
 
         return node;
     }
