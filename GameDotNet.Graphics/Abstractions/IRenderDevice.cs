@@ -72,6 +72,7 @@ public interface IDeviceTexture : IDisposable
 
 public interface IShader : IDisposable
 {
+    public byte[] Code { get; }
     ShaderDescription Description { get; }
 }
 

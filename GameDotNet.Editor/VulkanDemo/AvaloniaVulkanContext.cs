@@ -2,6 +2,7 @@ using Avalonia.Vulkan;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Wrappers;
+using Serilog;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;

@@ -13,4 +13,4 @@ assetManager.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
 
 app.Universe.LoadScene(scene!);
 
-return app.Run();
+return await app.Run();

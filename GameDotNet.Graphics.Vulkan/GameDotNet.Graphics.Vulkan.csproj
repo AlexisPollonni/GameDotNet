@@ -9,7 +9,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\GameDotNet.Graphics.Shaders\GameDotNet.Graphics.Shaders.csproj" />
         <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
         <ProjectReference Include="..\GameDotNet.Management\GameDotNet.Management.csproj" />
     </ItemGroup>

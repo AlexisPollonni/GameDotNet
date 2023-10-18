@@ -6,15 +6,18 @@ using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Assets;
 using GameDotNet.Management.ECS.Components;
 using Serilog;
+using Silk.NET.Core.Native;
 
 namespace GameDotNet.Management.ECS;
 
 public class Universe : IDisposable
 {
     public World World { get; }
+    
     private readonly PooledList<SystemBase> _systems;
     private readonly PooledList<EntityReference> _loadedSceneEntities;
 
+    private bool _initialized;
     private Scene? _loadedScene;
 
     public Universe()
@@ -24,11 +27,11 @@ public class Universe : IDisposable
         _loadedSceneEntities = new();
     }
 
-    public void Initialize()
+    public async Task Initialize()
     {
         foreach (var system in _systems)
         {
-            if (!system.Initialize())
+            if (!await system.Initialize())
             {
                 Log.Error("Couldn't initialize system of type {Type}", system.GetType());
                 continue;
@@ -36,10 +39,13 @@ public class Universe : IDisposable
 
             system.UpdateWatch.Start();
         }
+
+        _initialized = true;
     }
 
     public void Update()
     {
+        if (!_initialized) return;
         foreach (var system in _systems)
         {
             system.Update(system.UpdateWatch.Elapsed);

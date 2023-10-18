@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Graphics.Shaders;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
 using GameDotNet.Graphics.Vulkan.Wrappers;

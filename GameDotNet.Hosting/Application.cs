@@ -3,22 +3,29 @@ using GameDotNet.Core;
 using GameDotNet.Graphics.Vulkan;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
+using Microsoft.Extensions.Logging;
+using Nito.AsyncEx;
 using Serilog;
 using Serilog.Events;
+using Serilog.Extensions.Logging;
 using Serilog.Formatting.Compact;
 using Serilog.Sinks.Async;
 using Serilog.Sinks.File.GZip;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
+using ILogger = Serilog.ILogger;
 using Timer = System.Timers.Timer;
 
 namespace GameDotNet.Hosting;
 
 public class Application : IDisposable
 {
+    public string ApplicationName { get; }
     public Universe Universe { get; }
 
     private readonly IView _mainView;
+    private readonly TaskCompletionSource _loadTcs;
+
 
     public Application(string appName)
     {
@@ -47,19 +54,28 @@ public class Application : IDisposable
         }
 
         Universe = new();
-        _mainView.Load += OnWindowLoad;
+        _loadTcs = new();
+        
+        _mainView.Load += () => _loadTcs.SetResult();
         _mainView.Update += d => Universe.Update();
+        _mainView.Closing += () => _loadTcs.TrySetCanceled();
 
-        Universe.RegisterSystem(new VulkanRenderSystem(_mainView));
+        var log = new SerilogLoggerFactory().CreateLogger<VulkanRenderSystem>();
+        
+        Universe.RegisterSystem(new VulkanRenderSystem(log, _mainView));
         Universe.RegisterSystem(new CameraSystem(_mainView));
     }
 
-    public string ApplicationName { get; }
-
-    public int Run()
+    public async Task<int> Run()
     {
-        _mainView.Run();
+        _mainView.Initialize();
+        await _loadTcs.Task;
+        
+        //https://stackoverflow.com/questions/39271492/how-do-i-create-a-custom-synchronizationcontext-so-that-all-continuations-can-be
+        AsyncContext.Run(OnWindowLoad);
 
+        _mainView.Run();
+        
         return 0;
     }
 
@@ -73,9 +89,9 @@ public class Application : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void OnWindowLoad()
+    private async Task OnWindowLoad()
     {
-        using var input = _mainView.CreateInput();
+        var input = _mainView.CreateInput();
         foreach (var kb in input.Keyboards)
         {
             kb.KeyUp += (_, key, _) =>
@@ -87,7 +103,7 @@ public class Application : IDisposable
             };
         }
 
-        Universe.Initialize();
+        await Universe.Initialize();
     }
 
     private void CreateLogger()
