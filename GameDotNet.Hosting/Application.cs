@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using GameDotNet.Core;
 using GameDotNet.Graphics.Vulkan;
+using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using Microsoft.Extensions.Logging;
@@ -9,12 +10,9 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Extensions.Logging;
 using Serilog.Formatting.Compact;
-using Serilog.Sinks.Async;
 using Serilog.Sinks.File.GZip;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
-using ILogger = Serilog.ILogger;
-using Timer = System.Timers.Timer;
 
 namespace GameDotNet.Hosting;
 
@@ -36,16 +34,19 @@ public class Application : IDisposable
         CreateLogger();
 
         Window.PrioritizeGlfw();
-
+        
+        var api = new GraphicsAPI(ContextAPI.None, new(1, 0));
+        
         if (Window.IsViewOnly)
         {
-            var opt = ViewOptions.DefaultVulkan;
-
+            var opt = ViewOptions.Default;
+            opt.API = api;
             _mainView = Window.GetView(opt);
         }
         else
         {
-            var opt = WindowOptions.DefaultVulkan;
+            var opt = WindowOptions.Default;
+            opt.API = api;
             opt.VSync = true;
             opt.Size = new(800, 600);
             opt.Title = "Test";
@@ -62,7 +63,7 @@ public class Application : IDisposable
 
         var log = new SerilogLoggerFactory().CreateLogger<VulkanRenderSystem>();
         
-        Universe.RegisterSystem(new VulkanRenderSystem(log, _mainView));
+        Universe.RegisterSystem(new WebGpuRenderer(log, _mainView));
         Universe.RegisterSystem(new CameraSystem(_mainView));
     }
 
@@ -140,60 +141,4 @@ Running directory: {RunningDirectory}
                         Environment.Version);
     }
 
-    private sealed class AsyncSinkMonitorHook : IAsyncLogEventSinkMonitor
-    {
-        public ILogger? SelfLog { get; set; }
-
-        private readonly object _lock;
-
-        private Timer? _timer;
-        private IAsyncLogEventSinkInspector? _inspector;
-        private long _lastDroppedCount;
-
-        public AsyncSinkMonitorHook()
-        {
-            _lastDroppedCount = 0;
-            _lock = new();
-        }
-
-        public void StartMonitoring(IAsyncLogEventSinkInspector inspector)
-        {
-            _inspector = inspector;
-            if (_timer is not null) return;
-
-            _timer = new();
-            _timer.Interval = 1000;
-            _timer.Elapsed += Timer_Elapsed;
-            _timer.Start();
-        }
-
-        private void Timer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
-        {
-            if (_inspector is null) return;
-
-            var usagePct = (float)_inspector.Count / _inspector.BufferSize;
-            if (usagePct <= 0.8) return;
-
-            long dropped;
-            int queueCount;
-            lock (_lock)
-            {
-                queueCount = _inspector.Count;
-                dropped = _inspector.DroppedMessagesCount - _lastDroppedCount;
-                _lastDroppedCount = _inspector.DroppedMessagesCount;
-            }
-
-            if (dropped > 0)
-                SelfLog?.Warning("Log buffer overflow: dropped {DropCount} messages on {QueuedCount}/{BufferSize} ({PercentFill}%)",
-                                 dropped, queueCount, _inspector.BufferSize, (float)queueCount / _inspector.BufferSize);
-        }
-
-        public void StopMonitoring(IAsyncLogEventSinkInspector inspector)
-        {
-            if (_timer is null) return;
-            _timer.Stop();
-            _timer.Dispose();
-            _timer = null;
-        }
-    }
 }

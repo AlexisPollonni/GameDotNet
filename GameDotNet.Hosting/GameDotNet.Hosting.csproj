@@ -8,6 +8,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\GameDotNet.Graphics.Vulkan\GameDotNet.Graphics.Vulkan.csproj"/>
+        <ProjectReference Include="..\GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />
         <ProjectReference Include="..\GameDotNet.Management\GameDotNet.Management.csproj"/>
     </ItemGroup>
 

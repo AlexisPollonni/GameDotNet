@@ -1,5 +1,7 @@
-﻿using GameDotNet.Core.Tools.Containers;
+﻿using System.Threading.Tasks.Sources;
+using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
+using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
 
@@ -13,7 +15,7 @@ public sealed class Instance : IDisposable
     public Instance(WebGPU api)
     {
         _api = api;
-            
+
         unsafe
         {
             _handle = api.CreateInstance(new InstanceDescriptor());
@@ -21,101 +23,50 @@ public sealed class Instance : IDisposable
     }
 
     public unsafe Surface CreateSurfaceFromAndroidNativeWindow(void* window, string label = "")
-    {
-        using var d = new DisposableList();
-        return new (_api, _api.InstanceCreateSurface(_handle, new SurfaceDescriptor
-        {
-            Label = label.ToPtr(d),
-            NextInChain = new WgpuStructChain()
-                          .AddSurfaceDescriptorFromAndroidNativeWindow(window)
-                          .DisposeWith(d)
-                          .Ptr
-        }));
-    }
+        => CreateSurfaceFromCore(new WgpuStructChain()
+                                     .AddSurfaceDescriptorFromAndroidNativeWindow(window), label);
 
     public unsafe Surface CreateSurfaceFromCanvasHTMLSelector(string selector, string label = "")
-    {
-        using var d = new DisposableList();
-        return new (_api, _api.InstanceCreateSurface(_handle, new SurfaceDescriptor
-        {
-            Label = label.ToPtr(d),
-            NextInChain = new WgpuStructChain()
-                          .AddSurfaceDescriptorFromCanvasHTMLSelector(selector)
-                          .DisposeWith(d)
-                          .Ptr
-        }));
-    }
+        => CreateSurfaceFromCore(new WgpuStructChain()
+                                     .AddSurfaceDescriptorFromCanvasHTMLSelector(selector), label);
 
     public unsafe Surface CreateSurfaceFromMetalLayer(void* layer, string label = "")
-    {
-        using var d = new DisposableList();
-        return new(_api, _api.InstanceCreateSurface(_handle, new SurfaceDescriptor
-        {
-            Label = label.ToPtr(d),
-            NextInChain = new WgpuStructChain()
-                          .AddSurfaceDescriptorFromMetalLayer(layer)
-                          .DisposeWith(d)
-                          .Ptr
-        }));
-    }
+        => CreateSurfaceFromCore(new WgpuStructChain()
+                                     .AddSurfaceDescriptorFromMetalLayer(layer), label);
 
     public unsafe Surface CreateSurfaceFromWaylandSurface(void* display, string label = "")
-    {
-        using var d = new DisposableList();
-        return new(_api, _api.InstanceCreateSurface(_handle, new SurfaceDescriptor
-        {
-            Label = label.ToPtr(d),
-            NextInChain = new WgpuStructChain()
-                          .AddSurfaceDescriptorFromWaylandSurface(display)
-                          .DisposeWith(d)
-                          .Ptr
-        }));
-    }
+        => CreateSurfaceFromCore(new WgpuStructChain()
+                                     .AddSurfaceDescriptorFromWaylandSurface(display), label);
 
     public unsafe Surface CreateSurfaceFromWindowsHWND(void* hinstance, void* hwnd, string label = "")
-    {
-        using var d = new DisposableList();
-        return new(_api, _api.InstanceCreateSurface(_handle, new SurfaceDescriptor
-        {
-            Label = label.ToPtr(d),
-            NextInChain = new WgpuStructChain()
-                          .AddSurfaceDescriptorFromWindowsHWND(hinstance, hwnd)
-                          .DisposeWith(d)
-                          .Ptr
-        }));
-    }
+        => CreateSurfaceFromCore(new WgpuStructChain()
+                                     .AddSurfaceDescriptorFromWindowsHWND(hinstance, hwnd), label);
 
     public unsafe Surface CreateSurfaceFromXcbWindow(void* connection, uint window, string label = "")
-    {
-        using var d = new DisposableList();
-        return new(_api, _api.InstanceCreateSurface(_handle, new SurfaceDescriptor
-        {
-            Label = label.ToPtr(d),
-            NextInChain = new WgpuStructChain()
-                          .AddSurfaceDescriptorFromXcbWindow(connection, window)
-                          .DisposeWith(d)
-                          .Ptr
-        }));
-    }
+        => CreateSurfaceFromCore(new WgpuStructChain()
+                                     .AddSurfaceDescriptorFromXcbWindow(connection, window), label);
 
-    public unsafe Surface CreateSurfaceFromXlibWindow(void* display, uint window, string label = "")
+    public unsafe Surface CreateSurfaceFromXlibWindow(void* display, uint window, string label = "") =>
+        CreateSurfaceFromCore(new WgpuStructChain()
+                                  .AddSurfaceDescriptorFromXlibWindow(display, window), label);
+
+    private unsafe Surface CreateSurfaceFromCore(WgpuStructChain next, string label)
     {
         using var d = new DisposableList();
         return new(_api, _api.InstanceCreateSurface(_handle, new SurfaceDescriptor
         {
             Label = label.ToPtr(d),
-            NextInChain = new WgpuStructChain()
-                          .AddSurfaceDescriptorFromXlibWindow(display, window)
-                          .DisposeWith(d)
-                          .Ptr
+            NextInChain = next.DisposeWith(d).Ptr
         }));
     }
 
     public unsafe void ProcessEvents() => _api.InstanceProcessEvents(_handle);
 
-    public unsafe void RequestAdapter(Surface compatibleSurface, PowerPreference powerPreference, bool forceFallbackAdapter, RequestAdapterCallback callback, BackendType backendType)
+    public unsafe void RequestAdapter(Surface compatibleSurface, PowerPreference powerPreference,
+                                      bool forceFallbackAdapter, RequestAdapterCallback callback,
+                                      BackendType backendType)
     {
-        var cb = new PfnRequestAdapterCallback((s, a, m, _) 
+        var cb = new PfnRequestAdapterCallback((s, a, m, _)
                                                    =>
                                                {
                                                    callback(s, new(_api, a), SilkMarshal.PtrToString((nint)m)!);
@@ -128,6 +79,28 @@ public sealed class Instance : IDisposable
             BackendType = backendType
         };
         _api.InstanceRequestAdapter(_handle, options, cb, null);
+    }
+
+    public Task<Adapter> RequestAdapterAsync(Surface compatibleSurface, PowerPreference powerPreference,
+                                             bool forceFallbackAdapter, BackendType backendType,
+                                             CancellationToken token = default)
+    {
+        var tcs = new TaskCompletionSource<Adapter>();
+
+        token.ThrowIfCancellationRequested();
+        RequestAdapter(compatibleSurface, powerPreference, forceFallbackAdapter, (status, adapter, message) =>
+        {
+            token.ThrowIfCancellationRequested();
+            if (status is not RequestAdapterStatus.Success)
+            {
+                tcs.SetException(new PlatformException($"Failed to request WebGpu adapter : {message}"));
+                return;
+            }
+
+            tcs.SetResult(adapter);
+        }, backendType);
+
+        return tcs.Task;
     }
 
     public unsafe void Dispose()

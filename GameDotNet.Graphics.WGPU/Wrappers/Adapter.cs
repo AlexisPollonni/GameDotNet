@@ -1,6 +1,7 @@
 ﻿using System.Runtime.InteropServices;
 using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
+using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
 using Silk.NET.WebGPU.Extensions.Disposal;
@@ -30,7 +31,7 @@ public sealed class Adapter : IDisposable
 
     internal unsafe Adapter(WebGPU api, Silk.NET.WebGPU.Adapter* handle)
     {
-        if (Handle is null)
+        if (handle is null)
             throw new ResourceCreationError(nameof(Adapter));
             
         _api = api;
@@ -65,8 +66,10 @@ public sealed class Adapter : IDisposable
 
     public unsafe bool HasFeature(FeatureName feature) => _api.AdapterHasFeature(Handle, feature);
 
-    public unsafe void RequestDevice(RequestDeviceCallback callback, string label, NativeFeature[] nativeFeatures, QueueDescriptor defaultQueue = default, 
-                                     Limits? limits = null, RequiredLimitsExtras? limitsExtras = null, DeviceExtras? deviceExtras = null, DeviceLostCallback? deviceLostCallback = null)
+    public unsafe void RequestDevice(RequestDeviceCallback callback, string label, NativeFeature[] nativeFeatures,
+                                     QueueDescriptor defaultQueue = default,
+                                     Limits? limits = null, RequiredLimitsExtras? limitsExtras = null,
+                                     DeviceExtras? deviceExtras = null, DeviceLostCallback? deviceLostCallback = null)
     {
         var d = new DisposableList();
         Silk.NET.WebGPU.RequiredLimits requiredLimits = default;
@@ -111,6 +114,32 @@ public sealed class Adapter : IDisposable
 
         limitsExtrasChain?.Dispose();
         deviceExtrasChain?.Dispose();
+    }
+
+    public Task<Device> RequestDeviceAsync(string label,
+                                           NativeFeature[] nativeFeatures,
+                                           QueueDescriptor defaultQueue = default,
+                                           Limits? limits = null,
+                                           RequiredLimitsExtras? limitsExtras = null,
+                                           DeviceExtras? deviceExtras = null,
+                                           DeviceLostCallback? deviceLostCallback = null,
+                                           CancellationToken token = default)
+    {
+        var tcs = new TaskCompletionSource<Device>();
+        token.ThrowIfCancellationRequested();
+        RequestDevice((status, device, message) =>
+        {
+            token.ThrowIfCancellationRequested();
+
+            if (status is not RequestDeviceStatus.Success)
+            {
+                tcs.SetException(new PlatformException($"Failed to request WebGPU device : {message}"));
+            }
+            
+            tcs.SetResult(device);
+        }, label, nativeFeatures, defaultQueue, limits, limitsExtras, deviceExtras, deviceLostCallback);
+
+        return tcs.Task;
     }
 
     public unsafe void Dispose() => _api.AdapterRelease(Handle);
