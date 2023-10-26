@@ -29,7 +29,7 @@ public struct VertexState
 {
     public ShaderModule Module;
     public string EntryPoint;
-    public VertexBufferLayout[] bufferLayouts;
+    public VertexBufferLayout[] BufferLayouts;
 }
 
 public struct VertexBufferLayout
@@ -45,7 +45,7 @@ public struct FragmentState
 {
     public ShaderModule Module;
     public string EntryPoint;
-    public ColorTargetState[] colorTargets;
+    public ColorTargetState[] ColorTargets;
 }
 
 public struct ColorTargetState
@@ -302,7 +302,7 @@ public sealed class Device : IDisposable
         FragmentState? fragmentState,
         ICompositeDisposable dispose)
     {
-        var buff = vertexState.bufferLayouts.Select(x => new Silk.NET.WebGPU.VertexBufferLayout
+        var buff = vertexState.BufferLayouts.Select(x => new Silk.NET.WebGPU.VertexBufferLayout
         {
             ArrayStride = x.ArrayStride,
             StepMode = x.StepMode,
@@ -310,7 +310,7 @@ public sealed class Device : IDisposable
             AttributeCount = (uint)x.Attributes.Length
         }).ToArray();
 
-        var fragTargets = fragmentState?.colorTargets
+        var fragTargets = fragmentState?.ColorTargets
                                        .Select(x => new Silk.NET.WebGPU.ColorTargetState
                                        {
                                            Format = x.Format,
@@ -339,7 +339,7 @@ public sealed class Device : IDisposable
                 Module = vertexState.Module.Handle,
                 EntryPoint = vertexState.EntryPoint.ToPtr(dispose),
                 Buffers = buff.AsPtr(dispose),
-                BufferCount = (uint)vertexState.bufferLayouts.Length
+                BufferCount = (uint)vertexState.BufferLayouts.Length
             },
             Primitive = primitiveState,
             DepthStencil = depthStencilState.AsPtr(dispose),
@@ -458,14 +458,14 @@ public sealed class Device : IDisposable
                             null);
     }
 
-    private static readonly List<Silk.NET.WebGPU.ErrorCallback> s_errorCallbacks =
+    private static readonly List<Silk.NET.WebGPU.ErrorCallback> SErrorCallbacks =
         new();
 
     public unsafe void SetUncapturedErrorCallback(ErrorCallback callback)
     {
         Silk.NET.WebGPU.ErrorCallback errorCallback = (t, m, _) => callback(t, SilkMarshal.PtrToString((nint)m)!);
 
-        s_errorCallbacks.Add(errorCallback);
+        SErrorCallbacks.Add(errorCallback);
 
         _api.DeviceSetUncapturedErrorCallback(_handle,
                                          errorCallback,

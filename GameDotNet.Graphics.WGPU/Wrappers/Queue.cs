@@ -28,7 +28,7 @@ public sealed class Queue : IDisposable
                                      );
     }
 
-    public unsafe void Submit(CommandBuffer[] commands)
+    public unsafe void Submit(params CommandBuffer[] commands)
     {
         Span<nint> commandBufferImpls = stackalloc nint[commands.Length];
 
@@ -36,7 +36,7 @@ public sealed class Queue : IDisposable
             commandBufferImpls[i] = (nint)commands[i].Handle;
             
         fixed(nint* ptr = commandBufferImpls)
-            _api.QueueSubmit(_handle, (uint)commands.Length, (Silk.NET.WebGPU.CommandBuffer**)ptr);
+            _api.QueueSubmit(_handle, (nuint)commands.Length, (Silk.NET.WebGPU.CommandBuffer**)ptr);
     }
 
     public unsafe void WriteBuffer<T>(Buffer buffer, ulong bufferOffset, ReadOnlySpan<T> data)

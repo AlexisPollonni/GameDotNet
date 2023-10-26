@@ -9,15 +9,15 @@ namespace GameDotNet.Graphics.WGPU.Wrappers;
 
 public struct RenderPassColorAttachment
 {
-    public TextureView view;
+    public TextureView View;
 
-    public TextureView resolveTarget;
+    public TextureView? ResolveTarget;
 
-    public LoadOp loadOp;
+    public LoadOp LoadOp;
 
-    public StoreOp storeOp;
+    public StoreOp StoreOp;
 
-    public Color clearValue;
+    public Color ClearValue;
 }
 
 public struct RenderPassDepthStencilAttachment
@@ -124,7 +124,7 @@ public sealed class CommandEncoder : IDisposable
 
     public unsafe RenderPassEncoder BeginRenderPass(string label,
                                                     RenderPassColorAttachment[] colorAttachments,
-                                                    RenderPassDepthStencilAttachment? depthStencilAttachment
+                                                    RenderPassDepthStencilAttachment? depthStencilAttachment = null
     )
     {
         Silk.NET.WebGPU.RenderPassDepthStencilAttachment depthStencilAttachmentInner;
@@ -154,11 +154,11 @@ public sealed class CommandEncoder : IDisposable
 
             colorAttachmentsInner[i] = new()
             {
-                View = colorAttachment.view.Handle,
-                ResolveTarget = colorAttachment.resolveTarget.Handle,
-                LoadOp = colorAttachment.loadOp,
-                StoreOp = colorAttachment.storeOp,
-                ClearValue = colorAttachment.clearValue,
+                View = colorAttachment.View.Handle,
+                ResolveTarget = colorAttachment.ResolveTarget is null ? null : colorAttachment.ResolveTarget.Handle,
+                LoadOp = colorAttachment.LoadOp,
+                StoreOp = colorAttachment.StoreOp,
+                ClearValue = colorAttachment.ClearValue
             };
         }
 

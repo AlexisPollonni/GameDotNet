@@ -63,7 +63,7 @@ public class Application : IDisposable
 
         var log = new SerilogLoggerFactory().CreateLogger<VulkanRenderSystem>();
         
-        Universe.RegisterSystem(new WebGpuRenderer(log, _mainView));
+        Universe.RegisterSystem(new WebGpuRenderSystem(log, _mainView));
         Universe.RegisterSystem(new CameraSystem(_mainView));
     }
 

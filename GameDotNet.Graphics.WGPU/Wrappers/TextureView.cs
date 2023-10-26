@@ -8,7 +8,7 @@ using unsafe TextureViewPtr = Silk.NET.WebGPU.TextureView*;
 public sealed class TextureView : IDisposable
 {
     private readonly WebGPU _api;
-    private static readonly ConcurrentDictionary<nint, TextureView> _instances = new();
+    private static readonly ConcurrentDictionary<nint, TextureView> Instances = new();
 
     private unsafe TextureViewPtr _handle;
 
@@ -43,10 +43,10 @@ public sealed class TextureView : IDisposable
         Texture = texture;
 
         if(tracked)
-            _instances.TryAdd((nint)handle, this);
+            Instances.TryAdd((nint)handle, this);
     }
 
-    internal static unsafe void Forget(TextureView view) => _instances.TryRemove((nint)view._handle, out _);
+    internal static unsafe void Forget(TextureView view) => Instances.TryRemove((nint)view._handle, out _);
         
     /// <summary>
     /// This function will be called automatically when this TextureView's associated Texture is disposed.

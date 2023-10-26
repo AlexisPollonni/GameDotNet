@@ -55,7 +55,7 @@ public sealed class Texture : IDisposable
 
     internal unsafe Texture(WebGPU api, TexturePtr handle)
     {
-        if(_handle is null)
+        if(handle is null)
             throw new ResourceCreationError(nameof(Texture));
         _handle = handle;
         _api = api;
@@ -89,7 +89,14 @@ public sealed class Texture : IDisposable
         }), this);
 
         _createdViews.Add(view);
+        return view;
+    }
 
+    public unsafe TextureView CreateTextureView()
+    {
+        var view = new TextureView(_api, _api.TextureCreateView(Handle, null), this);
+        
+        _createdViews.Add(view);
         return view;
     }
 
@@ -109,7 +116,7 @@ public sealed class Texture : IDisposable
         }
         _createdViews.Clear();
             
-        _api.TextureDestroy(_handle);
+        //_api.TextureDestroy(_handle);
         _api.TextureRelease(_handle);
         _handle = null;
     }
