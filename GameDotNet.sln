@@ -38,6 +38,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.Editor", "GameDotNet.Editor\GameDotNet.Editor.csproj", "{667EA375-B9B1-4536-8FFD-17B8C2975818}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.Graphics.WGPU", "GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj", "{B4287FE2-D94D-430B-81E4-EFFEC3F4F8F0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -88,6 +90,10 @@ Global
 		{667EA375-B9B1-4536-8FFD-17B8C2975818}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{667EA375-B9B1-4536-8FFD-17B8C2975818}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{667EA375-B9B1-4536-8FFD-17B8C2975818}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4287FE2-D94D-430B-81E4-EFFEC3F4F8F0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4287FE2-D94D-430B-81E4-EFFEC3F4F8F0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4287FE2-D94D-430B-81E4-EFFEC3F4F8F0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4287FE2-D94D-430B-81E4-EFFEC3F4F8F0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

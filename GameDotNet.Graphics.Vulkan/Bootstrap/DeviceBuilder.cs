@@ -99,7 +99,7 @@ public class DeviceBuilder
         {
             unsafe
             {
-                deviceCreateInfo.PEnabledFeatures = _selectedPhysDevice.Features.AsPtr(d);
+                deviceCreateInfo.PEnabledFeatures = _selectedPhysDevice.Features.ToPtrPinned(d);
             }
         }
 
@@ -116,7 +116,7 @@ public class DeviceBuilder
                     enabledLayerCount: _instance.IsValidationEnabled
                                            ? (uint)Constants.DefaultValidationLayers.Length
                                            : 0,
-                    pQueueCreateInfos: queueCreateInfos.AsPtr(d),
+                    pQueueCreateInfos: queueCreateInfos.ToPtr(d),
                     ppEnabledExtensionNames: extensions.ToByteDoublePtr(d),
                     ppEnabledLayerNames: _instance.IsValidationEnabled
                                              ? Constants.DefaultValidationLayers.AsPtr()
