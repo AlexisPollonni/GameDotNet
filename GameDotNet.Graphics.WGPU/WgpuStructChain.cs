@@ -165,19 +165,24 @@ public sealed class WgpuStructChain : IDisposable
 	}
 
 	private unsafe void AddStruct<T>(T structure)
-		where T : struct
+		where T : unmanaged
 	{
-		var mem = GlobalMemory.Allocate(Marshal.SizeOf(structure));
-			
+		var mem = structure.ToGlobalMemory();
+		
 		if(Ptr is null)
 			Ptr = mem.AsPtr<ChainedStruct>();
-            
-		if(_pointers.Count!=0)
+
+		if (_pointers.Count == 0)
 		{
-			//write this struct into the "next" field of the last struct
-			//this only works because next is guaranteed to be the first field of every ChainedStruct
-			Marshal.StructureToPtr(mem.Handle, _pointers[^1], false);
+			_pointers.Add(mem);
+			return;
 		}
+
+		//write this struct into the "next" field of the last struct
+		ref var last = ref _pointers[^1].AsRef<ChainedStruct>();
+		last.Next = mem.AsPtr<ChainedStruct>();
+		
+		_pointers.Add(mem);
 	}
 
 	public unsafe void Dispose()
