@@ -1,4 +1,8 @@
-﻿namespace SpirvReflectSharp;
+﻿using Silk.NET.Core.Native;
+using Silk.NET.SPIRV;
+using Silk.NET.SPIRV.Reflect;
+
+namespace SpirvReflectSharp;
 
 public struct ReflectTypeDescription
 {
@@ -7,8 +11,8 @@ public struct ReflectTypeDescription
 	public string TypeName;
 	public string StructMemberName;
 	public StorageClass StorageClass;
-	public ReflectType TypeFlags;
-	public ReflectDecoration DecorationFlags;
+	public TypeFlagBits TypeFlags;
+	public DecorationFlagBits DecorationFlags;
 	public Traits Traits;
 	public ReflectTypeDescription[] Members;
 
@@ -17,17 +21,17 @@ public struct ReflectTypeDescription
 		return "ReflectTypeDescription {" + StructMemberName + " " + TypeFlags + "} [" + Members.Length + "]";
 	}
 
-	internal static unsafe ReflectTypeDescription GetManaged(ref SpirvReflectNative.SpvReflectTypeDescription type_description)
+	internal static unsafe ReflectTypeDescription GetManaged(ref TypeDescription type_description)
 	{
 		var desc = new ReflectTypeDescription();
 
 		PopulateReflectTypeDescription(ref type_description, ref desc);
-		desc.Members = ToManagedArray(type_description.members, type_description.member_count);
+		desc.Members = ToManagedArray(type_description.Members, type_description.MemberCount);
 
 		return desc;
 	}
 
-	private static unsafe ReflectTypeDescription[] ToManagedArray(SpirvReflectNative.SpvReflectTypeDescription* type_description, uint member_count)
+	private static unsafe ReflectTypeDescription[] ToManagedArray(TypeDescription* type_description, uint member_count)
 	{
 		var intf_vars = new ReflectTypeDescription[member_count];
 
@@ -37,7 +41,7 @@ public struct ReflectTypeDescription
 			var variable = new ReflectTypeDescription();
 
 			PopulateReflectTypeDescription(ref typedesc, ref variable);
-			variable.Members = ToManagedArray(typedesc.members, typedesc.member_count);
+			variable.Members = ToManagedArray(typedesc.Members, typedesc.MemberCount);
 
 			intf_vars[i] = variable;
 		}
@@ -46,16 +50,16 @@ public struct ReflectTypeDescription
 	}
 
 	private static unsafe void PopulateReflectTypeDescription(
-		ref SpirvReflectNative.SpvReflectTypeDescription type_description,
+		ref TypeDescription type_description,
 		ref ReflectTypeDescription desc)
 	{
-		desc.Id = type_description.id;
-		desc.Op = (Op)type_description.op;
-		desc.TypeName = new(type_description.type_name);
-		desc.StructMemberName = new(type_description.struct_member_name);
-		desc.StorageClass = (StorageClass)type_description.storage_class;
-		desc.TypeFlags = (ReflectType)type_description.type_flags.Data;
-		desc.DecorationFlags = (ReflectDecoration)type_description.decoration_flags.Data;
-		desc.Traits = new(type_description.traits);
+		desc.Id = type_description.Id;
+		desc.Op = type_description.Op;
+		desc.TypeName = SilkMarshal.PtrToString((nint)type_description.TypeName)!;
+		desc.StructMemberName = SilkMarshal.PtrToString((nint)type_description.StructMemberName)!;
+		desc.StorageClass = type_description.StorageClass;
+		desc.TypeFlags = (TypeFlagBits)type_description.TypeFlags;
+		desc.DecorationFlags = (DecorationFlagBits)type_description.DecorationFlags;
+		desc.Traits = new(type_description.Traits);
 	}
 }

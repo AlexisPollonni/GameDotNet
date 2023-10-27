@@ -41,7 +41,7 @@ public sealed class VulkanShader : IDisposable
 
     public VertexInputDescription GetVertexDescription()
     {
-        if (!_reflectModule.ShaderStage.HasFlag(ReflectShaderStage.Vertex))
+        if (!_reflectModule.ShaderStage.HasFlag(Silk.NET.SPIRV.Reflect.ShaderStageFlagBits.VertexBit))
             throw new InvalidOperationException("Not a vertex shader, can't get vertex description");
 
         //we will have just 1 vertex buffer binding, with a per-vertex rate

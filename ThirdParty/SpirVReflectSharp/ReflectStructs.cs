@@ -1,14 +1,17 @@
-﻿namespace SpirvReflectSharp;
+﻿using Silk.NET.SPIRV;
+using Silk.NET.SPIRV.Reflect;
+
+namespace SpirvReflectSharp;
 
 public struct SpirvScalar
 {
 	public uint Width;
 	public uint Signedness;
 
-	internal SpirvScalar(SpirvReflectNative.Scalar scalar)
+	internal SpirvScalar(Scalar scalar)
 	{
-		Width = scalar.width;
-		Signedness = scalar.signedness;
+		Width = scalar.Width;
+		Signedness = scalar.Signedness;
 	}
 }
 
@@ -16,9 +19,9 @@ public struct SpirvVector
 {
 	public uint ComponentCount;
 
-	internal SpirvVector(SpirvReflectNative.Vector vector)
+	internal SpirvVector(Vector vector)
 	{
-		ComponentCount = vector.component_count;
+		ComponentCount = vector.ComponentCount;
 	}
 }
 
@@ -28,11 +31,11 @@ public struct SpirvMatrix
 	public uint RowCount;
 	public uint Stride;
 
-	internal SpirvMatrix(SpirvReflectNative.Matrix matrix)
+	internal SpirvMatrix(Matrix matrix)
 	{
-		ColumnCount = matrix.column_count;
-		RowCount = matrix.row_count;
-		Stride = matrix.stride;
+		ColumnCount = matrix.ColumnCount;
+		RowCount = matrix.RowCount;
+		Stride = matrix.Stride;
 	}
 }
 
@@ -42,44 +45,44 @@ public struct ReflectNumericTraits
 	public SpirvVector Vector;
 	public SpirvMatrix Matrix;
 
-	internal ReflectNumericTraits(SpirvReflectNative.SpvReflectNumericTraits numeric)
+	internal ReflectNumericTraits(NumericTraits numeric)
 	{
-		Scalar = new(numeric.scalar);
-		Matrix = new(numeric.matrix);
-		Vector = new(numeric.vector);
+		Scalar = new(numeric.Scalar);
+		Matrix = new(numeric.Matrix);
+		Vector = new(numeric.Vector);
 	}
 }
 
 public struct ReflectArrayTraits
 {
-	public uint[] Dims;
+	public readonly uint[] Dims;
 	public uint Stride;
 
-	internal unsafe ReflectArrayTraits(SpirvReflectNative.SpvReflectArrayTraits array)
+	internal unsafe ReflectArrayTraits(ArrayTraits array)
 	{
-		Dims = new uint[array.dims_count];
-		Stride = array.stride;
+		Dims = new uint[array.DimsCount];
+		Stride = array.Stride;
 
 		// Populate Dims
-		for (var i = 0; i < array.dims_count; i++)
+		for (var i = 0; i < array.DimsCount; i++)
 		{
-			Dims[i] = array.dims[i];
+			Dims[i] = array.Dims[i];
 		}
 	}
 }
 
 public struct ReflectBindingArrayTraits
 {
-	public uint[] Dims;
+	public readonly uint[] Dims;
 
-	internal unsafe ReflectBindingArrayTraits(SpirvReflectNative.SpvReflectBindingArrayTraits array)
+	internal unsafe ReflectBindingArrayTraits(BindingArrayTraits array)
 	{
-		Dims = new uint[array.dims_count];
+		Dims = new uint[array.DimsCount];
 
 		// Populate Dims
-		for (var i = 0; i < array.dims_count; i++)
+		for (var i = 0; i < array.DimsCount; i++)
 		{
-			Dims[i] = array.dims[i];
+			Dims[i] = array.Dims[i];
 		}
 	}
 }
@@ -89,18 +92,18 @@ public struct ReflectImageTraits
 	public Dim Dim;
 	public uint Depth;
 	public uint Arrayed;
-	public SamplingMode MultiSampled;
+	public uint MultiSampled;
 	public uint Sampled;
 	public ImageFormat ImageFormat;
 
-	internal ReflectImageTraits(SpirvReflectNative.SpvReflectImageTraits image)
+	internal ReflectImageTraits(ImageTraits image)
 	{
-		Arrayed = image.arrayed;
-		Depth = image.depth;
-		Sampled = image.sampled;
-		MultiSampled = (SamplingMode)image.ms;
-		Dim = (Dim)image.dim;
-		ImageFormat = (ImageFormat)image.image_format;
+		Arrayed = image.Arrayed;
+		Depth = image.Depth;
+		Sampled = image.Sampled;
+		MultiSampled = image.Ms;
+		Dim = image.Dim;
+		ImageFormat = image.ImageFormat;
 	}
 }
 
@@ -110,11 +113,11 @@ public struct Traits
 	public ReflectImageTraits Image;
 	public ReflectArrayTraits Array;
 
-	internal Traits(SpirvReflectNative.Traits traits)
+	internal Traits(Silk.NET.SPIRV.Reflect.Traits traits)
 	{
-		Array = new(traits.array);
-		Image = new(traits.image);
-		Numeric = new(traits.numeric);
+		Array = new(traits.Array);
+		Image = new(traits.Image);
+		Numeric = new(traits.Numeric);
 	}
 }
 

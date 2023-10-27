@@ -1,4 +1,8 @@
-﻿namespace SpirvReflectSharp;
+﻿using Silk.NET.Core.Native;
+using Silk.NET.SPIRV;
+using Silk.NET.SPIRV.Reflect;
+
+namespace SpirvReflectSharp;
 
 public struct ReflectInterfaceVariable
 {
@@ -7,12 +11,12 @@ public struct ReflectInterfaceVariable
 	public uint Location;
 	public StorageClass StorageClass;
 	public string Semantic;
-	public ReflectDecoration DecorationFlags;
+	public DecorationFlagBits DecorationFlags;
 	public BuiltIn BuiltIn;
 	public ReflectNumericTraits Numeric;
 	public ReflectArrayTraits Array;
 	public ReflectInterfaceVariable[] Members;
-	public ReflectFormat Format;
+	public Format Format;
 	public ReflectTypeDescription TypeDescription;
 
 	public override string ToString()
@@ -20,7 +24,7 @@ public struct ReflectInterfaceVariable
 		return "ReflectInterfaceVariable {" + Name + "} [" + Members.Length + "]";
 	}
 
-	internal static unsafe ReflectInterfaceVariable[] ToManaged(SpirvReflectNative.SpvReflectInterfaceVariable** input_vars, uint var_count)
+	internal static unsafe ReflectInterfaceVariable[] ToManaged(InterfaceVariable** input_vars, uint var_count)
 	{
 		var intf_vars = new ReflectInterfaceVariable[var_count];
 
@@ -31,7 +35,7 @@ public struct ReflectInterfaceVariable
 			var variable = new ReflectInterfaceVariable();
 
 			PopulateReflectInterfaceVariable(ref intf, ref variable);
-			variable.Members = ToManagedArray(intf.members, intf.member_count);
+			variable.Members = ToManagedArray(intf.Members, intf.MemberCount);
 
 			intf_vars[i] = variable;
 		}
@@ -39,7 +43,7 @@ public struct ReflectInterfaceVariable
 		return intf_vars;
 	}
 
-	private static unsafe ReflectInterfaceVariable[] ToManagedArray(SpirvReflectNative.SpvReflectInterfaceVariable* input_vars, uint var_count)
+	private static unsafe ReflectInterfaceVariable[] ToManagedArray(InterfaceVariable* input_vars, uint var_count)
 	{
 		var intf_vars = new ReflectInterfaceVariable[var_count];
 
@@ -49,7 +53,7 @@ public struct ReflectInterfaceVariable
 			var variable = new ReflectInterfaceVariable();
 
 			PopulateReflectInterfaceVariable(ref intf, ref variable);
-			variable.Members = ToManagedArray(intf.members, intf.member_count);
+			variable.Members = ToManagedArray(intf.Members, intf.MemberCount);
 
 			intf_vars[i] = variable;
 		}
@@ -58,19 +62,19 @@ public struct ReflectInterfaceVariable
 	}
 
 	internal static unsafe void PopulateReflectInterfaceVariable (
-		ref SpirvReflectNative.SpvReflectInterfaceVariable intf,
+		ref InterfaceVariable intf,
 		ref ReflectInterfaceVariable variable)
 	{
-		variable.SpirvId = intf.spirv_id;
-		variable.Name = new(intf.name);
-		variable.Location = intf.location;
-		variable.StorageClass = (StorageClass)intf.storage_class;
-		variable.Semantic = new(intf.semantic);
-		variable.DecorationFlags = (ReflectDecoration)intf.decoration_flags.Data;
-		variable.BuiltIn = (BuiltIn)intf.built_in;
-		variable.Format = (ReflectFormat)intf.format;
-		variable.TypeDescription = ReflectTypeDescription.GetManaged(ref *intf.type_description);
-		variable.Array = new(intf.array);
-		variable.Numeric = new(intf.numeric);
+		variable.SpirvId = intf.SpirvId;
+		variable.Name = SilkMarshal.PtrToString((nint)intf.Name)!;
+		variable.Location = intf.Location;
+		variable.StorageClass = intf.StorageClass;
+		variable.Semantic = SilkMarshal.PtrToString((nint)intf.Semantic)!;
+		variable.DecorationFlags = (DecorationFlagBits)intf.DecorationFlags;
+		variable.BuiltIn = intf.BuiltIn;
+		variable.Format = intf.Format;
+		variable.TypeDescription = ReflectTypeDescription.GetManaged(ref *intf.TypeDescription);
+		variable.Array = new(intf.Array);
+		variable.Numeric = new(intf.Numeric);
 	}
 }
