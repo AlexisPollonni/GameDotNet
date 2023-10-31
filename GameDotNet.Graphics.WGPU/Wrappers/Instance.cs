@@ -1,11 +1,17 @@
-﻿using System.Threading.Tasks.Sources;
-using GameDotNet.Core.Tools.Containers;
+﻿using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
+using Silk.NET.WebGPU.Extensions.Dawn;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
+
+public unsafe struct DawnInstanceDescriptor
+{
+    public InstanceFeatures Features;
+    public ChainedStruct* Next;
+} 
 
 public sealed class Instance : IDisposable
 {
@@ -18,7 +24,9 @@ public sealed class Instance : IDisposable
 
         unsafe
         {
-            _handle = api.CreateInstance(new InstanceDescriptor());
+            var desc = new DawnInstanceDescriptor
+                { Features = new() { TimedWaitAnyEnable = false, TimedWaitAnyMaxCount = 0 } };
+            _handle = api.CreateInstance((InstanceDescriptor*)(&desc));
         }
     }
 

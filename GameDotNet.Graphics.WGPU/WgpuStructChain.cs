@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using GameDotNet.Core.Tools.Containers;
+﻿using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;

@@ -2,13 +2,14 @@ using System.Drawing;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Contexts;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.WGPU;
+using Silk.NET.WebGPU.Extensions.Dawn;
 using Silk.NET.Windowing;
 using Adapter = GameDotNet.Graphics.WGPU.Wrappers.Adapter;
 using Device = GameDotNet.Graphics.WGPU.Wrappers.Device;
 using Instance = GameDotNet.Graphics.WGPU.Wrappers.Instance;
 using Surface = GameDotNet.Graphics.WGPU.Wrappers.Surface;
-using SurfaceCapabilities = GameDotNet.Graphics.WGPU.Wrappers.SurfaceCapabilities;
+using SwapChain = GameDotNet.Graphics.WGPU.Wrappers.SwapChain;
+using TextureFormat = Silk.NET.WebGPU.TextureFormat;
 
 namespace GameDotNet.Graphics.WGPU;
 
@@ -18,11 +19,12 @@ public sealed class WebGpuContext : IDisposable
     public required Instance Instance { get; init; }
     public required Surface Surface { get; init; }
     public required Adapter Adapter { get; init; }
-    public required SurfaceCapabilities SurfaceCapabilities { get; set; }
-    public required Device Device { get; set; }
+    public required Device Device { get; init; }
+    public required SwapChain SwapChain { get; init; }
 
 
     private readonly ILogger _logger;
+
 
     internal WebGpuContext(ILogger logger)
     {
@@ -39,15 +41,13 @@ public sealed class WebGpuContext : IDisposable
         var adapter =
             await instance.RequestAdapterAsync(surface, PowerPreference.HighPerformance, false, BackendType.Vulkan,
                                                token);
-        var surfaceCapabilities = surface.GetCapabilities(adapter);
 
         adapter.GetProperties(out var properties);
-
         adapter.GetLimits(out var limits);
 
         var device = await adapter.RequestDeviceAsync(limits: limits.Limits, label: "Device", nativeFeatures: new[]
         {
-            NativeFeature.PushConstants, NativeFeature.MultiDrawIndirect
+            FeatureName.IndirectFirstInstance
         }, token: token);
 
         device.SetUncapturedErrorCallback((type, message) =>
@@ -55,34 +55,48 @@ public sealed class WebGpuContext : IDisposable
             logger.LogError("[WebGPU][{ErrorType}: {Message}]", type, message);
         });
 
-        device.Queue.OnSubmittedWorkDone(status => logger.LogDebug("[WebGPU] Queue submit {Status}", status));
+        device.SetLoggingCallback((type, message) =>
+        {
+            switch (type)
+            {
+                case LoggingType.Verbose:
+                    logger.LogTrace("[WebGPU] {Msg}", message);
+                    break;
+                case LoggingType.Info:
+                    logger.LogInformation("[WebGPU] {Msg}", message);
+                    break;
+                case LoggingType.Warning:
+                    logger.LogWarning("[WebGPU] {Msg}", message);
+                    break;
+                case LoggingType.Error:
+                    logger.LogError("[WebGPU] {Msg}", message);
+                    break;
+                case LoggingType.Force32:
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
+            }
+        });
 
-        var encoder = device.CreateCommandEncoder("command-encoder");
-        encoder.InsertDebugMarker("WebGpu initialization complete");
+        //device.Queue.OnSubmittedWorkDone(status => logger.LogDebug("[WebGPU] Queue submit {Status}", status));
 
-        var buffer = encoder.Finish("encoding-finish");
 
-        device.Queue.Submit(buffer);
-
+        var sw = device.CreateSwapchain(surface, new(view.Size.X, view.Size.Y), TextureFormat.Bgra8Unorm,
+                                        TextureUsage.RenderAttachment, PresentMode.Fifo, "create-swapchain");
+        
         return new(logger)
         {
             Api = api,
             Instance = instance,
             Surface = surface,
             Adapter = adapter,
-            SurfaceCapabilities = surfaceCapabilities,
-            Device = device
+            Device = device,
+            SwapChain = sw
         };
-    }
-
-    public void ResizeSurface(Size size)
-    {
-        Surface.Configure(Device, new(SurfaceCapabilities.Formats[0], TextureUsage.RenderAttachment, null,
-                                      SurfaceCapabilities.AlphaModes[0], size, PresentMode.Fifo));
     }
 
     public void Dispose()
     {
+        SwapChain.Dispose();
         Device.Dispose();
         Adapter.Dispose();
         Surface.Dispose();
@@ -90,7 +104,10 @@ public sealed class WebGpuContext : IDisposable
         Api.Dispose();
     }
 
-    private static unsafe Surface CreateSurfaceFromView(Instance instance, IView view)
+    public void ResizeSurface(Size size) 
+        => SwapChain.Configure(Device, Surface, size, TextureFormat.Bgra8Unorm, TextureUsage.RenderAttachment, PresentMode.Fifo);
+
+    private static unsafe Surface CreateSurfaceFromView(Instance instance, INativeWindowSource view)
     {
         var nat = view.Native ??
                   throw new PlatformNotSupportedException("No native view found to initialize WebGPU from");
@@ -104,7 +121,8 @@ public sealed class WebGpuContext : IDisposable
         }
         else if (nat.Kind.HasFlag(NativeWindowFlags.X11))
         {
-            surface = instance.CreateSurfaceFromXlibWindow((void*)nat.X11!.Value.Display, (uint)nat.X11.Value.Window,
+            surface = instance.CreateSurfaceFromXlibWindow((void*)nat.X11!.Value.Display,
+                                                           (uint)nat.X11.Value.Window,
                                                            "surface-create-X11");
         }
         else if (nat.Kind.HasFlag(NativeWindowFlags.Cocoa))

@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using Silk.NET.WebGPU;
+﻿using Silk.NET.WebGPU;
 using unsafe RenderPassEncoderPtr = Silk.NET.WebGPU.RenderPassEncoder*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

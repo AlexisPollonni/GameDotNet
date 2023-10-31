@@ -1,24 +1,11 @@
 using System.Diagnostics;
-using System.Numerics;
-using System.Threading.Tasks.Sources;
 using Arch.Core;
-using Arch.Core.Extensions;
-using GameDotNet.Core.Physics.Components;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
-using GameDotNet.Management.ECS.Components;
-using Microsoft.Extensions.Logging;
 using Serilog;
-using Silk.NET.Core;
-using Silk.NET.Core.Contexts;
 using Silk.NET.Maths;
-using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.WGPU;
 using Silk.NET.Windowing;
-using Adapter = GameDotNet.Graphics.WGPU.Wrappers.Adapter;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
-using Instance = GameDotNet.Graphics.WGPU.Wrappers.Instance;
-using Surface = GameDotNet.Graphics.WGPU.Wrappers.Surface;
 
 namespace GameDotNet.Graphics.WGPU;
 
@@ -59,7 +46,9 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         var frag = await comp.TranslateGlsl("Assets/Mesh.frag", "Assets/");
 
         _gpuContext = await WebGpuContext.Create(_logger, _view);
-        _renderer = new(_gpuContext);
+        _renderer = new(_gpuContext, _logger);
+        
+        await _renderer.Initialize(vert, frag);
         
         _gpuContext.ResizeSurface(new(_view.Size.X, _view.Size.Y));
 
@@ -97,29 +86,26 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
 
     private void RenderLoop()
     {
-        var surfaceSize = _view.Size;
+        var surfaceSize = _view.FramebufferSize;
         while (!_view.IsClosing)
         {
+            _gpuContext?.Instance.ProcessEvents();
             var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
 
-            if (surfaceSize != _view.Size)
+            if (surfaceSize != _view.FramebufferSize)
             {
-                _gpuContext?.ResizeSurface(new(_view.Size.X, _view.Size.Y));
+                _gpuContext?.ResizeSurface(new(_view.FramebufferSize.X, _view.FramebufferSize.Y));
                 surfaceSize = _view.Size;
             }
 
-            var surfTexture = _gpuContext!.Surface.GetCurrentTexture();
-            using (surfTexture.Texture)
+            var surfView = _gpuContext?.SwapChain.GetCurrentTextureView();
+            if (surfView is null)
+                continue;
+            using (surfView)
             {
-                if (surfTexture.Status is not SurfaceGetCurrentTextureStatus.Success)
-                {
-                    _logger.LogWarning("Render surface state was {State}, skipped render loop...", surfTexture.Status);
-                    continue;
-                }
-
-                _renderer?.Draw(_drawWatch.Elapsed, surfTexture.Texture!);
+                _renderer?.Draw(_drawWatch.Elapsed, surfView);
                 
-                _gpuContext?.Surface.Present();
+                _gpuContext?.SwapChain.Present();
             }
             _drawWatch.Restart();
 

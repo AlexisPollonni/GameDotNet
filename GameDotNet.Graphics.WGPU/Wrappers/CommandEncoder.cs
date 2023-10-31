@@ -1,15 +1,13 @@
 ﻿using System.Runtime.CompilerServices;
-using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.WGPU;
 using unsafe CommandEncoderPtr = Silk.NET.WebGPU.CommandEncoder*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
 public struct RenderPassColorAttachment
 {
-    public TextureView View;
+    public TextureView? View;
 
     public TextureView? ResolveTarget;
 
@@ -18,6 +16,24 @@ public struct RenderPassColorAttachment
     public StoreOp StoreOp;
 
     public Color ClearValue;
+}
+
+/// <summary>
+/// The dawn implementation RenderPassColorAttachment has a different memory layout than the Silk.Net bindings.
+/// Fixes segfaults while this is fixed
+/// </summary>
+internal unsafe struct DawnRenderPassColorAttachment
+{
+    public ChainedStruct* NextInChain = null;
+    public Silk.NET.WebGPU.TextureView* View = default;
+    public uint DepthSlice = 0;
+    public Silk.NET.WebGPU.TextureView* ResolveTarget = default;
+    public LoadOp LoadOp = LoadOp.Undefined;
+    public StoreOp StoreOp = StoreOp.Undefined;
+    public Color ClearValue = default;
+
+    public DawnRenderPassColorAttachment()
+    { }
 }
 
 public struct RenderPassDepthStencilAttachment
@@ -127,11 +143,27 @@ public sealed class CommandEncoder : IDisposable
                                                     RenderPassDepthStencilAttachment? depthStencilAttachment = null
     )
     {
-        Silk.NET.WebGPU.RenderPassDepthStencilAttachment depthStencilAttachmentInner;
+        Span<DawnRenderPassColorAttachment> cAInner = stackalloc DawnRenderPassColorAttachment[colorAttachments.Length];
+        ref var dSInner = ref Unsafe.NullRef<Silk.NET.WebGPU.RenderPassDepthStencilAttachment>();
+        
+        for (var i = 0; i < colorAttachments.Length; i++)
+        {
+            var colorAttachment = colorAttachments[i];
+
+            cAInner[i] = new()
+            {
+                View = colorAttachment.View!.Handle,
+                ResolveTarget = colorAttachment.ResolveTarget is null ? null : colorAttachment.ResolveTarget.Handle,
+                LoadOp = colorAttachment.LoadOp,
+                StoreOp = colorAttachment.StoreOp,
+                ClearValue = colorAttachment.ClearValue,
+                DepthSlice = 0
+            };
+        }
 
         if (depthStencilAttachment != null)
         {
-            depthStencilAttachmentInner = new()
+            dSInner = new()
             {
                 View = depthStencilAttachment.Value.View.Handle,
                 DepthLoadOp = depthStencilAttachment.Value.DepthLoadOp,
@@ -144,42 +176,16 @@ public sealed class CommandEncoder : IDisposable
                 StencilReadOnly = depthStencilAttachment.Value.StencilReadOnly
             };
         }
-
-        Span<Silk.NET.WebGPU.RenderPassColorAttachment> colorAttachmentsInner =
-            stackalloc Silk.NET.WebGPU.RenderPassColorAttachment[colorAttachments.Length];
-
-        for (var i = 0; i < colorAttachments.Length; i++)
-        {
-            var colorAttachment = colorAttachments[i];
-
-            colorAttachmentsInner[i] = new()
-            {
-                View = colorAttachment.View.Handle,
-                ResolveTarget = colorAttachment.ResolveTarget is null ? null : colorAttachment.ResolveTarget.Handle,
-                LoadOp = colorAttachment.LoadOp,
-                StoreOp = colorAttachment.StoreOp,
-                ClearValue = colorAttachment.ClearValue
-            };
-        }
-
+        
         using var mem = label.ToGlobalMemory();
-        RenderPassEncoder encoder;
-        fixed (Silk.NET.WebGPU.RenderPassColorAttachment* col = colorAttachmentsInner)
+        var desc = new RenderPassDescriptor
         {
-            encoder = new(_api, _api.CommandEncoderBeginRenderPass(Handle, new RenderPassDescriptor
-                          {
-                              Label = mem.AsPtr<byte>(),
-                              ColorAttachments = col,
-                              ColorAttachmentCount = (uint)colorAttachments.Length,
-                              DepthStencilAttachment =
-                                  depthStencilAttachment != null
-                                      ? &depthStencilAttachmentInner
-                                      : null
-                          })
-                         );
-        }
-
-        return encoder;
+            Label = mem.AsPtr<byte>(),
+            ColorAttachments = (Silk.NET.WebGPU.RenderPassColorAttachment*)cAInner.AsPtr(),
+            ColorAttachmentCount = (nuint)colorAttachments.Length,
+            DepthStencilAttachment = (Silk.NET.WebGPU.RenderPassDepthStencilAttachment*)Unsafe.AsPointer(ref dSInner)
+        };
+        return new(_api, _api.CommandEncoderBeginRenderPass(Handle, &desc));
     }
 
     public unsafe void ClearBuffer(Buffer buffer, ulong offset, ulong size)

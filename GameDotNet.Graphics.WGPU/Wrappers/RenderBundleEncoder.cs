@@ -1,5 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-using GameDotNet.Core.Tools.Extensions;
+﻿using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.WebGPU;
 using unsafe RenderBundleEncoderPtr = Silk.NET.WebGPU.RenderBundleEncoder*;
 

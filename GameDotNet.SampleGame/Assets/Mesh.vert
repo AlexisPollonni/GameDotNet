@@ -9,15 +9,15 @@ layout (location = 2) in vec4 vColor;
 // output to frag shader
 layout (location = 0) out vec4 outColor;
 
-layout (push_constant, row_major) uniform constants
+layout (binding = 0, row_major) uniform CameraData
 {
     vec4 data;
     mat4 render_matrix;
-} PushConstants;
+} Data;
 
 void main()
 {
-    gl_Position = vec4(vPosition, 1.0f) * PushConstants.render_matrix;
+    gl_Position = vec4(vPosition, 1.0f) * Data.render_matrix;
     outColor = vColor;
 
     //    debugPrintfEXT("RenderMat = [ %f, %f, %f, %f ]; [ %f, %f, %f, %f ]; [%f, %f, %f, %f ]; [ %f, %f, %f, %f ]",

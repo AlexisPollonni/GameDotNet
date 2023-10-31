@@ -1,11 +1,11 @@
-﻿using System.Runtime.CompilerServices;
-using Assimp;
+﻿using System.Drawing;
+using System.Runtime.CompilerServices;
 using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
+using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
 using Silk.NET.WebGPU.Extensions.Dawn;
-using Silk.NET.WebGPU.Extensions.WGPU;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
@@ -29,7 +29,14 @@ public struct VertexState
 {
     public ShaderModule Module;
     public string EntryPoint;
-    public VertexBufferLayout[] BufferLayouts;
+    public VertexBufferLayout[]? BufferLayouts;
+    public ConstantEntry[]? ConstantEntries;
+}
+
+public struct ConstantEntry
+{
+    public string Key;
+    public double Value;
 }
 
 public struct VertexBufferLayout
@@ -46,6 +53,7 @@ public struct FragmentState
     public ShaderModule Module;
     public string EntryPoint;
     public ColorTargetState[] ColorTargets;
+    public ConstantEntry[]? ConstantEntries;
 }
 
 public struct ColorTargetState
@@ -62,6 +70,7 @@ public sealed class Device : IDisposable
     public Queue Queue { get; private set; }
 
     private readonly WebGPU _api;
+    private Dawn? _dawn;
     private unsafe Silk.NET.WebGPU.Device* _handle;
 
     public unsafe Silk.NET.WebGPU.Device* Handle
@@ -114,13 +123,45 @@ public sealed class Device : IDisposable
                 Label = mem.AsPtr<byte>(),
                 Layout = layout.Handle,
                 Entries = entPtr,
-                EntryCount = (uint)entries.Length
+                EntryCount = (nuint)entries.Length
             });
         }
 
         return new(_api, bd);
     }
 
+    public unsafe void SetLoggingCallback(LoggingCallback proc)
+    {
+        _api.TryGetDeviceExtension(_handle, out Dawn d);
+
+        d.DeviceSetLoggingCallback(_handle, new((lvl, msg, _) => proc(lvl, SilkMarshal.PtrToString((nint)msg)!)), null);
+    }
+
+
+    public unsafe SwapChain CreateSwapchain(Surface surface, Size size, TextureFormat fmt, TextureUsage usage,
+                                            PresentMode presentMode, string? label = null)
+    {
+        _dawn ??= _api.GetDawnExtension() ?? throw new PlatformException("Dawn not found");
+        
+        var mem = label?.ToGlobalMemory();
+        
+        var swDesc = new SwapChainDescriptor
+        {
+            Width = (uint)size.Width,
+            Height = (uint)size.Height,
+            Format = fmt,
+            Usage = usage,
+            PresentMode = presentMode,
+            Label = mem is null ? null : mem.AsPtr<byte>()
+        };
+        var swPtr = _dawn.DeviceCreateSwapChain(_handle, surface.Handle, &swDesc);
+
+        if (swPtr is null) throw new ResourceCreationError("swapchain");
+        
+        return new(_api, _dawn, swPtr);
+    }
+    
+    
     public unsafe BindGroupLayout CreateBindgroupLayout(string label, BindGroupLayoutEntry[] entries)
     {
         using var mem = label.ToGlobalMemory();
@@ -213,7 +254,7 @@ public sealed class Device : IDisposable
                        BindGroupLayouts = 
                            (Silk.NET.WebGPU.BindGroupLayout**)Unsafe.AsPointer(ref bindGroupLayoutsInner
                                                                                    .GetPinnableReference()),
-                       BindGroupLayoutCount = (uint)bindGroupLayouts.Length
+                       BindGroupLayoutCount = (nuint)bindGroupLayouts.Length
                    })
                   );
     }
@@ -230,7 +271,7 @@ public sealed class Device : IDisposable
                            Type = queryType,
                            Count = count,
                            PipelineStatistics = pipelineStatisticsPtr,
-                           PipelineStatisticCount = (uint)pipelineStatistics.Length
+                           PipelineStatisticCount = (nuint)pipelineStatistics.Length
                        })
                       );
         }
@@ -248,7 +289,7 @@ public sealed class Device : IDisposable
                                                                   {
                                                                       Label = mem.AsPtr<byte>(),
                                                                       ColorFormats = colorFormatsPtr,
-                                                                      ColorFormatCount = (uint)colorFormats.Length,
+                                                                      ColorFormatCount = (nuint)colorFormats.Length,
                                                                       DepthStencilFormat = depthStencilFormat,
                                                                       SampleCount = sampleCount,
                                                                       DepthReadOnly = depthReadOnly,
@@ -302,12 +343,18 @@ public sealed class Device : IDisposable
         FragmentState? fragmentState,
         ICompositeDisposable dispose)
     {
-        var buff = vertexState.BufferLayouts.Select(x => new Silk.NET.WebGPU.VertexBufferLayout
+        var vBuffLayouts = vertexState.BufferLayouts?.Select(x => new Silk.NET.WebGPU.VertexBufferLayout
         {
             ArrayStride = x.ArrayStride,
             StepMode = x.StepMode,
             Attributes = x.Attributes.AsPtr(dispose),
-            AttributeCount = (uint)x.Attributes.Length
+            AttributeCount = (nuint)x.Attributes.Length
+        }).ToArray();
+
+        var vConstLayouts = vertexState.ConstantEntries?.Select(e => new Silk.NET.WebGPU.ConstantEntry
+        {
+            Key = e.Key.ToPtr(dispose),
+            Value = e.Value
         }).ToArray();
 
         var fragTargets = fragmentState?.ColorTargets
@@ -317,6 +364,12 @@ public sealed class Device : IDisposable
                                            Blend = x.BlendState.AsPtr(dispose),
                                            WriteMask = x.WriteMask
                                        }).ToArray();
+
+        var fConstLayouts = fragmentState?.ConstantEntries?.Select(e => new Silk.NET.WebGPU.ConstantEntry
+        {
+            Key = e.Key.ToPtr(dispose),
+            Value = e.Value
+        }).ToArray();
         
         Silk.NET.WebGPU.FragmentState? fragState = null;
         if (fragmentState is not null)
@@ -326,7 +379,9 @@ public sealed class Device : IDisposable
                 Module = fragmentState.Value.Module.Handle,
                 EntryPoint = fragmentState.Value.EntryPoint.ToPtr(dispose),
                 Targets = fragTargets.AsPtr(dispose),
-                TargetCount = (nuint)(fragTargets?.Length ?? 0)
+                TargetCount = (nuint)(fragTargets?.Length ?? 0), 
+                Constants = fConstLayouts.AsPtr(dispose),
+                ConstantCount = (nuint)(fConstLayouts?.Length ?? 0)
             };
         }
 
@@ -338,13 +393,14 @@ public sealed class Device : IDisposable
             {
                 Module = vertexState.Module.Handle,
                 EntryPoint = vertexState.EntryPoint.ToPtr(dispose),
-                Buffers = buff.AsPtr(dispose),
-                BufferCount = (uint)vertexState.BufferLayouts.Length
+                Buffers = vBuffLayouts.AsPtr(dispose),
+                BufferCount = (nuint)(vertexState.BufferLayouts?.Length ?? 0),
+                Constants = vConstLayouts.AsPtr(dispose),
+                ConstantCount = (nuint)(vConstLayouts?.Length ?? 0)
             },
             Primitive = primitiveState,
             DepthStencil = depthStencilState.AsPtr(dispose),
             Multisample = multisampleState,
-
             Fragment = fragState.AsPtr(dispose)
         };
     }
@@ -373,12 +429,14 @@ public sealed class Device : IDisposable
                           );
     }
 
-    public unsafe ShaderModule CreateSprivShaderModule(string label, byte[] spirvCode)
+    public unsafe ShaderModule CreateSpirVShaderModule(string label, byte[] spirvCode)
     {
         using var d = new DisposableList();
         return new(_api, _api.DeviceCreateShaderModule(_handle, new ShaderModuleDescriptor
                                 {
                                     Label = label.ToPtr(d),
+                                    Hints = null,
+                                    HintCount = 0,
                                     NextInChain = new WgpuStructChain()
                                                   .AddShaderModuleSPIRVDescriptor(spirvCode)
                                                   .DisposeWith(d)
@@ -484,5 +542,7 @@ public sealed class Device : IDisposable
 }
 
 public delegate void ErrorCallback(ErrorType type, string message);
+
+public delegate void LoggingCallback(LoggingType type, string message);
 
 public delegate void DeviceLostCallback(DeviceLostReason reason, string message);

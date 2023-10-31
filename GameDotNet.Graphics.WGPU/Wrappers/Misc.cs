@@ -1,6 +1,4 @@
 ﻿using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.WGPU;
-
 using unsafe ComputePipelinePtr = Silk.NET.WebGPU.ComputePipeline*;
 using unsafe PipelineLayoutPtr = Silk.NET.WebGPU.PipelineLayout*;
 using unsafe QuerySetPtr = Silk.NET.WebGPU.QuerySet*;

@@ -4,8 +4,6 @@ using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.Disposal;
-using Silk.NET.WebGPU.Extensions.WGPU;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
@@ -66,7 +64,7 @@ public sealed class Adapter : IDisposable
 
     public unsafe bool HasFeature(FeatureName feature) => _api.AdapterHasFeature(Handle, feature);
 
-    public unsafe void RequestDevice(RequestDeviceCallback callback, string label, NativeFeature[] nativeFeatures,
+    public unsafe void RequestDevice(RequestDeviceCallback callback, string label, FeatureName[] nativeFeatures,
                                      QueueDescriptor defaultQueue = default,
                                      Limits? limits = null, RequiredLimitsExtras? limitsExtras = null,
                                      DeviceExtras? deviceExtras = null, DeviceLostCallback? deviceLostCallback = null)
@@ -98,14 +96,14 @@ public sealed class Adapter : IDisposable
                                                    callback(s, new(_api, device),
                                                             SilkMarshal.PtrToString((nint)b)!));
         var cbLost = new PfnDeviceLostCallback((reason, b, _) => deviceLostCallback?.Invoke(reason, SilkMarshal.PtrToString((nint)b)!));
-        fixed (NativeFeature* requiredFeatures = nativeFeatures)
+        fixed (FeatureName* requiredFeatures = nativeFeatures)
         {
             _api.AdapterRequestDevice(Handle, new DeviceDescriptor
             {
                 DefaultQueue = defaultQueue,
                 RequiredLimits = limits != null ? &requiredLimits : null,
                 RequiredFeatureCount = (uint)nativeFeatures.Length,
-                RequiredFeatures = (FeatureName*)requiredFeatures,
+                RequiredFeatures = requiredFeatures,
                 Label = label.ToPtr(d),
                 DeviceLostCallback = cbLost,
                 NextInChain = deviceExtras==null ? null : deviceExtrasChain!.Ptr
@@ -117,7 +115,7 @@ public sealed class Adapter : IDisposable
     }
 
     public Task<Device> RequestDeviceAsync(string label,
-                                           NativeFeature[] nativeFeatures,
+                                           FeatureName[] nativeFeatures,
                                            QueueDescriptor defaultQueue = default,
                                            Limits? limits = null,
                                            RequiredLimitsExtras? limitsExtras = null,
