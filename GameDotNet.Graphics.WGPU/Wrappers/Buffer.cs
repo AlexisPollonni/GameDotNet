@@ -71,8 +71,6 @@ public sealed class Buffer : IDisposable
     }
 }
 
-public delegate void BufferMapCallback(BufferMapAsyncStatus status);
-
 public static class BufferExtensions
 {
     public static void SetData<T>(this Buffer buffer, ulong offset, ReadOnlySpan<T> span)

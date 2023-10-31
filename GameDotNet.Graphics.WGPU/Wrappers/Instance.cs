@@ -7,12 +7,6 @@ using Silk.NET.WebGPU.Extensions.Dawn;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
-public unsafe struct DawnInstanceDescriptor
-{
-    public InstanceFeatures Features;
-    public ChainedStruct* Next;
-} 
-
 public sealed class Instance : IDisposable
 {
     private readonly WebGPU _api;
@@ -117,5 +111,3 @@ public sealed class Instance : IDisposable
         _handle = default;
     }
 }
-
-public delegate void RequestAdapterCallback(RequestAdapterStatus status, Adapter adapter, string message);

@@ -7,20 +7,6 @@ using Silk.NET.WebGPU;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
-public struct RequiredLimits
-{
-    public Limits Limits;
-}
-
-public partial struct RequiredLimitsExtras
-{
-    public uint MaxPushConstantSize;
-}
-
-public struct DeviceExtras
-{
-    public string TracePath;
-}
 
 public sealed class Adapter : IDisposable
 {
@@ -143,4 +129,3 @@ public sealed class Adapter : IDisposable
     public unsafe void Dispose() => _api.AdapterRelease(Handle);
 }
 
-public delegate void RequestDeviceCallback(RequestDeviceStatus status, Device device, string message);

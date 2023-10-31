@@ -9,62 +9,6 @@ using Silk.NET.WebGPU.Extensions.Dawn;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
-public struct BindGroupEntry
-{
-    public uint Binding;
-    public Buffer? Buffer;
-    public ulong Offset;
-    public ulong Size;
-    public Sampler? Sampler;
-    public TextureView? TextureView;
-}
-
-public struct ProgrammableStageDescriptor
-{
-    public ShaderModule Module;
-    public string EntryPoint;
-}
-
-public struct VertexState
-{
-    public ShaderModule Module;
-    public string EntryPoint;
-    public VertexBufferLayout[]? BufferLayouts;
-    public ConstantEntry[]? ConstantEntries;
-}
-
-public struct ConstantEntry
-{
-    public string Key;
-    public double Value;
-}
-
-public struct VertexBufferLayout
-{
-    public ulong ArrayStride;
-
-    public VertexStepMode StepMode;
-
-    public VertexAttribute[] Attributes;
-}
-
-public struct FragmentState
-{
-    public ShaderModule Module;
-    public string EntryPoint;
-    public ColorTargetState[] ColorTargets;
-    public ConstantEntry[]? ConstantEntries;
-}
-
-public struct ColorTargetState
-{
-    public TextureFormat Format;
-
-    public BlendState? BlendState;
-
-    public ColorWriteMask WriteMask;
-}
-
 public sealed class Device : IDisposable
 {
     public Queue Queue { get; private set; }
@@ -540,9 +484,3 @@ public sealed class Device : IDisposable
         _handle = null;
     }
 }
-
-public delegate void ErrorCallback(ErrorType type, string message);
-
-public delegate void LoggingCallback(LoggingType type, string message);
-
-public delegate void DeviceLostCallback(DeviceLostReason reason, string message);
