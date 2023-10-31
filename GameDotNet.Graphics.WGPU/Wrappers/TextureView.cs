@@ -15,7 +15,7 @@ public sealed class TextureView : IDisposable
     /// <summary>
     /// The Texture this TextureView belongs to. If this TextureView belongs to the SwapChain, then this is null.
     /// </summary>
-    public Texture Texture
+    public Texture? Texture
     {
         get;
     }
@@ -46,6 +46,22 @@ public sealed class TextureView : IDisposable
             Instances.TryAdd((nint)handle, this);
     }
 
+    /// <summary>
+    /// To create a texture view from a swapchain
+    /// </summary>
+    /// <param name="api"></param>
+    /// <param name="handle"></param>
+    /// <exception cref="ResourceCreationError"></exception>
+    internal unsafe TextureView(WebGPU api, TextureViewPtr handle)
+    {
+        if (handle is null)
+            throw new ResourceCreationError(nameof(TextureView));
+        _api = api;
+
+        Handle = handle;
+    }
+    
+
     internal static unsafe void Forget(TextureView view) => Instances.TryRemove((nint)view._handle, out _);
         
     /// <summary>
@@ -54,7 +70,7 @@ public sealed class TextureView : IDisposable
     /// </summary>
     public unsafe void Dispose()
     {
-        Texture.RemoveTextureView(this);
+        Texture?.RemoveTextureView(this);
         Forget(this);
         _api.TextureViewRelease(Handle);
         _handle = null;

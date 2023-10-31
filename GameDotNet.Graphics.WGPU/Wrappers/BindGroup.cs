@@ -1,5 +1,4 @@
 ﻿using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.Disposal;
 using unsafe BindGroupPtr = Silk.NET.WebGPU.BindGroup*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

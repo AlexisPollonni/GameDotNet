@@ -31,7 +31,7 @@ public sealed class WgpuStructChain : IDisposable
 		AddStruct(new ShaderModuleSPIRVDescriptor
 		{
 			Chain = new() { SType = SType.ShaderModuleSpirvDescriptor },
-			Code = code.ToGlobalMemory().DisposeWith(_trackedAllocatedData).AsPtr<uint>(),
+			Code = (uint*)code.AsPtr(_trackedAllocatedData),
 			CodeSize = (uint)code.Length
 		});
 

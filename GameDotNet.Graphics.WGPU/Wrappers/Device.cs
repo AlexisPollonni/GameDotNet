@@ -477,8 +477,8 @@ public sealed class Device : IDisposable
         Queue.Dispose();
         Queue = null;
 
-        _api.DeviceDestroy(_handle);
         _api.DeviceRelease(_handle);
+        _api.DeviceDestroy(_handle);
         _handle = null;
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System.Drawing;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
+using Silk.NET.WebGPU.Extensions.Dawn;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 

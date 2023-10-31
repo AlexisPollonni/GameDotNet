@@ -76,6 +76,11 @@ public static class MemoryExtensions
         return new Pinned<T>(in s).DisposeWith(dispose).AsPtr();
     }
 
+    public static unsafe T* AsPtr<T>(this Span<T> span) where T : unmanaged
+    {
+        return (T*)Unsafe.AsPointer(ref span.GetPinnableReference());
+    }
+    
     public static unsafe T* AsPtr<T>(ref this T s, ICompositeDisposable dispose) where T : unmanaged
     {
         return new Pinned<T>(in s).DisposeWith(dispose).AsPtr();
@@ -84,7 +89,7 @@ public static class MemoryExtensions
     public static unsafe T* AsPtr<T>(ref this T? s, ICompositeDisposable disposable) where T : unmanaged
     {
         ref var r = ref s.AsRefOrNull();
-        return new Pinned<T>(in r).DisposeWith(disposable).AsPtr();
+        return Unsafe.IsNullRef(ref r) ? null : new Pinned<T>(in r).DisposeWith(disposable).AsPtr();
     }
 
     public static unsafe T* ToPtr<T>(this IEnumerable<T> enumerable, ICompositeDisposable dispose) where T : unmanaged

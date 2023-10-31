@@ -1,10 +1,12 @@
 using GameDotNet.Graphics.Abstractions;
 using Microsoft.Extensions.Logging;
+using SpirvReflectSharp;
 using Vortice.ShaderCompiler;
+using SourceLanguage = Vortice.ShaderCompiler.SourceLanguage;
 
 namespace GameDotNet.Graphics;
 
-public class SpirVShader : IShader
+public sealed class SpirVShader : IShader
 {
     public SpirVShader(ReadOnlySpan<byte> code, ShaderDescription description)
     {
@@ -28,7 +30,8 @@ public class ShaderCompiler
         _logger = logger;
     }
 
-    public async Task<SpirVShader?> TranslateGlsl(string path, string includePath = ".", CancellationToken token = default)
+    public async Task<SpirVShader?> TranslateGlsl(string path, string includePath = ".",
+                                                  CancellationToken token = default)
     {
         return await Task.Run(async () =>
         {
@@ -37,13 +40,13 @@ public class ShaderCompiler
 
             var stage = FileExtensionToStage(ext);
             if (stage is null) return null;
-                
+
             var source = await File.ReadAllTextAsync(path, token);
-            
+
             using var compiler = new Compiler();
             var opt = compiler.Options;
-            
-            opt.SetargetSpirv(SpirVVersion.Version_1_5);
+
+            opt.SetargetSpirv(SpirVVersion.Version_1_3);
             opt.SetSourceLanguage(SourceLanguage.GLSL);
 
             compiler.Includer = new Includer(includePath);
@@ -52,11 +55,13 @@ public class ShaderCompiler
 
             if (res.Status != CompilationStatus.Success)
             {
-                _logger.LogError("Compilation FAIL: {ShaderName}, Status = {Status}, {ErrNber} errors, Msg = {ErrMsg}", Path.GetFileName(path), res.Status, res.ErrorsCount, res.ErrorMessage);
+                _logger.LogError("Compilation FAIL: {ShaderName}, Status = {Status}, {ErrNber} errors, Msg = {ErrMsg}",
+                                 Path.GetFileName(path), res.Status, res.ErrorsCount, res.ErrorMessage);
                 return null;
             }
-            
-            _logger.LogInformation("Compilation SUCCESS: {ShaderName}, {WarnNber} warnings", Path.GetFileName(path), res.WarningsCount);
+
+            _logger.LogInformation("Compilation SUCCESS: {ShaderName}, {WarnNber} warnings", Path.GetFileName(path),
+                                   res.WarningsCount);
 
 
             return new SpirVShader(res.GetBytecode(), new()

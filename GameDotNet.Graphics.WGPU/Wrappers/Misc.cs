@@ -73,7 +73,7 @@ public sealed class PipelineLayout : IDisposable
 
     internal unsafe PipelineLayout(WebGPU api, PipelineLayoutPtr handle)
     {
-        if (_handle is null)
+        if (handle is null)
             throw new ResourceCreationError(nameof(PipelineLayout));
 
         _api = api;
@@ -181,7 +181,7 @@ public sealed class Sampler : IDisposable
 
     internal unsafe Sampler(WebGPU api, SamplerPtr handle)
     {
-        if (_handle is null)
+        if (handle is null)
             throw new ResourceCreationError(nameof(Sampler));
         _api = api;
 
@@ -215,7 +215,7 @@ public sealed class ShaderModule : IDisposable
 
     internal unsafe ShaderModule(WebGPU api, ShaderModulePtr handle)
     {
-        if (_handle is null)
+        if (handle is null)
             throw new ResourceCreationError(nameof(ShaderModule));
         _api = api;
 
