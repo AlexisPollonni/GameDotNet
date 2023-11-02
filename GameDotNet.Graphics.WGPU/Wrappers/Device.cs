@@ -373,7 +373,7 @@ public sealed class Device : IDisposable
                           );
     }
 
-    public unsafe ShaderModule CreateSpirVShaderModule(string label, byte[] spirvCode)
+    public unsafe ShaderModule CreateSpirVShaderModule(string label, uint[] spirvCode)
     {
         using var d = new DisposableList();
         return new(_api, _api.DeviceCreateShaderModule(_handle, new ShaderModuleDescriptor

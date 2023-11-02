@@ -25,12 +25,12 @@ public sealed class WgpuStructChain : IDisposable
 		return this;
 	}
 
-	public unsafe WgpuStructChain AddShaderModuleSPIRVDescriptor(byte[] code)
+	public unsafe WgpuStructChain AddShaderModuleSPIRVDescriptor(uint[] code)
 	{
 		AddStruct(new ShaderModuleSPIRVDescriptor
 		{
 			Chain = new() { SType = SType.ShaderModuleSpirvDescriptor },
-			Code = (uint*)code.AsPtr(_trackedAllocatedData),
+			Code = code.AsPtr(_trackedAllocatedData),
 			CodeSize = (uint)code.Length
 		});
 

@@ -23,7 +23,7 @@ public sealed class VulkanShader : IDisposable
     private readonly SpirvReflectSharp.ShaderModule _reflectModule;
 
     public VulkanShader(Vk vk, VulkanDevice device, SpirVShader bytecode)
-    : this(vk, device, StageToShaderStageFlags(bytecode.Description.Stage), bytecode.Code, bytecode.Description.EntryPoint)
+    : this(vk, device, StageToShaderStageFlags(bytecode.Description.Stage), bytecode.Code.AsMemory().AsBytes().Span, bytecode.Description.EntryPoint)
     { }
     
     public VulkanShader(Vk vk, VulkanDevice device, ShaderStageFlags stage, ReadOnlySpan<byte> bytecode,

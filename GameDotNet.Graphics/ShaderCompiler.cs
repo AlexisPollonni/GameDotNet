@@ -1,23 +1,25 @@
+using CommunityToolkit.HighPerformance;
 using GameDotNet.Graphics.Abstractions;
 using Microsoft.Extensions.Logging;
-using SpirvReflectSharp;
 using Vortice.ShaderCompiler;
-using SourceLanguage = Vortice.ShaderCompiler.SourceLanguage;
 
 namespace GameDotNet.Graphics;
 
 public sealed class SpirVShader : IShader
 {
-    public SpirVShader(ReadOnlySpan<byte> code, ShaderDescription description)
+    public SpirVShader(ReadOnlySpan<uint> code, ShaderDescription description)
     {
         Code = code.ToArray();
         Description = description;
     }
 
+    public Task SaveToFile(string path, CancellationToken token = default) 
+        => File.WriteAllBytesAsync(path, Code.AsSpan().AsBytes().ToArray(),token);
+
     public void Dispose()
     { }
 
-    public byte[] Code { get; }
+    public uint[] Code { get; }
     public ShaderDescription Description { get; }
 }
 
@@ -46,8 +48,9 @@ public class ShaderCompiler
             using var compiler = new Compiler();
             var opt = compiler.Options;
 
-            opt.SetargetSpirv(SpirVVersion.Version_1_3);
+            opt.SetargetSpirv(SpirVVersion.Version_1_0);
             opt.SetSourceLanguage(SourceLanguage.GLSL);
+            opt.SetGenerateDebugInfo();
 
             compiler.Includer = new Includer(includePath);
 
@@ -62,9 +65,8 @@ public class ShaderCompiler
 
             _logger.LogInformation("Compilation SUCCESS: {ShaderName}, {WarnNber} warnings", Path.GetFileName(path),
                                    res.WarningsCount);
-
-
-            return new SpirVShader(res.GetBytecode(), new()
+            
+            return new SpirVShader(res.GetBytecode().Cast<byte, uint>(), new()
             {
                 Name = Path.GetFileNameWithoutExtension(path),
                 Stage = stage.Value,

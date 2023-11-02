@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
 using GameDotNet.Graphics.Abstractions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.SPIRV;
@@ -31,7 +32,8 @@ public sealed class WebGpuShader : IShader
         _ctx = ctx;
         _bytecode = bytecode;
         Description = bytecode.Description;
-        _reflectModule = SpirvReflect.ReflectCreateShaderModule(bytecode.Code);
+        
+        _reflectModule = SpirvReflect.ReflectCreateShaderModule(bytecode.Code.AsMemory().AsBytes().Span);
     }
 
     public async ValueTask<ShaderModule?> Compile(CancellationToken token = default)
@@ -40,7 +42,7 @@ public sealed class WebGpuShader : IShader
         ShaderModule module;
         try
         {
-            module = _ctx.Device.CreateSpirVShaderModule("create-shader-module-spirv", _bytecode.Code);
+            module = _ctx.Device.CreateSpirVShaderModule($"create-shader-module-spirv:{_bytecode.Description.Stage}/{_bytecode.Description.Name}", _bytecode.Code);
         }
         catch (SEHException e)
         {
@@ -60,7 +62,7 @@ public sealed class WebGpuShader : IShader
             
             tcs.SetResult();
         });
-
+        
         await tcs.Task;
         Module = module;
         return module;
