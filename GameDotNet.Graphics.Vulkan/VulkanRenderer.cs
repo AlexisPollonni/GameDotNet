@@ -8,7 +8,6 @@ using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
-using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Maths;
 using Silk.NET.Vulkan;
 
@@ -192,7 +191,7 @@ public sealed class VulkanRenderer : IDisposable
         if (!mapping.TryGetSpan(out var span))
             throw new AllocationException("Couldn't get vertices span from allocation");
 
-        mesh.Vertices.AsSpan().CopyTo(span);
+        mesh.Vertices.ToArray().AsSpan().CopyTo(span);
     }
 
     private bool CreateSwapchain()

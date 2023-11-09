@@ -1,4 +1,5 @@
 using System.Drawing;
+using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Contexts;
 using Silk.NET.WebGPU;
@@ -22,9 +23,7 @@ public sealed class WebGpuContext : IDisposable
     public required Device Device { get; init; }
     public required SwapChain SwapChain { get; init; }
 
-
     private readonly ILogger _logger;
-
 
     internal WebGpuContext(ILogger logger)
     {
@@ -39,8 +38,8 @@ public sealed class WebGpuContext : IDisposable
         var surface = CreateSurfaceFromView(instance, view);
 
         var adapter =
-            await instance.RequestAdapterAsync(surface, PowerPreference.HighPerformance, false, BackendType.Vulkan,
-                                               token);
+            await instance.RequestAdapterAsync(surface, PowerPreference.HighPerformance, false, BackendType.D3D12,
+                                               token).WaitWhilePollingAsync(instance, token);
 
         adapter.GetProperties(out var properties);
         adapter.GetLimits(out var limits);
@@ -82,7 +81,7 @@ public sealed class WebGpuContext : IDisposable
 
         var sw = device.CreateSwapchain(surface, new(view.Size.X, view.Size.Y), TextureFormat.Bgra8Unorm,
                                         TextureUsage.RenderAttachment, PresentMode.Fifo, "create-swapchain");
-        
+
         return new(logger)
         {
             Api = api,
@@ -104,8 +103,9 @@ public sealed class WebGpuContext : IDisposable
         Api.Dispose();
     }
 
-    public void ResizeSurface(Size size) 
-        => SwapChain.Configure(Device, Surface, size, TextureFormat.Bgra8Unorm, TextureUsage.RenderAttachment, PresentMode.Fifo);
+    public void ResizeSurface(Size size)
+        => SwapChain.Configure(Device, Surface, size, TextureFormat.Bgra8Unorm, TextureUsage.RenderAttachment,
+                               PresentMode.Fifo);
 
     private static unsafe Surface CreateSurfaceFromView(Instance instance, INativeWindowSource view)
     {

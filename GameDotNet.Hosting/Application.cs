@@ -1,6 +1,5 @@
 using System.IO.Compression;
 using GameDotNet.Core;
-using GameDotNet.Graphics.Vulkan;
 using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
@@ -61,7 +60,7 @@ public class Application : IDisposable
         _mainView.Update += d => Universe.Update();
         _mainView.Closing += () => _loadTcs.TrySetCanceled();
 
-        var log = new SerilogLoggerFactory().CreateLogger<VulkanRenderSystem>();
+        var log = new SerilogLoggerFactory().CreateLogger<WebGpuRenderSystem>();
         
         Universe.RegisterSystem(new WebGpuRenderSystem(log, _mainView));
         Universe.RegisterSystem(new CameraSystem(_mainView));

@@ -1,9 +1,6 @@
 using System.Diagnostics;
-using System.Drawing;
-using System.Numerics;
 using Arch.Core;
 using Arch.Core.Extensions;
-using GameDotNet.Core.Physics.Components;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
@@ -60,18 +57,6 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         var frag = await comp.TranslateGlsl("Assets/Mesh.frag", "Assets/");
         
         _renderer.Initialize(vert, frag);
-        
-        Mesh m = new(new()
-        {
-            new(new(1, 1, 0), new(), Color.Blue),
-            new(new(-1, 1, 0), new(), Color.Red),
-            new(new(0, -1, 0), new(), Color.Green),
-        });
-
-        ParentWorld.Create(new Tag("Triangle"),
-                           new Translation(Vector3.Zero),
-                           m);
-
 
         //TODO: Move this to asset manager when its implemented
         ParentWorld.Query<Mesh>(MeshQueryDesc, (in Entity e, ref Mesh mesh) =>

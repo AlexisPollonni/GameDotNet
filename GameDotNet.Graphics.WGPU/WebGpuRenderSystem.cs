@@ -1,7 +1,10 @@
 using System.Diagnostics;
 using Arch.Core;
+using Arch.Core.Extensions;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
+using GameDotNet.Management.ECS.Components;
+using Microsoft.Extensions.Logging;
 using Serilog;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
@@ -12,6 +15,7 @@ namespace GameDotNet.Graphics.WGPU;
 public sealed class WebGpuRenderSystem : SystemBase, IDisposable
 {
     private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAll<Camera>();
+    private static readonly QueryDescription MeshQueryDesc = new QueryDescription().WithAll<Mesh>();
 
     private readonly ILogger _logger;
     private readonly Thread _renderThread;
@@ -35,6 +39,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         {
             Name = "GameDotNet Render"
         };
+        
         _view.FramebufferResize += OnFramebufferResize;
     }
 
@@ -46,6 +51,9 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         var frag = await comp.TranslateGlsl("Assets/Mesh.frag", "Assets/");
 
         _gpuContext = await WebGpuContext.Create(_logger, _view);
+        
+        
+        
         _renderer = new(_gpuContext, _logger);
         
         await _renderer.Initialize(vert, frag);
@@ -53,18 +61,17 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         _gpuContext.ResizeSurface(new(_view.Size.X, _view.Size.Y));
 
         //TODO: Move this to asset manager when its implemented
-        // ParentWorld.Query<Mesh>(MeshQueryDesc, (in Entity e, ref Mesh mesh) =>
-        // {
-        //     if (mesh.Vertices.Count is 0)
-        //     {
-        //         Log.Warning("Skipped mesh {Name} with no vertices", e.Get<Tag>().Name);
-        //         return;
-        //     }
-        //
-        //     var render = new RenderMesh(mesh);
-        //     _renderer.UploadMesh(ref render);
-        //     e.Add(render);
-        // });
+        ParentWorld.Query<Mesh>(MeshQueryDesc, (in Entity e, ref Mesh mesh) =>
+        {
+            if (mesh.Vertices.Count is 0)
+            {
+                Log.Warning("Skipped mesh {Name} with no vertices", e.Get<Tag>().Name);
+                return;
+            }
+        
+            
+            
+        });
 
         return true;
     }
@@ -97,13 +104,12 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
                 _gpuContext?.ResizeSurface(new(_view.FramebufferSize.X, _view.FramebufferSize.Y));
                 surfaceSize = _view.Size;
             }
-
-            var surfView = _gpuContext?.SwapChain.GetCurrentTextureView();
-            if (surfView is null)
-                continue;
-            using (surfView)
+            
             {
-                _renderer?.Draw(_drawWatch.Elapsed, surfView);
+                using var swTextureView = _gpuContext?.SwapChain.GetCurrentTextureView();
+                if(swTextureView is null) 
+                    continue;
+                _renderer?.Draw(_drawWatch.Elapsed, swTextureView);
                 
                 _gpuContext?.SwapChain.Present();
             }
@@ -111,14 +117,14 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
 
             if (!Volatile.Read(ref _isRenderPaused)) continue;
 
-            Log.Information("<Render> Render thread {Id} entering sleep", Environment.CurrentManagedThreadId);
+            _logger.LogInformation("<Render> Render thread {Id} entering sleep", Environment.CurrentManagedThreadId);
             try
             {
                 Thread.Sleep(Timeout.Infinite);
             }
             catch (ThreadInterruptedException)
             {
-                Log.Information("<Render> Render thread {Id} resumed", Environment.CurrentManagedThreadId);
+                _logger.LogInformation("<Render> Render thread {Id} resumed", Environment.CurrentManagedThreadId);
             }
         }
     }

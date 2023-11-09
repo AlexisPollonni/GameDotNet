@@ -2,7 +2,7 @@ using Silk.NET.SPIRV.Reflect;
 using Silk.NET.WebGPU;
 using Silk.NET.WebGPU.Extensions.Dawn;
 
-namespace GameDotNet.Graphics.WGPU;
+namespace GameDotNet.Graphics.WGPU.Extensions;
 
 public static class UtilsExtensions
 {

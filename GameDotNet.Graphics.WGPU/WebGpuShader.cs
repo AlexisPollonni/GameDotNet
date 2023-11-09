@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using GameDotNet.Graphics.Abstractions;
+using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.SPIRV;
 using Silk.NET.SPIRV.Reflect;

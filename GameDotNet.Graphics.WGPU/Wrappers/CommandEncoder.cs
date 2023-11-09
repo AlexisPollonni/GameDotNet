@@ -1,6 +1,9 @@
-﻿using System.Runtime.CompilerServices;
+﻿using CommunityToolkit.HighPerformance;
 using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Graphics.WGPU.Extensions;
+using Silk.NET.Core;
 using Silk.NET.WebGPU;
+using Silk.NET.WebGPU.Extensions.Dawn;
 using unsafe CommandEncoderPtr = Silk.NET.WebGPU.CommandEncoder*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
@@ -48,7 +51,7 @@ public sealed class CommandEncoder : IDisposable
     )
     {
         Span<DawnRenderPassColorAttachment> cAInner = stackalloc DawnRenderPassColorAttachment[colorAttachments.Length];
-        ref var dSInner = ref Unsafe.NullRef<Silk.NET.WebGPU.RenderPassDepthStencilAttachment>();
+        Silk.NET.WebGPU.RenderPassDepthStencilAttachment? dSInner = null;
         
         for (var i = 0; i < colorAttachments.Length; i++)
         {
@@ -87,11 +90,20 @@ public sealed class CommandEncoder : IDisposable
             Label = mem.AsPtr<byte>(),
             ColorAttachments = (Silk.NET.WebGPU.RenderPassColorAttachment*)cAInner.AsPtr(),
             ColorAttachmentCount = (nuint)colorAttachments.Length,
-            DepthStencilAttachment = (Silk.NET.WebGPU.RenderPassDepthStencilAttachment*)Unsafe.AsPointer(ref dSInner)
+            DepthStencilAttachment = depthStencilAttachment is null ? null : dSInner.AsPtr()
         };
         return new(_api, _api.CommandEncoderBeginRenderPass(Handle, &desc));
     }
 
+    public unsafe void WriteBuffer<T>(Buffer buffer, ReadOnlySpan<T> data, ulong bufferOffset = 0) where T : unmanaged
+    {
+        var dawn = _api.GetDawnExtension() ?? throw new PlatformException("Dawn is not available");
+
+        var bytes = data.AsBytes();
+        
+        dawn.CommandEncoderWriteBuffer(_handle, buffer.Handle, bufferOffset, bytes, (ulong)bytes.Length);
+    }
+    
     public unsafe void ClearBuffer(Buffer buffer, ulong offset, ulong size)
         => _api.CommandEncoderClearBuffer(Handle, buffer.Handle, offset, size);
 

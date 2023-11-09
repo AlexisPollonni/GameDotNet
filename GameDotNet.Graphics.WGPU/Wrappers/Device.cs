@@ -2,6 +2,7 @@
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Graphics.WGPU.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
@@ -240,9 +241,11 @@ public sealed class Device : IDisposable
         }
     }
 
-    public unsafe RenderPipeline CreateRenderPipeline(string label, PipelineLayout layout,
-                                                      VertexState vertexState, PrimitiveState primitiveState,
+    public unsafe RenderPipeline CreateRenderPipeline(string label,
+                                                      VertexState vertexState, 
+                                                      PrimitiveState primitiveState,
                                                       MultisampleState multisampleState,
+                                                      PipelineLayout? layout = null,
                                                       DepthStencilState? depthStencilState = null,
                                                       FragmentState? fragmentState = null)
     {
@@ -256,9 +259,10 @@ public sealed class Device : IDisposable
     }
 
     public unsafe void CreateRenderPipelineAsync(string label, CreateRenderPipelineAsyncCallback callback,
-                                                 PipelineLayout layout,
-                                                 VertexState vertexState, PrimitiveState primitiveState,
+                                                 VertexState vertexState, 
+                                                 PrimitiveState primitiveState,
                                                  MultisampleState multisampleState,
+                                                 PipelineLayout? layout = null,
                                                  DepthStencilState? depthStencilState = null,
                                                  FragmentState? fragmentState = null)
     {
@@ -268,15 +272,47 @@ public sealed class Device : IDisposable
                                                   fragmentState, d);
         _api.DeviceCreateRenderPipelineAsync(_handle, desc, new((s, p, m, _) =>
         {
-            callback(s, new(_api, p), SilkMarshal.PtrToString((nint)m)!);
+            RenderPipeline? pipeline = null;
+            if(p is not null) 
+                pipeline = new(_api, p);
+            callback(s, pipeline, SilkMarshal.PtrToString((nint)m)!);
         }), null);
     }
 
-    public delegate void CreateRenderPipelineAsyncCallback(CreatePipelineAsyncStatus status, RenderPipeline pipeline,
+    public async ValueTask<RenderPipeline> CreateRenderPipelineAsync(string label,
+                                                                            VertexState vertexState,
+                                                                            PrimitiveState primitiveState,
+                                                                            MultisampleState multisampleState,
+                                                                            PipelineLayout? layout = null,
+                                                                            DepthStencilState? depthStencilState = null,
+                                                                            FragmentState? fragmentState = null,
+                                                                            CancellationToken token = default)
+    {
+        var tcs = new TaskCompletionSource<RenderPipeline>();
+
+        token.ThrowIfCancellationRequested();
+        CreateRenderPipelineAsync(label, (status, pipeline, message) =>
+                                  {
+                                      token.ThrowIfCancellationRequested();
+                                      if (status is not CreatePipelineAsyncStatus.Success)
+                                      {
+                                          tcs.SetException(new PlatformException($"Failed to create render pipeline {message}"));
+                                      }
+                                      
+                                      tcs.SetResult(pipeline);
+                                  },
+                                  vertexState, primitiveState, multisampleState, layout, depthStencilState, fragmentState);
+
+        return await tcs.Task;
+    }
+
+    public delegate void CreateRenderPipelineAsyncCallback(CreatePipelineAsyncStatus status, 
+                                                           RenderPipeline? pipeline,
                                                            string message);
 
     private static unsafe RenderPipelineDescriptor CreateRenderPipelineDescriptor(
-        string label, PipelineLayout layout, 
+        string label, 
+        PipelineLayout? layout, 
         VertexState vertexState,
         PrimitiveState primitiveState, 
         MultisampleState multisampleState, 
@@ -302,7 +338,7 @@ public sealed class Device : IDisposable
                                        .Select(x => new Silk.NET.WebGPU.ColorTargetState
                                        {
                                            Format = x.Format,
-                                           Blend = x.BlendState.AsPtr(dispose),
+                                           Blend = x.BlendState.ToPtrPinned(dispose),
                                            WriteMask = x.WriteMask
                                        }).ToArray();
 
@@ -329,7 +365,7 @@ public sealed class Device : IDisposable
         return new()
         {
             Label = label.ToPtr(dispose),
-            Layout = layout.Handle,
+            Layout = layout is null ? null : layout.Handle,
             Vertex = new()
             {
                 Module = vertexState.Module.Handle,
@@ -340,9 +376,9 @@ public sealed class Device : IDisposable
                 ConstantCount = (nuint)(vConstLayouts?.Length ?? 0)
             },
             Primitive = primitiveState,
-            DepthStencil = depthStencilState.AsPtr(dispose),
+            DepthStencil = depthStencilState.ToPtrPinned(dispose),
             Multisample = multisampleState,
-            Fragment = fragState.AsPtr(dispose)
+            Fragment = fragState.ToPtrPinned(dispose)
         };
     }
     
@@ -402,9 +438,10 @@ public sealed class Device : IDisposable
 
     public unsafe Texture CreateTexture(string label, TextureUsage usage,
                                         TextureDimension dimension, Extent3D size, TextureFormat format,
-                                        uint mipLevelCount, uint sampleCount)
+                                        uint mipLevelCount, uint sampleCount, TextureFormat[]? viewFormats = null)
     {
         using var mem = label.ToGlobalMemory();
+        using var vFmtPtr = viewFormats.AsMemory().Pin();
         var desc = new TextureDescriptor
         {
             Label = mem.AsPtr<byte>(),
@@ -414,6 +451,8 @@ public sealed class Device : IDisposable
             Format = format,
             MipLevelCount = mipLevelCount,
             SampleCount = sampleCount,
+            ViewFormats = (TextureFormat*)vFmtPtr.Pointer,
+            ViewFormatCount = (nuint)(viewFormats?.Length ?? 0)
         };
 
         return CreateTexture(in desc);
