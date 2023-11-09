@@ -7,6 +7,9 @@ public delegate void RequestAdapterCallback(RequestAdapterStatus status, Adapter
 
 public delegate void RequestDeviceCallback(RequestDeviceStatus status, Device device, string message);
 
+public delegate void CreateComputePipelineAsyncCallback(CreatePipelineAsyncStatus status, ComputePipeline pipeline,
+                                                        string message);
+
 public delegate void ErrorCallback(ErrorType type, string message);
 
 public delegate void LoggingCallback(LoggingType type, string message);
@@ -194,4 +197,14 @@ public struct ColorTargetState
     public BlendState? BlendState;
 
     public ColorWriteMask WriteMask;
+}
+
+
+public struct IndexedIndirect
+{
+    public uint IndexCount;
+    public uint InstanceCount;
+    public uint FirstIndex;
+    public uint BaseVertex;
+    public uint FirstInstance;
 }

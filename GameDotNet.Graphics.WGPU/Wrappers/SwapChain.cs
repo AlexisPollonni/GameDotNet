@@ -24,21 +24,24 @@ public sealed class SwapChain : IDisposable
         _dawn.SwapChainPresent(Handle);
     }
 
-    public unsafe Texture GetCurrentTexture()
+    public unsafe Texture? GetCurrentTexture()
     {
         var ptr = _dawn.SwapChainGetCurrentTexture(Handle);
+        if (ptr is null)
+            return null;
+
         return new (_api, ptr);
     }
 
     public unsafe TextureView? GetCurrentTextureView()
     {
-        var ptr = _dawn.SwapChainGetCurrentTextureView(Handle);
+        var viewPtr = _dawn.SwapChainGetCurrentTextureView(Handle);
+        var text = GetCurrentTexture();
 
-        if (ptr is null)
-        {
+        if (viewPtr is null || text is null)
             return null;
-        }
-        return new(_api, ptr);
+        
+        return new(_api, viewPtr, text);
     }
 
     public unsafe void Configure(Device device, Surface surface, Size size, TextureFormat fmt, TextureUsage usage,

@@ -36,7 +36,7 @@ public sealed class Texture : IDisposable
 
     internal unsafe Texture(WebGPU api, TexturePtr handle, TextureDescriptor descriptor)
     {
-        if(_handle is null)
+        if(handle is null)
             throw new ResourceCreationError(nameof(Texture));
         _handle = handle;
         _api = api;

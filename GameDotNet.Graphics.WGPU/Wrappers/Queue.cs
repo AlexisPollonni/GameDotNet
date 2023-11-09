@@ -1,6 +1,5 @@
 ﻿using System.Runtime.InteropServices;
 using Silk.NET.WebGPU;
-
 using unsafe QueuePtr = Silk.NET.WebGPU.Queue*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
@@ -38,12 +37,11 @@ public sealed class Queue : IDisposable
             _api.QueueSubmit(_handle, (nuint)commands.Length, (Silk.NET.WebGPU.CommandBuffer**)ptr);
     }
 
-    public unsafe void WriteBuffer<T>(Buffer buffer, ulong bufferOffset, ReadOnlySpan<T> data)
+    public unsafe void WriteBuffer<T>(Buffer buffer, ReadOnlySpan<T> data, ulong bufferOffset = 0)
         where T : unmanaged
     {
         var structSize = (nuint)sizeof(T);
-
-
+        
         _api.QueueWriteBuffer(_handle, buffer.Handle, bufferOffset, data, (nuint)data.Length * structSize);
     }
 

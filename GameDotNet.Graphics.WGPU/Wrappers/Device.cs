@@ -181,9 +181,6 @@ public sealed class Device : IDisposable
                                         );
     }
 
-    public delegate void CreateComputePipelineAsyncCallback(CreatePipelineAsyncStatus status, ComputePipeline pipeline,
-                                                            string message);
-
     public unsafe PipelineLayout CreatePipelineLayout(string label, BindGroupLayout[] bindGroupLayouts)
     {
         using var mem = label.ToGlobalMemory();

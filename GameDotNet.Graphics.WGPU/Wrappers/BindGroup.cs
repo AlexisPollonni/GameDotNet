@@ -23,7 +23,7 @@ public class BindGroup : IDisposable
 
     internal unsafe BindGroup(WebGPU api, BindGroupPtr handle)
     {
-        if (_handle is null)
+        if (handle is null)
             throw new ResourceCreationError(nameof(BindGroup));
 
         _api = api;

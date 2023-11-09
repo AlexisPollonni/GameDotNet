@@ -26,7 +26,8 @@ public sealed class RenderPassEncoder : IDisposable
     public unsafe void Draw(uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance)
         => _api.RenderPassEncoderDraw(_handle, vertexCount, instanceCount, firstVertex, firstInstance);
 
-    public unsafe void DrawIndexed(uint indexCount, uint instanceCount, uint firstIndex, int baseVertex, uint firstInstance)
+    public unsafe void DrawIndexed(uint indexCount, uint instanceCount, uint firstIndex, int baseVertex,
+                                   uint firstInstance)
         => _api.RenderPassEncoderDrawIndexed(_handle, indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
 
     public unsafe void DrawIndexedIndirect(Buffer indirectBuffer, ulong indirectOffset)
@@ -48,7 +49,7 @@ public sealed class RenderPassEncoder : IDisposable
         for (var i = 0; i < bundles.Length; i++)
             innerBundles[i] = (nint)bundles[i].Handle;
 
-        fixed(nint* ptr = innerBundles)
+        fixed (nint* ptr = innerBundles)
             _api.RenderPassEncoderExecuteBundles(_handle, (uint)bundles.Length, (Silk.NET.WebGPU.RenderBundle**)ptr);
     }
 
@@ -60,15 +61,13 @@ public sealed class RenderPassEncoder : IDisposable
 
     public unsafe void PopDebugGroup() => _api.RenderPassEncoderPopDebugGroup(_handle);
 
-    public unsafe void SetBindGroup(uint groupIndex, BindGroup group, uint[] dynamicOffsets)
+    public unsafe void SetBindGroup(uint groupIndex, BindGroup group, uint[]? dynamicOffsets = null)
     {
-        fixed (uint* dynamicOffsetsPtr = dynamicOffsets)
-        {
-            _api.RenderPassEncoderSetBindGroup(_handle, groupIndex,
-                                          group.Handle,
-                                          (uint)dynamicOffsets.Length,
-                                          dynamicOffsetsPtr);
-        }
+        using var dynamicOffsetsPtr = dynamicOffsets.AsMemory().Pin();
+        _api.RenderPassEncoderSetBindGroup(_handle, groupIndex,
+                                           group.Handle,
+                                           (nuint)(dynamicOffsets?.Length ?? 0),
+                                           (uint*)dynamicOffsetsPtr.Pointer);
     }
 
     public unsafe void SetBlendConstant(in Color color) => _api.RenderPassEncoderSetBlendConstant(_handle, color);
@@ -76,7 +75,8 @@ public sealed class RenderPassEncoder : IDisposable
     public unsafe void SetIndexBuffer(Buffer buffer, IndexFormat format, ulong offset, ulong size)
         => _api.RenderPassEncoderSetIndexBuffer(_handle, buffer.Handle, format, offset, size);
 
-    public unsafe void SetPipeline(RenderPipeline pipeline) => _api.RenderPassEncoderSetPipeline(_handle, pipeline.Handle);
+    public unsafe void SetPipeline(RenderPipeline pipeline) =>
+        _api.RenderPassEncoderSetPipeline(_handle, pipeline.Handle);
 
     // TODO: research why binding not present
     // public unsafe void SetPushConstants<T>(ShaderStage stages, uint offset, ReadOnlySpan<T> data)
@@ -91,7 +91,8 @@ public sealed class RenderPassEncoder : IDisposable
     public unsafe void SetScissorRect(uint x, uint y, uint width, uint height)
         => _api.RenderPassEncoderSetScissorRect(_handle, x, y, width, height);
 
-    public unsafe void SetStencilReference(uint reference) => _api.RenderPassEncoderSetStencilReference(_handle, reference);
+    public unsafe void SetStencilReference(uint reference) =>
+        _api.RenderPassEncoderSetStencilReference(_handle, reference);
 
     public unsafe void SetVertexBuffer(uint slot, Buffer buffer, ulong offset, ulong size)
         => _api.RenderPassEncoderSetVertexBuffer(_handle, slot, buffer.Handle, offset, size);
