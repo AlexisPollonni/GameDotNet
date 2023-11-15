@@ -83,7 +83,7 @@ public class Application : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public static ILogger CreateLogger(string appName)
+    public static ILogger CreateLogger(string appName, LogEventLevel minConsoleLevel = LogEventLevel.Debug, LogEventLevel minFileLevel = LogEventLevel.Verbose)
     {
         var logDirPath = Path.Combine(Constants.LogsDirectoryPath, appName);
         var logPath = Path.Combine(logDirPath, "game.gz");
@@ -109,9 +109,10 @@ public class Application : IDisposable
                      .MinimumLevel.Verbose()
                      .WriteTo.Async(a =>
                      {
-                         a.Console(LogEventLevel.Debug, 
+                         a.Console(minConsoleLevel, 
                                    "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}   {NewLine}{Message:lj}{NewLine}{Exception}");
                          a.File(new CompactJsonFormatter(), logPath,
+                                restrictedToMinimumLevel: minFileLevel,
                                 hooks: new GZipHooks(CompressionLevel.SmallestSize),
                                 retainedFileCountLimit: 5, rollOnFileSizeLimit: true, buffered: true);
                      }, monitor, 100000)
