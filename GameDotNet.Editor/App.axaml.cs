@@ -1,6 +1,8 @@
 using System;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Logging;
 using Avalonia.Markup.Xaml;
+using GameDotNet.Editor.Tools;
 using GameDotNet.Editor.ViewModels;
 using GameDotNet.Editor.Views;
 using GameDotNet.Hosting;
@@ -24,6 +26,7 @@ namespace GameDotNet.Editor
             var builder = Hosting.Application.CreateHostBuilder(Hosting.Application.CreateLogger("GameDotNet-Editor"));
 
             builder.Services
+                   .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
                    .AddTransient<ViewLocator>()
                    .AddTransient<WebGpuViewModel>()
                    .AddView<WebGpuViewModel, WebGpuView>()
@@ -31,6 +34,8 @@ namespace GameDotNet.Editor
                    .AddCoreSystemServices();
 
             GlobalHost = builder.Build();
+
+            Logger.Sink = GlobalHost.Services.GetRequiredService<ILogSink>();
             
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
