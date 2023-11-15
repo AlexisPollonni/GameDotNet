@@ -1,28 +1,37 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using GameDotNet.Editor.ViewModels;
+using Microsoft.Extensions.DependencyInjection;
 
-namespace GameDotNet.Editor
+namespace GameDotNet.Editor;
+
+public static class ViewLocatorHelpers
 {
-    public class ViewLocator : IDataTemplate
+    public static IServiceCollection AddView<TViewModel, TView>(this IServiceCollection services)
+        where TView : Control, new()
+        where TViewModel : ViewModelBase
     {
-        public Control Build(object data)
-        {
-            var name = data.GetType().FullName!.Replace("ViewModel", "View");
-            var type = Type.GetType(name);
-
-            if (type != null)
-            {
-                return (Control) Activator.CreateInstance(type)!;
-            }
-
-            return new TextBlock {Text = "Not Found: " + name};
-        }
-
-        public bool Match(object data)
-        {
-            return data is ViewModelBase;
-        }
+        services.AddSingleton(new ViewLocator.ViewLocationDescriptor(typeof(TViewModel), () => new TView()));
+        return services;
     }
+}
+
+// From  https://github.com/AvaloniaUI/Avalonia.Samples
+public class ViewLocator : IDataTemplate
+{
+    private readonly Dictionary<Type, Func<Control>> _dic;
+
+    public ViewLocator(IEnumerable<ViewLocationDescriptor> descriptors)
+    {
+        _dic = descriptors.ToDictionary(x => x.ViewModel, x => x.Factory);
+    }
+
+    public Control Build(object? param) => _dic[param!.GetType()]();
+
+    public bool Match(object? param) => param is not null && _dic.ContainsKey(param.GetType());
+
+    public record ViewLocationDescriptor(Type ViewModel, Func<Control> Factory);
 }

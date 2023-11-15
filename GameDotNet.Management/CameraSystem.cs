@@ -38,7 +38,7 @@ public sealed class CameraSystem : SystemBase, IDisposable
         _view.FocusChanged += ChangeFocusState;
     }
 
-    public override ValueTask<bool> Initialize()
+    public override ValueTask<bool> Initialize(CancellationToken token = default)
     {
         _input = _view.CreateInput();
         _keyboard = _input.Keyboards[0];

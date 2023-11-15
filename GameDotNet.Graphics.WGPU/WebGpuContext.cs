@@ -1,10 +1,11 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
+using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Contexts;
 using Silk.NET.WebGPU;
 using Silk.NET.WebGPU.Extensions.Dawn;
-using Silk.NET.Windowing;
 using Adapter = GameDotNet.Graphics.WGPU.Wrappers.Adapter;
 using Device = GameDotNet.Graphics.WGPU.Wrappers.Device;
 using Instance = GameDotNet.Graphics.WGPU.Wrappers.Instance;
@@ -16,34 +17,41 @@ namespace GameDotNet.Graphics.WGPU;
 
 public sealed class WebGpuContext : IDisposable
 {
-    public required WebGPU Api { get; init; }
-    public required Instance Instance { get; init; }
-    public required Surface Surface { get; init; }
-    public required Adapter Adapter { get; init; }
-    public required Device Device { get; init; }
-    public required SwapChain SwapChain { get; init; }
+    [MemberNotNullWhen(true, nameof(Surface), nameof(Adapter), nameof(Device), nameof(SwapChain))]
+    public bool IsInitialized { get; private set; }
+    public WebGPU Api { get; }
+    public Instance Instance { get; }
+    public Surface? Surface { get; private set; }
+    public Adapter? Adapter { get; private set; }
+    public Device? Device { get; private set; }
+    public SwapChain? SwapChain { get; private set; }
 
-    private readonly ILogger _logger;
+    
+    private readonly ILogger<WebGpuContext> _logger;
+    
 
-    internal WebGpuContext(ILogger logger)
+    public WebGpuContext(ILogger<WebGpuContext> logger)
     {
         _logger = logger;
+        
+        Api = WebGPU.GetApi();
+        Instance = new(Api);
     }
 
-    public static async ValueTask<WebGpuContext> Create(ILogger logger, IView view, CancellationToken token = default)
+    [MemberNotNullWhen(true, nameof(Surface), nameof(Adapter), nameof(Device), nameof(SwapChain))]
+    public async ValueTask<bool> Initialize(INativeView view, CancellationToken token = default)
     {
-        var api = WebGPU.GetApi();
-        var instance = new Instance(api);
-
-        var surface = CreateSurfaceFromView(instance, view);
+        if (IsInitialized) return true;
+        
+        var surface = CreateSurfaceFromView(Instance, view);
 
         var adapter =
-            await instance.RequestAdapterAsync(surface, PowerPreference.HighPerformance, false, BackendType.D3D12,
-                                               token).WaitWhilePollingAsync(instance, token);
+            await Instance.RequestAdapterAsync(surface, PowerPreference.HighPerformance, false, BackendType.Vulkan,
+                                               token).WaitWhilePollingAsync(Instance, token);
 
         adapter.GetProperties(out var properties);
         adapter.GetLimits(out var limits);
-
+        
         var device = await adapter.RequestDeviceAsync(limits: limits.Limits, label: "Device", nativeFeatures: new[]
         {
             FeatureName.IndirectFirstInstance
@@ -51,7 +59,7 @@ public sealed class WebGpuContext : IDisposable
 
         device.SetUncapturedErrorCallback((type, message) =>
         {
-            logger.LogError("[WebGPU][{ErrorType}: {Message}]", type, message);
+            _logger.LogError("[WebGPU][{ErrorType}: {Message}]", type, message);
         });
 
         device.SetLoggingCallback((type, message) =>
@@ -59,16 +67,16 @@ public sealed class WebGpuContext : IDisposable
             switch (type)
             {
                 case LoggingType.Verbose:
-                    logger.LogTrace("[WebGPU] {Msg}", message);
+                    _logger.LogTrace("[WebGPU] {Msg}", message);
                     break;
                 case LoggingType.Info:
-                    logger.LogInformation("[WebGPU] {Msg}", message);
+                    _logger.LogInformation("[WebGPU] {Msg}", message);
                     break;
                 case LoggingType.Warning:
-                    logger.LogWarning("[WebGPU] {Msg}", message);
+                    _logger.LogWarning("[WebGPU] {Msg}", message);
                     break;
                 case LoggingType.Error:
-                    logger.LogError("[WebGPU] {Msg}", message);
+                    _logger.LogError("[WebGPU] {Msg}", message);
                     break;
                 case LoggingType.Force32:
                 default:
@@ -82,32 +90,35 @@ public sealed class WebGpuContext : IDisposable
         var sw = device.CreateSwapchain(surface, new(view.Size.X, view.Size.Y), TextureFormat.Bgra8Unorm,
                                         TextureUsage.RenderAttachment, PresentMode.Fifo, "create-swapchain");
 
-        return new(logger)
-        {
-            Api = api,
-            Instance = instance,
-            Surface = surface,
-            Adapter = adapter,
-            Device = device,
-            SwapChain = sw
-        };
+        Surface = surface;
+        Adapter = adapter;
+        Device = device;
+        SwapChain = sw;
+        
+        
+        IsInitialized = true;
+        return true;
     }
 
     public void Dispose()
     {
-        SwapChain.Dispose();
-        Device.Dispose();
-        Adapter.Dispose();
-        Surface.Dispose();
+        SwapChain?.Dispose();
+        Device?.Dispose();
+        Adapter?.Dispose();
+        Surface?.Dispose();
         Instance.Dispose();
         Api.Dispose();
     }
 
     public void ResizeSurface(Size size)
-        => SwapChain.Configure(Device, Surface, size, TextureFormat.Bgra8Unorm, TextureUsage.RenderAttachment,
-                               PresentMode.Fifo);
+    {
+        if (!IsInitialized) throw new InvalidOperationException("Context is not initialized");
+        
+        SwapChain.Configure(Device, Surface, size, TextureFormat.Bgra8Unorm, TextureUsage.RenderAttachment,
+                            PresentMode.Fifo);
+    }
 
-    private static unsafe Surface CreateSurfaceFromView(Instance instance, INativeWindowSource view)
+    private static unsafe Surface CreateSurfaceFromView(Instance instance, INativeView view)
     {
         var nat = view.Native ??
                   throw new PlatformNotSupportedException("No native view found to initialize WebGPU from");

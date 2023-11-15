@@ -5,35 +5,40 @@ using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Assets;
 using GameDotNet.Management.ECS.Components;
-using Serilog;
-using Silk.NET.Core.Native;
+using Microsoft.Extensions.Logging;
 
 namespace GameDotNet.Management.ECS;
 
 public class Universe : IDisposable
 {
     public World World { get; }
-    
+
+    private readonly ILogger<Universe> _logger;
     private readonly PooledList<SystemBase> _systems;
     private readonly PooledList<EntityReference> _loadedSceneEntities;
 
     private bool _initialized;
     private Scene? _loadedScene;
 
-    public Universe()
+    public Universe(ILogger<Universe> logger, IEnumerable<SystemBase> systems)
     {
+        _logger = logger;
         World = World.Create();
-        _systems = new();
+        
+        _systems = new(systems);
         _loadedSceneEntities = new();
     }
 
-    public async Task Initialize()
+    public async Task Initialize(CancellationToken token = default)
     {
         foreach (var system in _systems)
         {
-            if (!await system.Initialize())
+            if (token.IsCancellationRequested) return;
+            
+            system.ParentWorld = World;
+            if (!await system.Initialize(token))
             {
-                Log.Error("Couldn't initialize system of type {Type}", system.GetType());
+                _logger.LogError("Couldn't initialize system of type {Type}", system.GetType());
                 continue;
             }
 
@@ -51,13 +56,6 @@ public class Universe : IDisposable
             system.Update(system.UpdateWatch.Elapsed);
             system.UpdateWatch.Restart();
         }
-    }
-
-    public void RegisterSystem<T>(T system) where T : SystemBase
-    {
-        //TODO: Replace with dependency injection
-        system.ParentWorld = World;
-        _systems.Add(system);
     }
 
     public bool LoadScene(Scene scene)

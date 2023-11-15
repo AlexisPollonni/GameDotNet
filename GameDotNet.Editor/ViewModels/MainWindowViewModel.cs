@@ -1,7 +1,7 @@
 ﻿namespace GameDotNet.Editor.ViewModels
 {
-    public class MainWindowViewModel : ViewModelBase
+    public class MainWindowViewModel(WebGpuViewModel webGpuViewModel) : ViewModelBase
     {
-        public string Greeting => "Welcome to Avalonia!";
+        public WebGpuViewModel WebGpuViewModel { get; } = webGpuViewModel;
     }
 }

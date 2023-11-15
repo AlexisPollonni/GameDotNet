@@ -23,15 +23,8 @@ public sealed class SpirVShader : IShader
     public ShaderDescription Description { get; }
 }
 
-public class ShaderCompiler
+public class ShaderCompiler(ILogger<ShaderCompiler> logger)
 {
-    private readonly ILogger _logger;
-
-    public ShaderCompiler(ILogger logger)
-    {
-        _logger = logger;
-    }
-
     public async Task<SpirVShader?> TranslateGlsl(string path, string includePath = ".",
                                                   CancellationToken token = default)
     {
@@ -58,12 +51,12 @@ public class ShaderCompiler
 
             if (res.Status != CompilationStatus.Success)
             {
-                _logger.LogError("Compilation FAIL: {ShaderName}, Status = {Status}, {ErrNber} errors, Msg = {ErrMsg}",
+                logger.LogError("Compilation FAIL: {ShaderName}, Status = {Status}, {ErrNber} errors, Msg = {ErrMsg}",
                                  Path.GetFileName(path), res.Status, res.ErrorsCount, res.ErrorMessage);
                 return null;
             }
 
-            _logger.LogInformation("Compilation SUCCESS: {ShaderName}, {WarnNber} warnings", Path.GetFileName(path),
+            logger.LogInformation("Compilation SUCCESS: {ShaderName}, {WarnNber} warnings", Path.GetFileName(path),
                                    res.WarningsCount);
             
             return new SpirVShader(res.GetBytecode().Cast<byte, uint>(), new()

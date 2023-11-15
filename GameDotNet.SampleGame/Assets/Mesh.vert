@@ -9,17 +9,23 @@ layout (location = 2) in vec4 vColor;
 // output to frag shader
 layout (location = 0) out vec4 outColor;
 
-
-layout (binding = 0) uniform CameraData
+struct CameraData
 {
-    mat4 render_matrix;    
+    mat4 View;
+    mat4 Projection;
+};
+
+layout(set = 0, binding = 0) uniform DataBlock
+{
+    CameraData Camera;
+    mat4 ModelMatrix;
 } Data;
 
 
 
 void main()
 {
-    gl_Position = vec4(vPosition, 1.0f) * Data.render_matrix;
+    gl_Position =  Data.Camera.Projection * Data.Camera.View * Data.ModelMatrix * vec4(vPosition, 1.0f);
     outColor = vColor;
 
     //    debugPrintfEXT("RenderMat = [ %f, %f, %f, %f ]; [ %f, %f, %f, %f ]; [%f, %f, %f, %f ]; [ %f, %f, %f, %f ]",

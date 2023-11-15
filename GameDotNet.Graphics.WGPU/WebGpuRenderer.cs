@@ -1,8 +1,10 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Physics.Components;
+using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
+using Silk.NET.Maths;
 using Silk.NET.WebGPU;
 using BindGroup = GameDotNet.Graphics.WGPU.Wrappers.BindGroup;
 using BindGroupEntry = GameDotNet.Graphics.WGPU.Wrappers.BindGroupEntry;
@@ -24,67 +26,100 @@ public class WebGpuRenderer
     
     
     private readonly WebGpuContext _context;
-    private readonly ILogger _logger;
+    private readonly ShaderCompiler _compiler;
+    private readonly ILogger<WebGpuRenderer> _logger;
     private RenderPipeline _meshPipeline;
 
     private readonly Dictionary<Mesh, MeshRenderInfo> _meshBufferCache;
     private readonly List<MeshInstanceRender> _meshInstances;
     private BindGroup _uniformBind;
-    private Buffer _uniformBuffer;
+    private Buffer _modelUniformBuffer;
+    private Buffer _cameraUniformBuffer;
     private Texture? _depthTexture;
     private TextureView? _depthTextureView;
 
-    public WebGpuRenderer(WebGpuContext context, ILogger logger)
+    public WebGpuRenderer(WebGpuContext context, ShaderCompiler compiler, ILogger<WebGpuRenderer> logger)
     {
         _context = context;
+        _compiler = compiler;
         _logger = logger;
 
         _meshBufferCache = new();
         _meshInstances = new();
     }
 
-    public async ValueTask Initialize(SpirVShader vertSrc, SpirVShader fragSrc, CancellationToken token = default)
+    public async ValueTask Initialize(CancellationToken token = default)
     {
-        var vertShader = new WebGpuShader(_context, vertSrc, _logger);
-        var fragShader = new WebGpuShader(_context, fragSrc, _logger);
+        if (!_context.IsInitialized) throw new InvalidOperationException("Context not initialized");
+        
+        var vert = await _compiler.TranslateGlsl("Assets/Mesh.vert", "Assets/", token);
+        var frag = await _compiler.TranslateGlsl("Assets/Mesh.frag", "Assets/", token);
+        
+        var vertShader = new WebGpuShader(_context, vert, _logger);
+        var fragShader = new WebGpuShader(_context, frag, _logger);
 
         await vertShader.Compile(token);
         await fragShader.Compile(token);
 
         _meshPipeline = await CreateRenderPipeline(vertShader, fragShader, token);
-        
-        _uniformBuffer = _context.Device.CreateBuffer("uniform-buffer", false, (ulong)Unsafe.SizeOf<Matrix4x4>() * 128,
-                                                      BufferUsage.Uniform | BufferUsage.CopyDst);
-        
-        using var layout = _meshPipeline.GetBindGroupLayout(0);
-        
+
+        _cameraUniformBuffer = _context.Device.CreateBuffer("uniform-buffer-camera", false,
+                                                            (ulong)Unsafe.SizeOf<CameraRenderInfo>(),
+                                                            BufferUsage.Uniform | BufferUsage.CopyDst);
+        _modelUniformBuffer = _context.Device.CreateBuffer("uniform-buffer-models", false,
+                                                           (ulong)Unsafe.SizeOf<Matrix4x4>() * 128,
+                                                           BufferUsage.Uniform | BufferUsage.CopyDst);
+
+        using var camLayout = _meshPipeline.GetBindGroupLayout(0);
+
         var bindGroupEntries = new BindGroupEntry[]
         {
             new()
             {
                 Binding = 0,
-                Buffer = _uniformBuffer,
+                Buffer = _cameraUniformBuffer,
+                Offset = 0,
+                Size = (ulong)Unsafe.SizeOf<CameraRenderInfo>()
+            },
+            new()
+            {
+                Binding = 1,
+                Buffer = _modelUniformBuffer,
                 Offset = 0,
                 Size = (ulong)Unsafe.SizeOf<Matrix4x4>()
             }
         };
 
-        _uniformBind = _context.Device.CreateBindGroup("uniform-bindgroup", layout, bindGroupEntries);
-        
-        
+        _uniformBind = _context.Device.CreateBindGroup("uniform-bindgroup", camLayout, bindGroupEntries);
     }
 
-    public void WriteModelUniform()
+    public void WriteModelUniforms()
     {
         var modelMatrices = new Matrix4x4[_meshInstances.Count];
         for (var i = 0; i < _meshInstances.Count; i++)
         {
-            modelMatrices[i] = _meshInstances[i].Model;
+            modelMatrices[i] = Matrix4x4.Transpose(_meshInstances[i].Model);
         }
         
-        _context.Device.Queue.WriteBuffer<Matrix4x4>(_uniformBuffer, modelMatrices);
+        _context.Device!.Queue.WriteBuffer<Matrix4x4>(_modelUniformBuffer, modelMatrices);
+    }
+
+    public void WriteCameraUniform(Extent3D viewSize)
+    {
+        // camera position
+        var view = Transform.ToMatrix(Vector3.One, CurrentCamera.Rotation, CurrentCamera.Translation);
+        Matrix4x4.Invert(view, out view);
+
+        view = Matrix4x4.Transpose(view);
         
+        var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
+                                                                (float)viewSize.Width / viewSize.Height,
+                                                                0.1f, 5000f);
+
+        projection = Matrix4x4.Transpose(projection);
+        var camData = new CameraRenderInfo(view, projection);
         
+        _context.Device!.Queue.WriteBuffer<CameraRenderInfo>(_cameraUniformBuffer, camData.AsSpan());
     }
 
     public void RecreateDepthTexture(Extent3D size)
@@ -92,7 +127,7 @@ public class WebGpuRenderer
         _depthTextureView?.Dispose();
         _depthTexture?.Dispose();
         
-        _depthTexture = _context.Device.CreateTexture("texture-depth", 
+        _depthTexture = _context.Device!.CreateTexture("texture-depth", 
                                                       TextureUsage.RenderAttachment, TextureDimension.Dimension2D,
                                       size, 
                                                       TextureFormat.Depth24Plus, 1, 1,
@@ -105,7 +140,7 @@ public class WebGpuRenderer
 
     public unsafe void UploadMeshes(params Mesh[] mesh)
     {
-        using var cmd = _context.Device.CreateCommandEncoder("mesh-upload");
+        using var cmd = _context.Device!.CreateCommandEncoder("mesh-upload");
         foreach (var m in mesh)
         {
             if(_meshBufferCache.ContainsKey(m))
@@ -129,14 +164,10 @@ public class WebGpuRenderer
         using var cmdBuff = cmd.Finish("mesh-upload-cmd");
         _context.Device.Queue.Submit(cmdBuff);
     }
-    
-    
 
 
     public void Draw(TimeSpan delta, TextureView? view)
     {
-        WriteModelUniform();
-        
         if (view?.Texture is null) return;
 
         if (_depthTexture is null || view.Texture.Size.Width != _depthTexture.Size.Width || view.Texture.Size.Height != _depthTexture.Size.Height)
@@ -144,8 +175,10 @@ public class WebGpuRenderer
             RecreateDepthTexture(view.Texture.Size);
         }
         
+        WriteCameraUniform(view.Texture.Size);
         
-        using var encoder = _context.Device.CreateCommandEncoder("render-command-encoder");
+        
+        using var encoder = _context.Device!.CreateCommandEncoder("render-command-encoder");
 
         var colorAttach = new RenderPassColorAttachment
         {
@@ -169,23 +202,23 @@ public class WebGpuRenderer
         using var renderPass = encoder.BeginRenderPass("render-encoder-begin", new[] { colorAttach }, depthAttach);
         
         renderPass.SetPipeline(_meshPipeline);
-
-        for (var i = 0; i < _meshInstances.Count; i++)
-        {
-            var instance = _meshInstances[i];
-            if (!_meshBufferCache.TryGetValue(instance.Mesh, out var meshData))
-            {
-                _logger.LogWarning("mesh was not loaded");
-                continue;
-            }
-
-            renderPass.SetVertexBuffer(0, meshData.VertexBuffer, 0, meshData.VertexBuffer.SizeInBytes);
-            renderPass.SetIndexBuffer(meshData.IndexBuffer, IndexFormat.Uint32, 0, meshData.IndexBuffer.SizeInBytes);
-
-            renderPass.SetBindGroup(0, _uniformBind, new[] { (uint)i });
-
-            renderPass.DrawIndexed((uint)instance.Mesh.Indices.Count, 1, 0, 0, 0);
-        }
+        
+        // for (var i = 0; i < _meshInstances.Count; i++)
+        // {
+        //     var instance = _meshInstances[i];
+        //     if (!_meshBufferCache.TryGetValue(instance.Mesh, out var meshData))
+        //     {
+        //         _logger.LogWarning("mesh was not loaded");
+        //         continue;
+        //     }
+        //
+        //     renderPass.SetVertexBuffer(0, meshData.VertexBuffer, 0, meshData.VertexBuffer.SizeInBytes);
+        //     renderPass.SetIndexBuffer(meshData.IndexBuffer, IndexFormat.Uint32, 0, meshData.IndexBuffer.SizeInBytes);
+        //     
+        //     //renderPass.SetBindGroup(0, _uniformBind, new uint[] { 0, (uint)i });
+        //
+        //     renderPass.DrawIndexed((uint)instance.Mesh.Indices.Count, 1, 0, 0, 0);
+        // }
 
 
         renderPass.End();
@@ -247,7 +280,7 @@ public class WebGpuRenderer
         var fragLayout = frag.GetPipelineGroupBindLayouts();
 
         //using webgpu autolayout for now so ignore this. Change when automatic resource alloc/render graph dev started
-        var layout = _context.Device.CreatePipelineLayout("render-pipeline-layout", vertLayout.Concat(fragLayout).ToArray());
+        var layout = _context.Device!.CreatePipelineLayout("render-pipeline-layout", vertLayout.Concat(fragLayout).ToArray());
 
         // Defaults face state for Dawn
         var stencilFaceState = new StencilFaceState
@@ -278,6 +311,12 @@ internal readonly struct MeshRenderInfo(Buffer vertexBuffer, Buffer indexBuffer)
 {
     public Buffer VertexBuffer { get; } = vertexBuffer;
     public Buffer IndexBuffer { get; } = indexBuffer;
+}
+
+internal readonly struct CameraRenderInfo(Matrix4x4 view, Matrix4x4 projection)
+{
+    public Matrix4x4 View { get; } = view;
+    public Matrix4x4 Projection { get; } = projection;
 }
 
 public readonly struct MeshInstanceRender(Matrix4x4 model, Mesh mesh)

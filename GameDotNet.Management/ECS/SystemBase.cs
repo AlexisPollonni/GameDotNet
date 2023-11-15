@@ -17,7 +17,7 @@ public abstract class SystemBase
         Description = description;
     }
 
-    public virtual ValueTask<bool> Initialize() => ValueTask.FromResult(true);
+    public virtual ValueTask<bool> Initialize(CancellationToken token = default) => ValueTask.FromResult(true);
     public abstract void Update(TimeSpan delta);
 
     public virtual void OnEntityAdded(Entity entity)

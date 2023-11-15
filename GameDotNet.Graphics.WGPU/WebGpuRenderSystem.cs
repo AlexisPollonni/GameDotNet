@@ -1,13 +1,13 @@
 using System.Diagnostics;
 using Arch.Core;
 using Arch.Core.Extensions;
+using GameDotNet.Core.Physics.Components;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Silk.NET.Maths;
-using Silk.NET.Windowing;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace GameDotNet.Graphics.WGPU;
@@ -19,18 +19,20 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
 
     private readonly ILogger _logger;
     private readonly Thread _renderThread;
-    private readonly IView _view;
     private readonly Stopwatch _drawWatch;
+    private readonly WebGpuContext _gpuContext;
+    private readonly WebGpuRenderer _renderer;
+    private readonly NativeViewManager _viewManager;
 
     private bool _isRenderPaused;
     private Vector2D<int> _lastFramebufferSize;
-    private WebGpuContext? _gpuContext;
-    private WebGpuRenderer? _renderer;
 
-    public WebGpuRenderSystem(ILogger logger, IView view) : base(CameraQueryDesc)
+    public WebGpuRenderSystem(ILogger<WebGpuRenderSystem> logger, WebGpuContext gpuContext, WebGpuRenderer renderer, NativeViewManager viewManager) : base(CameraQueryDesc)
     {
         _logger = logger;
-        _view = view;
+        _gpuContext = gpuContext;
+        _renderer = renderer;
+        _viewManager = viewManager;
         _drawWatch = new();
         _isRenderPaused = false;
         _lastFramebufferSize = new(-1, -1);
@@ -39,26 +41,21 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         {
             Name = "GameDotNet Render"
         };
-        
-        _view.FramebufferResize += OnFramebufferResize;
     }
 
-    public override async ValueTask<bool> Initialize()
+    public override async ValueTask<bool> Initialize(CancellationToken token = default)
     {
-        var comp = new ShaderCompiler(_logger);
+        if (_viewManager.MainView is null)
+            return false;
 
-        var vert = await comp.TranslateGlsl("Assets/Mesh.vert", "Assets/");
-        var frag = await comp.TranslateGlsl("Assets/Mesh.frag", "Assets/");
-
-        _gpuContext = await WebGpuContext.Create(_logger, _view);
+        _viewManager.MainView.Resized += OnFramebufferResize;
         
+        if (!await _gpuContext.Initialize(_viewManager.MainView, token))
+            return false;
         
+        await _renderer.Initialize(token);
         
-        _renderer = new(_gpuContext, _logger);
-        
-        await _renderer.Initialize(vert, frag);
-        
-        _gpuContext.ResizeSurface(new(_view.Size.X, _view.Size.Y));
+        _gpuContext.ResizeSurface(new(_viewManager.MainView.Size.X, _viewManager.MainView.Size.Y));
 
         //TODO: Move this to asset manager when its implemented
         ParentWorld.Query<Mesh>(MeshQueryDesc, (in Entity e, ref Mesh mesh) =>
@@ -68,10 +65,20 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
                 Log.Warning("Skipped mesh {Name} with no vertices", e.Get<Tag>().Name);
                 return;
             }
-        
             
+            if (!e.TryGet<Scale>(out var scale)) scale = new();
+            if (!e.TryGet<Rotation>(out var rot)) rot = new();
+            if (!e.TryGet<Translation>(out var translation)) translation = new();
+
+            //model transform
+            var model = Transform.ToMatrix(scale, rot, translation);
             
+            _renderer.MeshInstances.Add(new(model, mesh));
+
+            _renderer.UploadMeshes(mesh);
         });
+        
+        _renderer.WriteModelUniforms();
 
         return true;
     }
@@ -88,30 +95,30 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         if (_renderThread.IsAlive)
             _renderThread.Join();
         
-        _gpuContext?.Dispose();
+        _gpuContext.Dispose();
     }
 
     private void RenderLoop()
     {
-        var surfaceSize = _view.FramebufferSize;
-        while (!_view.IsClosing)
+        var surfaceSize = _viewManager.MainView!.Size;
+        while (!_viewManager.MainView.IsClosing)
         {
             _gpuContext?.Instance.ProcessEvents();
-            var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
+            //var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
 
-            if (surfaceSize != _view.FramebufferSize)
+            if (surfaceSize != _viewManager.MainView.Size)
             {
-                _gpuContext?.ResizeSurface(new(_view.FramebufferSize.X, _view.FramebufferSize.Y));
-                surfaceSize = _view.Size;
+                _gpuContext?.ResizeSurface(new(_viewManager.MainView.Size.X, _viewManager.MainView.Size.Y));
+                surfaceSize = _viewManager.MainView.Size;
             }
             
             {
-                using var swTextureView = _gpuContext?.SwapChain.GetCurrentTextureView();
+                using var swTextureView = _gpuContext?.SwapChain?.GetCurrentTextureView();
                 if(swTextureView is null) 
                     continue;
                 _renderer?.Draw(_drawWatch.Elapsed, swTextureView);
                 
-                _gpuContext?.SwapChain.Present();
+                _gpuContext?.SwapChain?.Present();
             }
             _drawWatch.Restart();
 
@@ -129,6 +136,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         }
     }
 
+    // Checks if view is minimized and if it is pause render thread
     private void OnFramebufferResize(Vector2D<int> size)
     {
         var last = _lastFramebufferSize;

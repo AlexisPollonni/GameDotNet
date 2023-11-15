@@ -19,7 +19,7 @@
 
     <ItemGroup>
       <None Update="runtimes\win-x64\native\wgpu_native.dll">
-        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </None>
     </ItemGroup>
 
