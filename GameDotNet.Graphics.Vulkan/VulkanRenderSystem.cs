@@ -1,15 +1,14 @@
 using System.Diagnostics;
-using System.Drawing;
-using System.Numerics;
 using Arch.Core;
 using Arch.Core.Extensions;
-using GameDotNet.Core.Physics.Components;
+using GameDotNet.Graphics.Vulkan.Wrappers;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
 using Serilog;
 using Silk.NET.Maths;
 using Silk.NET.Windowing;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace GameDotNet.Graphics.Vulkan;
 
@@ -22,7 +21,10 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
 
     private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAll<Camera>();
 
-    private readonly VulkanRenderer _renderer;
+    private DefaultVulkanContext? _context;
+    private VulkanRenderer? _renderer;
+
+    private readonly ILogger _logger;
     private readonly Thread _renderThread;
     private readonly IView _view;
     private readonly Stopwatch _drawWatch;
@@ -30,11 +32,11 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
     private bool _isRenderPaused;
     private Vector2D<int> _lastFramebufferSize;
 
-    public VulkanRenderSystem(IView view) : base(RenderQueryDesc)
+    public VulkanRenderSystem(ILogger logger, IView view) : base(RenderQueryDesc)
     {
+        _logger = logger;
         _view = view;
         _drawWatch = new();
-        _renderer = new(_view);
         _isRenderPaused = false;
         _lastFramebufferSize = new(-1, -1);
         _renderThread = new(RenderLoop)
@@ -44,23 +46,20 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         _view.FramebufferResize += OnFramebufferResize;
     }
 
-    public override bool Initialize()
+    public override async ValueTask<bool> Initialize()
     {
-        _renderer.Initialize();
-        Mesh m = new(new()
-        {
-            new(new(1, 1, 0), new(), Color.Blue),
-            new(new(-1, 1, 0), new(), Color.Red),
-            new(new(0, -1, 0), new(), Color.Green),
-        });
+        _context = DefaultVulkanContext.TryCreateForView(_view).context;
+        _renderer = new(_context!);
 
-        ParentWorld.Create(new Tag("Triangle"),
-                           new Translation(Vector3.Zero),
-                           m);
+        var comp = new ShaderCompiler(_logger);
 
+        var vert = await comp.TranslateGlsl("Assets/Mesh.vert", "Assets/");
+        var frag = await comp.TranslateGlsl("Assets/Mesh.frag", "Assets/");
+        
+        _renderer.Initialize(vert, frag);
 
         //TODO: Move this to asset manager when its implemented
-        ParentWorld.Query(MeshQueryDesc, (in Entity e, ref Mesh mesh) =>
+        ParentWorld.Query<Mesh>(MeshQueryDesc, (in Entity e, ref Mesh mesh) =>
         {
             if (mesh.Vertices.Count is 0)
             {
@@ -87,7 +86,8 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         _renderThread.Interrupt();
         _renderThread.Join();
 
-        _renderer.Dispose();
+        _renderer?.Dispose();
+        _context?.Dispose();
     }
 
     private void RenderLoop()
@@ -96,7 +96,7 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
         {
             var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
 
-            _renderer.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
+            _renderer?.Draw(_drawWatch.Elapsed, ParentWorld.Query(Description).GetChunkIterator(), cam);
 
             _drawWatch.Restart();
 
@@ -107,7 +107,7 @@ public sealed class VulkanRenderSystem : SystemBase, IDisposable
             {
                 Thread.Sleep(Timeout.Infinite);
             }
-            catch (ThreadInterruptedException e)
+            catch (ThreadInterruptedException)
             {
                 Log.Information("<Render> Render thread {Id} resumed", Environment.CurrentManagedThreadId);
             }

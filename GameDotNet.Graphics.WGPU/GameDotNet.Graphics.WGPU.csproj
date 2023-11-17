@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
+      <ProjectReference Include="..\GameDotNet.Management\GameDotNet.Management.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Silk.NET.WebGPU.Extensions.Dawn" Version="2.18.0" />
+      <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.18.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="runtimes\win-x64\native\wgpu_native.dll">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+</Project>

@@ -1,4 +1,5 @@
 using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using Microsoft.Toolkit.HighPerformance;
@@ -21,6 +22,10 @@ public sealed class VulkanShader : IDisposable
     private readonly ShaderModule _module;
     private readonly SpirvReflectSharp.ShaderModule _reflectModule;
 
+    public VulkanShader(Vk vk, VulkanDevice device, SpirVShader bytecode)
+    : this(vk, device, StageToShaderStageFlags(bytecode.Description.Stage), bytecode.Code.AsMemory().AsBytes().Span, bytecode.Description.EntryPoint)
+    { }
+    
     public VulkanShader(Vk vk, VulkanDevice device, ShaderStageFlags stage, ReadOnlySpan<byte> bytecode,
                         string? entryPoint = null)
     {
@@ -36,7 +41,7 @@ public sealed class VulkanShader : IDisposable
 
     public VertexInputDescription GetVertexDescription()
     {
-        if (!_reflectModule.ShaderStage.HasFlag(ReflectShaderStage.Vertex))
+        if (!_reflectModule.ShaderStage.HasFlag(Silk.NET.SPIRV.Reflect.ShaderStageFlagBits.VertexBit))
             throw new InvalidOperationException("Not a vertex shader, can't get vertex description");
 
         //we will have just 1 vertex buffer binding, with a per-vertex rate
@@ -108,6 +113,15 @@ public sealed class VulkanShader : IDisposable
         ReleaseUnmanagedResources();
     }
 
+    private static ShaderStageFlags StageToShaderStageFlags(ShaderStage stage) => stage switch
+    {
+        Abstractions.ShaderStage.Vertex => ShaderStageFlags.VertexBit,
+        Abstractions.ShaderStage.Geometry => ShaderStageFlags.GeometryBit,
+        Abstractions.ShaderStage.Fragment => ShaderStageFlags.FragmentBit,
+        Abstractions.ShaderStage.Compute => ShaderStageFlags.ComputeBit,
+        _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
+    };
+    
     /// <summary>
     /// Returns the size in bytes of the provided VkFormat.
     /// As this is only intended for vertex attribute formats, not all VkFormats are

@@ -24,8 +24,8 @@ public static class SilkExtensions
         return res;
     }
 
-    internal static Result ThrowOnError(this Result res,
-                                        string message = "Vulkan API function call failed when it wasn't expected to")
+    public static Result ThrowOnError(this Result res,
+                                      string message = "Vulkan API function call failed when it wasn't expected to")
     {
         if (res is Result.Success)
             return res;

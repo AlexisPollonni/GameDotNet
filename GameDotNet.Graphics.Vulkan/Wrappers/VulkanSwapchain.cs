@@ -105,9 +105,40 @@ public sealed class VulkanSwapchain : IDisposable
                                            ref imageIndex);
     }
 
-    public Result QueuePresent(Queue queue, in PresentInfoKHR info)
+    public Result QueuePresent(DeviceQueue queue, VulkanSemaphore waitSemaphore, uint currentIndex)
     {
-        return _extension.QueuePresent(queue, info);
+        ReadOnlySpan<Semaphore> w = stackalloc[] { waitSemaphore.Handle };
+        ReadOnlySpan<SwapchainKHR> s = stackalloc[] { Swapchain };
+
+        return QueuePresent(queue, w, s, currentIndex.AsSpan(), null);
+    }
+
+    private unsafe Result QueuePresent(DeviceQueue queue, ReadOnlySpan<Semaphore> waitSemaphores,
+                                       ReadOnlySpan<SwapchainKHR> swapchains, ReadOnlySpan<uint> imageIndices,
+                                       Span<Result> results)
+    {
+        Result res;
+
+        fixed (SwapchainKHR* pSwap = swapchains)
+        fixed (uint* pIndices = imageIndices)
+        fixed (Result* pResults = results)
+        fixed (Semaphore* pWaits = waitSemaphores)
+        {
+            var info = new PresentInfoKHR
+            {
+                SType = StructureType.PresentInfoKhr,
+                SwapchainCount = (uint)swapchains.Length,
+                PSwapchains = pSwap,
+                PImageIndices = pIndices,
+                PResults = pResults,
+                WaitSemaphoreCount = (uint)waitSemaphores.Length,
+                PWaitSemaphores = pWaits
+            };
+
+            res = _extension.QueuePresent(queue, info);
+        }
+
+        return res;
     }
 
     public static implicit operator SwapchainKHR(VulkanSwapchain swapchain) => swapchain.Swapchain;

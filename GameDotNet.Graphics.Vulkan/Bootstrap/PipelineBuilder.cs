@@ -16,7 +16,7 @@ public class PipelineBuilder
     {
         public VertexInputDescription VertexInputDescription { get; set; }
         public IList<VulkanShader> ShaderStages { get; set; } = new List<VulkanShader>();
-        public RenderPass RenderPass { get; set; }
+        public VulkanRenderPass RenderPass { get; set; }
         public PrimitiveTopology Topology { get; set; } = PrimitiveTopology.TriangleList;
         public PolygonMode PolygonMode { get; set; } = PolygonMode.Fill;
         public Viewport Viewport { get; set; }
@@ -49,9 +49,9 @@ public class PipelineBuilder
                  .ThrowOnError("Failed to create graphics pipeline layout");
 
         var viewportState = new PipelineViewportStateCreateInfo(viewportCount: 1,
-                                                                pViewports: options.Viewport.AsPtr(d),
+                                                                pViewports: options.Viewport.ToPtrPinned(d),
                                                                 scissorCount: 1,
-                                                                pScissors: options.Scissor.AsPtr(d));
+                                                                pScissors: options.Scissor.ToPtrPinned(d));
 
         var colorBlendAttachment = CreateColorBlendAttachmentState();
 
@@ -64,7 +64,7 @@ public class PipelineBuilder
             CreateDepthStencilStateInfo(options.EnableDepthTest, options.EnableDepthWrite, options.DepthStencilCompare);
 
         var pipelineInfo = new GraphicsPipelineCreateInfo(stageCount: (uint)shaderStages.Length,
-                                                          pStages: shaderStages.AsPtr(d),
+                                                          pStages: shaderStages.ToPtr(d),
                                                           pVertexInputState: vertexCreateInfo.AsPtr(d),
                                                           pInputAssemblyState: inputAssembly.AsPtr(d),
                                                           pViewportState: &viewportState,
@@ -90,7 +90,7 @@ public class PipelineBuilder
         var ranges = stages.SelectMany(shader => shader.GetPushConstantRanges()).ToList();
 
         return new(flags: 0, setLayoutCount: 0, pSetLayouts: null, pushConstantRangeCount: (uint)ranges.Count,
-                   pPushConstantRanges: ranges.AsPtr(d));
+                   pPushConstantRanges: ranges.ToPtr(d));
     }
 
     private static unsafe PipelineVertexInputStateCreateInfo CreateVertexInputStageInfo(VertexInputDescription d)

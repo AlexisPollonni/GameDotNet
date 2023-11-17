@@ -2,6 +2,8 @@
 
 using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Hosting;
+using GameDotNet.Management.ECS;
+using Microsoft.Extensions.DependencyInjection;
 
 Console.WriteLine("Hello, World!");
 
@@ -11,6 +13,7 @@ using var assetManager = new AssimpNetImporter();
 
 assetManager.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
 
-app.Universe.LoadScene(scene!);
+app.GlobalHost.Services.GetRequiredService<Universe>().LoadScene(scene!);
 
-return app.Run();
+await app.Initialize();
+return await app.Run();

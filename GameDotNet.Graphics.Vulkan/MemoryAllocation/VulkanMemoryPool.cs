@@ -33,8 +33,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             if (ID == 0)
                 throw new OverflowException();
 
-            BlockList = new(
-                            allocator,
+            BlockList = new(allocator,
                             this,
                             poolInfo.MemoryTypeIndex,
                             poolInfo.BlockSize != 0 ? poolInfo.BlockSize : preferredBlockSize,
@@ -45,7 +44,8 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                                 : allocator.BufferImageGranularity,
                             poolInfo.FrameInUseCount,
                             poolInfo.BlockSize != 0,
-                            poolInfo.AllocationAlgorithmCreate ?? Helpers.DefaultMetaObjectCreate);
+                            poolInfo.AllocationAlgorithmCreate ?? Helpers.DefaultMetaObjectCreate,
+                            poolInfo.MemoryAllocateNext);
 
             BlockList.CreateMinBlocks();
         }

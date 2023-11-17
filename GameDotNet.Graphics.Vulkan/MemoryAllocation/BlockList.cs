@@ -16,13 +16,15 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         private readonly bool _explicitBlockSize;
 
         private readonly Func<long, IBlockMetadata> _metaObjectCreate;
+        private readonly unsafe BaseInStructure* _memoryAllocateNext;
 
         private bool _hasEmptyBlock;
         private uint _nextBlockId;
 
         public BlockList(VulkanMemoryAllocator allocator, VulkanMemoryPool? pool, int memoryTypeIndex,
                          long preferredBlockSize, int minBlockCount, int maxBlockCount, long bufferImageGranularity,
-                         int frameInUseCount, bool explicitBlockSize, Func<long, IBlockMetadata> algorithm)
+                         int frameInUseCount, bool explicitBlockSize, Func<long, IBlockMetadata> algorithm,
+                         IChain<MemoryAllocateInfo>? memoryAllocateNext = null)
         {
             Allocator = allocator;
             ParentPool = pool;
@@ -33,8 +35,13 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             BufferImageGranularity = bufferImageGranularity;
             FrameInUseCount = frameInUseCount;
             _explicitBlockSize = explicitBlockSize;
-
             _metaObjectCreate = algorithm;
+
+            unsafe
+            {
+                if (memoryAllocateNext is Chain { Size: >= 1 } chain)
+                    _memoryAllocateNext = chain.HeadPtr->PNext;
+            }
         }
 
         public void Dispose()
@@ -643,8 +650,11 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             if (Allocator.UseKhrBufferDeviceAddress)
             {
                 allocFlagsInfo.Flags = MemoryAllocateFlags.AddressBitKhr;
+                allocFlagsInfo.PNext = _memoryAllocateNext;
                 info.PNext = &allocFlagsInfo;
             }
+            else
+                info.PNext = _memoryAllocateNext;
 
             var res = Allocator.AllocateVulkanMemory(in info, out var mem);
 

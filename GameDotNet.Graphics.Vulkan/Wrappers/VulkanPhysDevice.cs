@@ -1,28 +1,51 @@
-using GameDotNet.Graphics.Vulkan.Bootstrap;
-using Silk.NET.Core;
+using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.Vulkan;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public sealed class VulkanPhysDevice
+public class VulkanPhysDevice
 {
-    //My kingdom for C#11 required !!
-    public PhysicalDevice Device { get; init; }
-    public SurfaceKHR Surface { get; init; }
+    private readonly Vk _api;
+    private readonly PhysicalDevice _handle;
 
-    public PhysicalDeviceFeatures Features { get; init; }
-    public PhysicalDeviceProperties Properties { get; init; }
-    public PhysicalDeviceMemoryProperties MemoryProperties { get; init; }
+    public VulkanPhysDevice(Vk api, PhysicalDevice handle)
+    {
+        _api = api;
+        _handle = handle;
+    }
 
-    internal Version32 InstanceVersion { get; init; }
-    internal IReadOnlyList<string> ExtensionsToEnable { get; init; } = Array.Empty<string>();
-    internal IReadOnlyList<QueueFamilyProperties> QueueFamilies { get; init; } = Array.Empty<QueueFamilyProperties>();
+    public static implicit operator PhysicalDevice(VulkanPhysDevice device) => device._handle;
 
-    internal IReadOnlyList<GenericFeaturesNextNode> ExtendedFeaturesChain { get; init; } =
-        Array.Empty<GenericFeaturesNextNode>();
+    public PhysicalDeviceFeatures GetFeatures() => _api.GetPhysicalDeviceFeatures(_handle);
 
-    internal bool DeferSurfaceInit { get; init; }
+    public PhysicalDeviceProperties GetProperties() => _api.GetPhysicalDeviceProperties(_handle);
 
+    public PhysicalDeviceMemoryProperties GetMemoryProperties() => _api.GetPhysicalDeviceMemoryProperties(_handle);
 
-    public static implicit operator PhysicalDevice(VulkanPhysDevice device) => device.Device;
+    public unsafe IReadOnlyList<QueueFamilyProperties> GetQueueFamilyProperties()
+    {
+        var count = 0u;
+        _api.GetPhysicalDeviceQueueFamilyProperties(_handle, ref count, null);
+
+        var properties = new QueueFamilyProperties[count];
+        _api.GetPhysicalDeviceQueueFamilyProperties(_handle, count.AsSpan(), properties.AsSpan());
+
+        return properties;
+    }
+
+    public unsafe IReadOnlyList<QueueFamilyProperties2> GetQueueFamilyProperties2()
+    {
+        var count = 0u;
+        _api.GetPhysicalDeviceQueueFamilyProperties2(_handle, ref count, null);
+
+        var properties = new QueueFamilyProperties2[count];
+
+        //Workaround to avoid using zeroing default constructor
+        var prop = new QueueFamilyProperties2(StructureType.QueueFamilyProperties2);
+        Array.Fill(properties, prop);
+
+        _api.GetPhysicalDeviceQueueFamilyProperties2(_handle, count.AsSpan(), properties.AsSpan());
+
+        return properties;
+    }
 }

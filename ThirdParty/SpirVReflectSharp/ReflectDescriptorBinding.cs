@@ -1,4 +1,7 @@
-﻿namespace SpirvReflectSharp;
+﻿using Silk.NET.Core.Native;
+using Silk.NET.SPIRV.Reflect;
+
+namespace SpirvReflectSharp;
 
 public struct ReflectDescriptorBinding
 {
@@ -7,8 +10,8 @@ public struct ReflectDescriptorBinding
 	public uint Binding;
 	public uint InputAttachmentIndex;
 	public uint Set;
-	public ReflectDescriptorType DescriptorType;
-	public ReflectResourceType ResourceType;
+	public DescriptorType DescriptorType;
+	public ResourceType ResourceType;
 	public ReflectImageTraits Image;
 	public ReflectBlockVariable Block;
 	public ReflectBindingArrayTraits Array;
@@ -19,32 +22,32 @@ public struct ReflectDescriptorBinding
 	//public ReflectDescriptorBinding UavCounterBinding;
 	public ReflectTypeDescription TypeDescription;
 
-	public SpirvReflectNative.SpvReflectDescriptorBinding Native;
+	public DescriptorBinding Native;
 
 	public override string ToString()
 	{
 		return "ReflectDescriptorBinding {" + Name + "; Type: " + DescriptorType + "}";
 	}
 
-	internal unsafe ReflectDescriptorBinding(SpirvReflectNative.SpvReflectDescriptorBinding binding)
+	internal unsafe ReflectDescriptorBinding(DescriptorBinding binding)
 	{
 		Native = binding;
 
-		Set = binding.set;
-		Accessed = binding.accessed;
-		Name = new(binding.name);
-		Binding = binding.binding;
-		SpirvId = binding.spirv_id;
-		Count = binding.count;
-		ResourceType = (ReflectResourceType)binding.resource_type;
-		UavCounterId = binding.uav_counter_id;
-		InputAttachmentIndex = binding.input_attachment_index;
-		Image = new(binding.image);
-		Array = new(binding.array);
-		DescriptorType = (ReflectDescriptorType)binding.descriptor_type;
+		Set = binding.Set;
+		Accessed = binding.Accessed;
+		Name = SilkMarshal.PtrToString((nint)binding.Name)!;
+		Binding = binding.Binding;
+		SpirvId = binding.SpirvId;
+		Count = binding.Count;
+		ResourceType = binding.ResourceType;
+		UavCounterId = binding.UavCounterId;
+		InputAttachmentIndex = binding.InputAttachmentIndex;
+		Image = new(binding.Image);
+		Array = new(binding.Array);
+		DescriptorType = binding.DescriptorType;
 		Block = new();
-		ReflectBlockVariable.PopulateReflectBlockVariable(ref binding.block, ref Block);
-		TypeDescription = ReflectTypeDescription.GetManaged(ref *binding.type_description);
+		ReflectBlockVariable.PopulateReflectBlockVariable(ref binding.Block, ref Block);
+		TypeDescription = ReflectTypeDescription.GetManaged(ref *binding.TypeDescription);
 
 		//UavCounterBinding = new ReflectDescriptorBinding(*binding.uav_counter_binding);
 	}

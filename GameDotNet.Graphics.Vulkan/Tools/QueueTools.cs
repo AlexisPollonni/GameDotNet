@@ -7,7 +7,7 @@ namespace GameDotNet.Graphics.Vulkan.Tools;
 
 internal static class QueueTools
 {
-    public static int? GetFirstQueueIndex(IEnumerable<QueueFamilyProperties> families, QueueFlags desiredFlags)
+    public static int? GetFirstQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families, QueueFlags desiredFlags)
     {
         foreach (var (family, i) in families.WithIndex())
         {
@@ -17,8 +17,8 @@ internal static class QueueTools
         return null;
     }
 
-    public static int? GetDedicatedQueueIndex(IEnumerable<QueueFamilyProperties> families,
-                                              QueueFlags desiredFlags, QueueFlags undesiredFlags)
+    public static int? GetDedicatedQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families,
+                                                    QueueFlags desiredFlags, QueueFlags undesiredFlags)
     {
         foreach (var (family, i) in families.WithIndex())
         {
@@ -33,8 +33,8 @@ internal static class QueueTools
         return null;
     }
 
-    public static int? GetSeparateQueueIndex(IEnumerable<QueueFamilyProperties> families,
-                                             QueueFlags desiredFlags, QueueFlags undesiredFlags)
+    public static int? GetSeparateQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families,
+                                                   QueueFlags desiredFlags, QueueFlags undesiredFlags)
     {
         int? index = null;
         foreach (var (family, i) in families.WithIndex())
@@ -53,8 +53,8 @@ internal static class QueueTools
         return index;
     }
 
-    public static int? GetPresentQueueIndex(VulkanInstance instance, PhysicalDevice device, SurfaceKHR surface,
-                                            IReadOnlyList<QueueFamilyProperties> families)
+    public static int? GetPresentQueueFamilyIndex(VulkanInstance instance, PhysicalDevice device, SurfaceKHR surface,
+                                                  IReadOnlyList<QueueFamilyProperties> families)
     {
         if (surface.Handle == 0)
             return null;
@@ -68,7 +68,7 @@ internal static class QueueTools
             if (res != Result.Success)
                 return null;
 
-            if (presentSupport == true)
+            if (presentSupport)
                 return i;
         }
 

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -14,8 +13,7 @@ using static GameDotNet.Generators.Shared.SyntaxFactoryTools;
 namespace GameDotNet.Generators.Shader;
 
 [Generator]
-[SuppressMessage("ReSharper", "StringLiteralTypo")]
-public class Generator : ISourceGenerator
+public class Generator : IIncrementalGenerator
 {
     private static readonly DiagnosticDescriptor FileInfo = new("SHAGEN001",
                                                                 "Found additional files",
@@ -23,83 +21,121 @@ public class Generator : ISourceGenerator
                                                                 "ShaderGenerator",
                                                                 DiagnosticSeverity.Info,
                                                                 true),
-                                                 FileProcess = new("SHAGEN002",
-                                                                   "Found shader file",
-                                                                   "Found shader file {0}",
+                                                 FileCompiled = new("SHAGEN002",
+                                                                   "Shader file compile success",
+                                                                   "COMPILED: {0} shader {1}",
                                                                    "ShaderGenerator",
                                                                    DiagnosticSeverity.Info,
-                                                                   true);
+                                                                   true),
+                                                FileFailed = new("SHAGEN003",
+                                                                 "Shader file compile fail",
+                                                                 " {0} shader {1} compile error: {2}, {3}",
+                                                                 "ShaderGenerator",
+                                                                 DiagnosticSeverity.Warning,
+                                                                 true);
 
 
-    public void Initialize(GeneratorInitializationContext context)
-    { }
-
-    public void Execute(GeneratorExecutionContext context)
+    public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        using var options = new Options
+        var shaderFiles = context.AdditionalTextsProvider
+                                 .Select(static (text, _) => (text, Kind: PathToShaderKind(text.Path)))
+                                 .Where(static tuple => tuple.Kind is not null);
+
+        context.RegisterSourceOutput(shaderFiles.Collect(),
+                                     (ctx, texts) =>
+                                     {
+                                         ctx.ReportDiagnostic(Diagnostic.Create(FileInfo, Location.None, texts.Length));
+                                     });
+
+        var compilation = shaderFiles.Select(static (tuple, token) =>
+                                                 (tuple.text.Path, 
+                                                  tuple.Kind,
+                                                  Content: tuple.text.GetText(token)?.ToString()))
+                                     .Where(tuple => tuple.Content is not null)
+                                     .Select((tuple, token) =>
+                                     {
+                                         using var options = new Options();
+                                         options.TargetSpirVVersion = new(1, 5);
+                                         options.SourceLanguage = SourceLanguage.Glsl;
+
+                                         using var compiler = new Compiler(options);
+
+                                         token.ThrowIfCancellationRequested();
+
+                                         var res = compiler.Compile(tuple.Path, tuple.Kind!.Value);
+
+                                         token.ThrowIfCancellationRequested();
+
+                                         string byteCode64;
+                                         unsafe
+                                         {
+                                             var spirvBytes =
+                                                 new ReadOnlySpan<byte>((void*)res.CodePointer, (int)res.CodeLength);
+
+                                             byteCode64 = Convert.ToBase64String(spirvBytes.ToArray());
+                                         }
+
+                                         return (tuple.Path, Kind: tuple.Kind.Value, res.Status, res.ErrorMessage, 
+                                                 ByteCode64: byteCode64);
+                                     });
+
+        context.RegisterSourceOutput(compilation, (ctx, tuple) =>
         {
-            SourceLanguage = SourceLanguage.Glsl,
-            TargetSpirVVersion = new(1, 5)
-        };
-
-        using var compiler = new Compiler(options);
-
-        context.ReportDiagnostic(Diagnostic.Create(FileInfo, Location.None, context.AdditionalFiles.Length));
-
-        var spirV = new List<Shader>();
-        foreach (var shaderFile in context.AdditionalFiles)
-        {
-            context.ReportDiagnostic(Diagnostic.Create(FileProcess, Location.None, shaderFile.Path));
-
-            var name = Path.GetFileNameWithoutExtension(shaderFile.Path);
-            ShaderKind? kind = Path.GetExtension(shaderFile.Path) switch
+            ctx.ReportDiagnostic(tuple.Status is Status.Success
+                                     ? Diagnostic.Create(FileCompiled, Location.None, tuple.Kind, tuple.Path)
+                                     : Diagnostic.Create(FileFailed, Location.None, tuple.Kind, tuple.Path,
+                                                         tuple.Status, tuple.ErrorMessage));
+        });
+        
+        var sourceGen = compilation
+            .Where(tuple => tuple.Status == Status.Success)
+            .Collect()
+            .Select((compRes, token) =>
             {
-                ".vert" => ShaderKind.GlslVertexShader,
-                ".frag" => ShaderKind.GlslFragmentShader,
-                _ => null
-            };
-            if (kind is null)
-                continue;
+                var shaders = compRes.Select(tuple => new Shader(tuple.Path, tuple.Kind, tuple.ByteCode64)).ToArray();
 
-            var content = shaderFile.GetText()?.ToString();
-            if (content is null)
-                continue;
+                var shaderFields = shaders.Select(s => CreateShaderStringField(s.FieldName, s.Code))
+                                          .ToArray();
 
-            var res = compiler.Compile(content, name, kind.Value);
-
-            if (res.Status is not Status.Success) continue;
-
-            unsafe
-            {
-                var spirvBytes = new ReadOnlySpan<byte>((void*)res.CodePointer, (int)res.CodeLength);
-
-                var bytecodeStr = Convert.ToBase64String(spirvBytes.ToArray());
-                spirV.Add(new(name, kind.Value, bytecodeStr));
-            }
-        }
+                var shaderProperties = shaders.Select(s => CreateShaderByteArrayProperty(s.PropertyName, s.FieldName))
+                                              .ToArray();
 
 
-        var shaderFields = spirV.Select(s => CreateShaderStringField(s.FieldName, s.Code))
-                                .ToArray();
+                var tree = SyntaxTree(CompilationUnit()
+                                      .AddMembers(UsingFileScoped("GameDotNet", "Core", "Shaders", "Generated"),
+                                                  ClassDeclaration("CompiledShaders")
+                                                      .AddModifiers(Token(SyntaxKind.InternalKeyword),
+                                                                    Token(SyntaxKind.StaticKeyword))
+                                                      .AddMembers(CreateShaderCountConstField("ShaderCount",
+                                                                      compRes.Length))
+                                                      .AddMembers(shaderProperties)
+                                                      .AddMembers(shaderFields))
+                                      .NormalizeWhitespace(),
+                                      encoding: Encoding.UTF8); //Encoding important or GetText throws exception
 
-        var shaderProperties = spirV.Select(s => CreateShaderByteArrayProperty(s.PropertyName, s.FieldName))
-                                    .ToArray();
+                token.ThrowIfCancellationRequested();
 
-
-        var tree = SyntaxTree(CompilationUnit()
-                              .AddMembers(UsingFileScoped("GameDotNet", "Core", "Shaders", "Generated"),
-                                          ClassDeclaration("CompiledShaders")
-                                              .AddModifiers(Token(SyntaxKind.InternalKeyword),
-                                                            Token(SyntaxKind.StaticKeyword))
-                                              .AddMembers(CreateShaderCountConstField("ShaderCount", spirV.Count))
-                                              .AddMembers(shaderProperties)
-                                              .AddMembers(shaderFields))
-                              .NormalizeWhitespace(),
-                              encoding: Encoding.UTF8); //Encoding important or GetText throws exception
-
-        context.AddSource("compiledSpirVShaders.g.cs", tree.GetText());
+                return tree.GetText(token);
+            });
+        
+        context.RegisterSourceOutput(sourceGen, (ctx, source) => ctx.AddSource("compiledSpirVShaders.g.cs", source));
     }
 
+    
+    
+    private static ShaderKind? PathToShaderKind(string path)
+    {
+        ShaderKind? kind = null;
+        const StringComparison comp = StringComparison.OrdinalIgnoreCase;
+
+        if (path.EndsWith(".vert", comp))
+            kind = ShaderKind.GlslVertexShader;
+        else if (path.EndsWith(".frag", comp))
+            kind = ShaderKind.GlslFragmentShader;
+
+        return kind;
+    }
+    
     private static MemberDeclarationSyntax CreateShaderCountConstField(string name, int count) =>
         ParseMemberDeclaration($"public const int {name} = {count};");
 
@@ -119,9 +155,9 @@ internal sealed class Shader
     public string FieldName => $"ShaderStr_{Name}_{Kind}";
     public string PropertyName => $"{Name}{Kind}";
 
-    public Shader(string name, ShaderKind kind, string code)
+    public Shader(string path, ShaderKind kind, string code)
     {
-        Name = name;
+        Name = Path.GetFileNameWithoutExtension(path);
         Kind = kind;
         Code = code;
     }

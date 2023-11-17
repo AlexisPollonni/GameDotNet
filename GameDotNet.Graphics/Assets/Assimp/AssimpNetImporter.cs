@@ -4,8 +4,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using Assimp;
 using CommunityToolkit.HighPerformance;
-using GameDotNet.Core.Tools.Extensions;
-using Serilog;
 using Matrix4x4 = Assimp.Matrix4x4;
 using Quaternion = Assimp.Quaternion;
 
@@ -46,7 +44,8 @@ public sealed class AssimpNetImporter : IDisposable
     {
         var vertPositions = mesh.Vertices.AsSpan().Cast<Vector3D, Vector3>();
         var normals = mesh.Normals.AsSpan().Cast<Vector3D, Vector3>();
-
+        
+        //Choose first color channel
         var colors = ReadOnlySpan<Vector4>.Empty;
         if (mesh.VertexColorChannelCount is not 0)
         {
@@ -62,30 +61,15 @@ public sealed class AssimpNetImporter : IDisposable
             }
         }
 
+        var vertices = new Vertex[vertPositions.Length];
         if (colors.IsEmpty)
-        {
-            var defaultColors = new Vector4[mesh.VertexCount];
-            Array.Fill(defaultColors, Color.White.ToVector4());
-            colors = defaultColors;
-        }
+            for (var i = 0; i < vertPositions.Length; i++)
+                vertices[i] = new(vertPositions[i], normals[i], Color.White);
+        else
+            for (var i = 0; i < vertPositions.Length; i++)
+                vertices[i] = new(vertPositions[i], normals[i], colors[i]);
 
-        var vertices = new List<Vertex>(mesh.FaceCount * 3);
-        foreach (ref readonly var face in mesh.Faces.AsSpan())
-        {
-            if (face.IndexCount != 3)
-            {
-                Log.Warning("Mesh {Name} has a face with {NberVertices}, this is not supported. Face was skipped...",
-                            mesh.Name, face.IndexCount);
-                continue;
-            }
-
-            foreach (var index in face.Indices)
-            {
-                vertices.Add(new(vertPositions[index], normals[index], colors[index]));
-            }
-        }
-
-        return new(vertices);
+        return new(vertices, mesh.GetUnsignedIndices());
     }
 
     private static void CopyNodesWithMeshes(Node node, SceneObject targetParent, in Matrix4x4? accTransform,
@@ -169,7 +153,7 @@ internal static class AssimpEx
         return ref Unsafe.As<Vector3D, Vector3>(ref Unsafe.AsRef(vec));
     }
 
-    public static ref readonly System.Numerics.Matrix4x4 AsMatrix4X4(this in Matrix4x4 mat)
+    public static ref readonly System.Numerics.Matrix4x4 AsMatrix4X4(this scoped in Matrix4x4 mat)
     {
         return ref Unsafe.As<Matrix4x4, System.Numerics.Matrix4x4>(ref Unsafe.AsRef(mat));
     }

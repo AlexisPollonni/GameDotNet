@@ -64,6 +64,8 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
         public VulkanMemoryPool? Pool;
 
+        public IChain<MemoryAllocateInfo>? MemoryAllocateNext;
+
         public object? UserData;
 
         public AllocationCreateInfo(AllocationCreateFlags flags = default,
@@ -73,7 +75,8 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                                     MemoryPropertyFlags preferredFlags = default,
                                     uint memoryTypeBits = 0,
                                     VulkanMemoryPool? pool = null,
-                                    object? userData = null)
+                                    object? userData = null,
+                                    IChain<MemoryAllocateInfo>? memoryAllocateNext = null)
         {
             Flags = flags;
             Strategy = strategy;
@@ -83,6 +86,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             MemoryTypeBits = memoryTypeBits;
             Pool = pool;
             UserData = userData;
+            MemoryAllocateNext = memoryAllocateNext;
         }
     }
 
@@ -105,13 +109,15 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
         public Func<long, Metadata.IBlockMetadata>? AllocationAlgorithmCreate;
 
-        public AllocationPoolCreateInfo(int memoryTypeIndex,
-                                        PoolCreateFlags flags = 0,
+        public IChain<MemoryAllocateInfo>? MemoryAllocateNext;
+
+        public AllocationPoolCreateInfo(int memoryTypeIndex, PoolCreateFlags flags = 0,
                                         long blockSize = 0,
                                         int minBlockCount = 0,
                                         int maxBlockCount = 0,
                                         int frameInUseCount = 0,
-                                        Func<long, Metadata.IBlockMetadata>? allocationAlgorithemCreate = null)
+                                        Func<long, Metadata.IBlockMetadata>? allocationAlgorithemCreate = null,
+                                        IChain<MemoryAllocateInfo>? memoryAllocateNext = null)
         {
             MemoryTypeIndex = memoryTypeIndex;
             Flags = flags;
@@ -120,6 +126,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             MaxBlockCount = maxBlockCount;
             FrameInUseCount = frameInUseCount;
             AllocationAlgorithmCreate = allocationAlgorithemCreate;
+            MemoryAllocateNext = memoryAllocateNext;
         }
     }
 
