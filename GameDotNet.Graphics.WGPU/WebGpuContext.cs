@@ -59,7 +59,7 @@ public sealed class WebGpuContext : IDisposable
 
         device.SetUncapturedErrorCallback((type, message) =>
         {
-            _logger.LogError("[WebGPU][{ErrorType}: {Message}]", type, message);
+            _logger.LogError("[WebGPU][{ErrorType}: {Message}]", type, message.ReplaceLineEndings());
         });
 
         device.SetLoggingCallback((type, message) =>

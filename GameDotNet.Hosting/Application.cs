@@ -110,7 +110,7 @@ public class Application : IDisposable
                      .WriteTo.Async(a =>
                      {
                          a.Console(minConsoleLevel, 
-                                   "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}   {NewLine}{Message:lj}{NewLine}{Exception}");
+                                   "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}");
                          a.File(new CompactJsonFormatter(), logPath,
                                 restrictedToMinimumLevel: minFileLevel,
                                 hooks: new GZipHooks(CompressionLevel.SmallestSize),
