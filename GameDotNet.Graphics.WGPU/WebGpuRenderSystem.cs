@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Silk.NET.Maths;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
+using ThreadState = System.Threading.ThreadState;
 
 namespace GameDotNet.Graphics.WGPU;
 
@@ -86,7 +87,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
     
     public override void Update(TimeSpan delta)
     {
-        if (!_renderThread.IsAlive)
+        if (_renderThread.ThreadState is ThreadState.Unstarted)
             _renderThread.Start();
     }
 
