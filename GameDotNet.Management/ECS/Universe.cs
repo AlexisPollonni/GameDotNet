@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Arch.Core;
 using Arch.Core.Extensions;
 using Collections.Pooled;
@@ -9,12 +10,12 @@ using Microsoft.Extensions.Logging;
 
 namespace GameDotNet.Management.ECS;
 
-public class Universe : IDisposable
+public sealed class Universe : IDisposable
 {
     public World World { get; }
 
     private readonly ILogger<Universe> _logger;
-    private readonly PooledList<SystemBase> _systems;
+    private readonly ConcurrentQueue<SystemBase> _systems;
     private readonly PooledList<EntityReference> _loadedSceneEntities;
 
     private bool _initialized;
@@ -80,13 +81,8 @@ public class Universe : IDisposable
 
     public void Dispose()
     {
-        foreach (var system in _systems)
-        {
-            if (system is IDisposable d)
-                d.Dispose();
-        }
+        foreach (var system in _systems) system.DisposeIf();
 
-        _systems.Dispose();
         _loadedSceneEntities.Dispose();
         World.Destroy(World);
     }
