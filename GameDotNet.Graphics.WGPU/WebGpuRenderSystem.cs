@@ -5,6 +5,7 @@ using GameDotNet.Core.Physics.Components;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
+using MessagePipe;
 using Microsoft.Extensions.Logging;
 using Serilog;
 using Silk.NET.Maths;
@@ -48,7 +49,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         if (_viewManager.MainView is null)
             return false;
 
-        _viewManager.MainView.Resized += OnFramebufferResize;
+        _viewManager.MainView.Resized.Subscribe(OnFramebufferResize);
         
         if (!await _gpuContext.Initialize(_viewManager.MainView, token))
             return false;

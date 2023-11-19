@@ -2,10 +2,15 @@ using System.Numerics;
 using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.Physics.Components;
+using GameDotNet.Core.Tools.Containers;
+using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Graphics;
+using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
+using MessagePipe;
 using Silk.NET.Input;
-using Silk.NET.Windowing;
+using IInputContext = GameDotNet.Input.Abstract.IInputContext;
 using Query = GameDotNet.Management.ECS.Query;
 
 namespace GameDotNet.Management;
@@ -21,37 +26,36 @@ public sealed class CameraSystem : SystemBase, IDisposable
     public float LookSensitivity = 1f;
     public float DampingCoefficient = 5;
 
-    private readonly IView _view;
-    private IInputContext? _input;
+    private readonly NativeViewManager _viewManager;
+    private readonly ICompositeDisposable _disposables;
+    private INativeView _view = null!;
+    private IInputContext _input = null!;
     private EntityReference _camera;
-    private IKeyboard _keyboard = null!;
-    private IMouse? _mouse;
     private bool _isFocused;
 
     private Vector3 _velocity;
     private float _yaw, _pitch;
     private Vector2 _lastMousePos;
 
-    public CameraSystem(IView view) : base(Query.All(typeof(Translation), typeof(Camera)))
+    public CameraSystem(NativeViewManager viewManager) : base(Query.All(typeof(Translation), typeof(Camera)))
     {
-        _view = view;
-        _view.FocusChanged += ChangeFocusState;
+        _viewManager = viewManager;
+        _disposables = new DisposableList();
     }
 
     public override ValueTask<bool> Initialize(CancellationToken token = default)
     {
-        _input = _view.CreateInput();
-        _keyboard = _input.Keyboards[0];
-        _mouse = _input.Mice[0];
-        _keyboard.KeyUp += (_, key, _) =>
+        _view = _viewManager.MainView ?? throw new NullReferenceException();
+        _input = _view.Input;
+        
+        _view.FocusChanged.Subscribe(ChangeFocusState).DisposeWith(_disposables);
+        _input.KeyUp.Subscribe(e =>
         {
-            if (key is not Key.Escape) return;
+            if (e.Key is not Key.Escape) return;
 
             ChangeFocusState(false);
-        };
-
-        _lastMousePos = _mouse.Position;
-
+        }).DisposeWith(_disposables);
+        _lastMousePos = _input.MousePosition;
 
         Matrix4x4.Decompose(Matrix4x4.CreateLookAt(new(0, 0, -3), Vector3.Zero, -Vector3.UnitY),
                             out _, out var rot, out var pos);
@@ -67,13 +71,11 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
     public override void Update(TimeSpan delta)
     {
-        if (_input is null) return;
-
         ref var camPos = ref _camera.Entity.Get<Translation>();
 
         if (_isFocused)
             UpdateInput(delta);
-        else if (_mouse.IsButtonPressed(MouseButton.Left))
+        else if (_input.IsButtonDown(MouseButton.Left))
             ChangeFocusState(true);
 
         _velocity = Vector3.Lerp(_velocity, Vector3.Zero, (float)(DampingCoefficient * delta.TotalSeconds));
@@ -82,16 +84,16 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
     public void Dispose()
     {
-        _input?.Dispose();
+        _disposables.Dispose();
     }
 
     private void UpdateInput(TimeSpan delta)
     {
-        var mousePos = _mouse.Position;
-        var winSize = new Vector2(_view.FramebufferSize.X, _view.FramebufferSize.Y);
+        var mousePos = _input.MousePosition;
+        var winSize = new Vector2(_view.Size.X, _view.Size.Y);
 
         var mouseDeltaPixels = mousePos - _lastMousePos;
-        _lastMousePos = _mouse.Position;
+        _lastMousePos = _input.MousePosition;
 
         var mouseDelta = LookSensitivity * mouseDeltaPixels / winSize;
         var mouseDeltaRad = -(mouseDelta * MathF.PI);
@@ -111,7 +113,7 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
         void AddMovement(Key key, Vector3 dir)
         {
-            if (_keyboard.IsKeyPressed(key))
+            if (_input.IsKeyDown(key))
                 moveInput += dir;
         }
 
@@ -133,7 +135,7 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
         var direction = Vector3.Normalize(moveInput);
 
-        if (_keyboard.IsKeyPressed(Key.ShiftLeft))
+        if (_input.IsKeyDown(Key.ShiftLeft))
             return direction * (Acceleration * AccSprintMultiplier);
 
         return direction * Acceleration;
@@ -141,16 +143,10 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
     private void ChangeFocusState(bool focused)
     {
-        if (_mouse is not null)
-        {
-            _mouse.Cursor.CursorMode = _isFocused switch
-            {
-                true when !focused => CursorMode.Normal,
-                false when focused => CursorMode.Raw,
-                _ => _mouse.Cursor.CursorMode
-            };
-        }
 
+        _input.CursorHidden = _isFocused;
+        _input.CursorRestricted = _isFocused;
+        
         _isFocused = focused;
     }
 }

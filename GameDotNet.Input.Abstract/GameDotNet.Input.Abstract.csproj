@@ -1,13 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <LangVersion>default</LangVersion>
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="MessagePipe" Version="1.7.4" />
+        <PackageReference Include="Silk.NET.Input.Common" Version="2.18.0" />
         <PackageReference Include="System.Reactive.Interfaces" Version="6.0.0-preview.9"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
     </ItemGroup>
 
 </Project>

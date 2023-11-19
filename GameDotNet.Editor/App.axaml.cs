@@ -23,15 +23,15 @@ namespace GameDotNet.Editor
 
         public override async void OnFrameworkInitializationCompleted()
         {
-            var builder = Hosting.Application.CreateHostBuilder(Hosting.Application.CreateLogger("GameDotNet-Editor"));
+            var builder = Hosting.Application.CreateHostBuilder(Hosting.Application.CreateLogger(Current?.Name ?? "GameDotNet-Editor"));
 
             builder.Services
                    .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
+                   .AddCoreSystemServices()
                    .AddTransient<ViewLocator>()
                    .AddTransient<WebGpuViewModel>()
                    .AddView<WebGpuViewModel, WebGpuView>()
-                   .AddTransient<MainWindowViewModel>()
-                   .AddCoreSystemServices();
+                   .AddTransient<MainWindowViewModel>();
 
             GlobalHost = builder.Build();
 
@@ -59,6 +59,16 @@ namespace GameDotNet.Editor
             // But if it's required to start async services before we create any window,
             // then don't set any MainWindow, and simply call Show() on a new window later after async initialization. 
             await GlobalHost.StartAsync();
+        }
+
+        public static IHost? GetCurrentHost()
+        {
+            return ((App?)Current)?.GlobalHost;
+        }
+
+        public static IServiceProvider? GetServiceProvider()
+        {
+            return GetCurrentHost()?.Services;
         }
     }
 }

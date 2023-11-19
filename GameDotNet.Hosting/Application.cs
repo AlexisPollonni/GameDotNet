@@ -5,6 +5,7 @@ using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
+using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -46,8 +47,7 @@ public class Application : IDisposable
         
         var hostBuilder = CreateHostBuilder(Log.Logger);
         
-        hostBuilder.Services.AddSilkServices(_mainView)
-                   .AddCoreSystemServices();
+        hostBuilder.Services.AddCoreSystemServices();
         
         GlobalHost = hostBuilder.Build();
     }
@@ -184,14 +184,16 @@ public class Application : IDisposable
         {
             kb.KeyUp += (_, key, _) =>
             {
-                if (key == Key.Escape)
+                if (key is Key.F4 && kb.IsKeyPressed(Key.AltLeft))
                 {
                     _mainView.Close();
                 }
             };
         }
 
-        GlobalHost.Services.GetRequiredService<NativeViewManager>().MainView = new SilkView(_mainView);
+        var eventFactory = GlobalHost.Services.GetRequiredService<EventFactory>();
+        GlobalHost.Services.GetRequiredService<NativeViewManager>().MainView = new SilkView(_mainView, eventFactory);
+        
         var universe = GlobalHost.Services.GetRequiredService<Universe>();
         _mainView.Update += _ => universe.Update();
 
@@ -211,22 +213,15 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCoreSystemServices(this IServiceCollection services)
     {
         services
+            .AddMessagePipe()
             .AddSingleton<Universe>()
             .AddSingleton<ShaderCompiler>()
             .AddSingleton<WebGpuContext>()
             .AddSingleton<NativeViewManager>()
             .AddSingleton<WebGpuRenderer>()
-            .AddSingleton<SystemBase, WebGpuRenderSystem>();
+            .AddSingleton<SystemBase, WebGpuRenderSystem>()
+            .AddSingleton<SystemBase, CameraSystem>();
 
-        return services;
-    }
-
-    internal static IServiceCollection AddSilkServices(this IServiceCollection services, IView mainView)
-    {
-        services.AddSingleton<IView>(_ => mainView)
-                .AddSingleton<INativeView, SilkView>()
-                .AddSingleton<SystemBase, CameraSystem>(); //TODO: Move to core services when input service implemented
-        
         return services;
     }
 }
