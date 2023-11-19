@@ -48,14 +48,16 @@ internal sealed class AvaloniaNativeView : INativeView, IDisposable
         win.Closing += (_, _) => IsClosing = true;
         host.SizeChanged += (_, args) =>
         {
-            Size = AvaloniaPixelSizeToVector(args.NewSize);
-            _resized.Publish(AvaloniaPixelSizeToVector(args.NewSize));
+            Resize(args.NewSize);
         };
         host.GotFocus += (_, _) => _focusChanged.Publish(true);
         host.LostFocus += (_, _) => _focusChanged.Publish(false);
 
         Native = new AvaloniaNativeWindow(handle);
         Input = new AvaloniaInputContext(host, eventFactory);
+
+        //If control has already been sized set size and send event
+        if (host.Bounds != default) Resize(host.Bounds.Size);
     }
 
     private Vector2D<int> AvaloniaPixelSizeToVector(Size size)
@@ -65,6 +67,12 @@ internal sealed class AvaloniaNativeView : INativeView, IDisposable
         return new(pxS.Width, pxS.Height);
     }
 
+    private void Resize(Size size)
+    {
+        var newSize = AvaloniaPixelSizeToVector(size);
+        Size = newSize;
+        _resized.Publish(newSize);
+    }
 
     private class AvaloniaNativeWindow : INativeWindow
     {
