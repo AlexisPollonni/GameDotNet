@@ -1,7 +1,6 @@
 using System.IO.Compression;
 using GameDotNet.Core;
 using GameDotNet.Graphics;
-using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
@@ -219,7 +218,8 @@ public static class ServiceCollectionExtensions
             .AddSingleton<WebGpuContext>()
             .AddSingleton<NativeViewManager>()
             .AddSingleton<WebGpuRenderer>()
-            .AddSingleton<SystemBase, WebGpuRenderSystem>()
+            .AddSingleton<WebGpuRenderSystem>()
+            .AddSingleton<SystemBase, WebGpuRenderSystem>(p => p.GetRequiredService<WebGpuRenderSystem>())
             .AddSingleton<SystemBase, CameraSystem>();
 
         return services;
