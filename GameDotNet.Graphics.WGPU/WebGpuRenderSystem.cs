@@ -16,6 +16,9 @@ namespace GameDotNet.Graphics.WGPU;
 
 public sealed class WebGpuRenderSystem : SystemBase, IDisposable
 {
+    public TimingsRingBuffer RenderTimings { get; }
+    
+    
     private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAll<Camera>();
     private static readonly QueryDescription MeshQueryDesc = new QueryDescription().WithAll<Mesh>();
 
@@ -37,6 +40,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         _viewManager = viewManager;
         _drawWatch = new();
         _isRenderPaused = false;
+        RenderTimings = new(512);
         _lastFramebufferSize = new(-1, -1);
       
         _renderThread = new(RenderLoop)
@@ -122,6 +126,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
                 
                 _gpuContext?.SwapChain?.Present();
             }
+            RenderTimings.Add(_drawWatch.Elapsed);
             _drawWatch.Restart();
 
             if (!Volatile.Read(ref _isRenderPaused)) continue;

@@ -9,5 +9,21 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="GameDotNet.Editor">
 	
-	<ContentControl Content="{CompiledBinding WebGpuViewModel}"/>
+	<DockPanel LastChildFill="True">
+		<StackPanel DockPanel.Dock="Bottom"
+					Orientation="Horizontal"
+					Background="DimGray">
+				<TextBlock HorizontalAlignment="Right" 
+						   Foreground="White"
+						   Padding="10, 0">
+					<Run FontWeight="Bold">FPS: </Run>
+					<Run>NaN</Run>
+					<Run> | Render: </Run>
+					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Average.TotalMilliseconds}"/>
+				</TextBlock>
+		</StackPanel>
+		<ContentControl Content="{CompiledBinding WebGpuViewModel}"
+						VerticalAlignment="Stretch"
+						HorizontalAlignment="Stretch"/>
+	</DockPanel>
 </Window>
