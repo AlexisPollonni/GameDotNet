@@ -9,7 +9,7 @@ Console.WriteLine("Hello, World!");
 
 using var app = new Application("SampleGame");
 
-using var assetManager = new AssimpNetImporter();
+var assetManager = app.GlobalHost.Services.GetRequiredService<AssimpNetImporter>();
 
 assetManager.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
 

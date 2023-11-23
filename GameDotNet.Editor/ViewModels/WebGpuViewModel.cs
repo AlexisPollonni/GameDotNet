@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using GameDotNet.Graphics;
+using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management.ECS;
 using Microsoft.Extensions.Logging;
@@ -22,12 +23,14 @@ public class WebGpuViewModel : ViewModelBase, IActivatableViewModel
     
     private readonly ILogger<WebGpuViewModel> _logger;
     private readonly Universe _universe;
+    private readonly AssimpNetImporter _importer;
     private readonly WebGpuRenderSystem _renderSystem;
 
-    public WebGpuViewModel(ILogger<WebGpuViewModel> logger, Universe universe, WebGpuRenderSystem renderSystem)
+    public WebGpuViewModel(ILogger<WebGpuViewModel> logger, Universe universe, AssimpNetImporter importer, WebGpuRenderSystem renderSystem)
     {
         _logger = logger;
         _universe = universe;
+        _importer = importer;
         _renderSystem = renderSystem;
 
         Activator = new();
@@ -43,8 +46,12 @@ public class WebGpuViewModel : ViewModelBase, IActivatableViewModel
 
     public async Task Run(CancellationToken token = default)
     {
-        await _universe.Initialize(token);
+        _importer.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
 
+        _universe.LoadScene(scene);
+        
+        await _universe.Initialize(token);
+        
         await Task.Run(() =>
         {
             while (!token.IsCancellationRequested)

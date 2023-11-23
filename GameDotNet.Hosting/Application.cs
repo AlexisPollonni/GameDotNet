@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using GameDotNet.Core;
 using GameDotNet.Graphics;
+using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
@@ -214,6 +215,7 @@ public static class ServiceCollectionExtensions
         services
             .AddMessagePipe()
             .AddSingleton<Universe>()
+            .AddTransient<AssimpNetImporter>()
             .AddSingleton<ShaderCompiler>()
             .AddSingleton<WebGpuContext>()
             .AddSingleton<NativeViewManager>()
