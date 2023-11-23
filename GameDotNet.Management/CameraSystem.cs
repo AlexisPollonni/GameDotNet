@@ -144,8 +144,8 @@ public sealed class CameraSystem : SystemBase, IDisposable
     private void ChangeFocusState(bool focused)
     {
 
-        _input.CursorHidden = _isFocused;
-        _input.CursorRestricted = _isFocused;
+        _input.CursorHidden = focused;
+        _input.CursorRestricted = focused;
         
         _isFocused = focused;
     }
