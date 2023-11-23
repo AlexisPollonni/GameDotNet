@@ -88,7 +88,7 @@ public sealed class WebGpuShader : IShader
         var vertBufferLayout = new VertexBufferLayout
         {
             StepMode = VertexStepMode.Vertex,
-            ArrayStride = 0,
+            ArrayStride = stride,
             Attributes = attributes
         };
 
