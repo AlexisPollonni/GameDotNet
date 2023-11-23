@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Numerics;
 using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.Physics.Components;
@@ -19,8 +20,8 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
     public TimingsRingBuffer RenderTimings { get; }
     
     
-    private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAll<Camera>();
-    private static readonly QueryDescription MeshQueryDesc = new QueryDescription().WithAll<Mesh>();
+    private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAny<Camera>();
+    private static readonly QueryDescription MeshQueryDesc = new QueryDescription().WithAny<Mesh>();
 
     private readonly ILogger _logger;
     private readonly Thread _renderThread;
@@ -71,13 +72,9 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
                 Log.Warning("Skipped mesh {Name} with no vertices", e.Get<Tag>().Name);
                 return;
             }
-            
-            if (!e.TryGet<Scale>(out var scale)) scale = new();
-            if (!e.TryGet<Rotation>(out var rot)) rot = new();
-            if (!e.TryGet<Translation>(out var translation)) translation = new();
 
             //model transform
-            var model = Transform.ToMatrix(scale, rot, translation);
+            var model = Transform.FromEntity(e)?.ToMatrix() ?? Matrix4x4.Identity;
             
             _renderer.MeshInstances.Add(new(model, mesh));
 
@@ -110,7 +107,8 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         while (!_viewManager.MainView.IsClosing)
         {
             _gpuContext?.Instance.ProcessEvents();
-            //var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
+            var cam = ParentWorld.GetFirstEntity(CameraQueryDesc);
+            _renderer.CurrentCamera = Transform.FromEntity(cam) ?? new();
 
             if (surfaceSize != _viewManager.MainView.Size)
             {
@@ -122,7 +120,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
                 using var swTextureView = _gpuContext?.SwapChain?.GetCurrentTextureView();
                 if(swTextureView is null) 
                     continue;
-                _renderer?.Draw(_drawWatch.Elapsed, swTextureView);
+                _renderer.Draw(_drawWatch.Elapsed, swTextureView);
                 
                 _gpuContext?.SwapChain?.Present();
             }
