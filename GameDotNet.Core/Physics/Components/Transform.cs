@@ -1,4 +1,6 @@
 using System.Numerics;
+using Arch.Core;
+using Arch.Core.Extensions;
 using Serilog;
 
 namespace GameDotNet.Core.Physics.Components;
@@ -53,5 +55,26 @@ public record struct Transform
             Log.Warning("Failed to try decomposing matrix {Matrix}", matrix);
 
         return new(scale, rotation, translation);
+    }
+
+    public static Transform? FromEntity(Entity entity)
+    {
+        var hasTransform = entity.TryGet(out Translation translation);
+        if (entity.TryGet(out Rotation rotation))
+        {
+            hasTransform = true;
+        }
+        if(entity.TryGet(out Scale scale))
+        {
+            hasTransform = true;
+        }
+
+        if (!hasTransform) return null;
+        return new()
+        {
+            Translation = translation,
+            Rotation = rotation,
+            Scale = scale
+        };
     }
 }
