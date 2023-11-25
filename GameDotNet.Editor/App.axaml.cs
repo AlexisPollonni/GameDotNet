@@ -23,7 +23,10 @@ public partial class App : Application
 
     public override async void OnFrameworkInitializationCompleted()
     {
-        var builder = Hosting.Application.CreateHostBuilder(Hosting.Application.CreateLogger(Current?.Name ?? "GameDotNet-Editor"));
+        var logViewerVM = new LogViewerViewModel();
+        var loggerConfig = Hosting.Application.CreateLoggerConfig(Current?.Name ?? "GameDotNet-Editor")
+                                  .WriteTo.LogViewSink(logViewerVM);
+        var builder = Hosting.Application.CreateHostBuilder(Hosting.Application.CreateLogger(loggerConfig));
 
         builder.Services
                .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
@@ -31,7 +34,11 @@ public partial class App : Application
                .AddTransient<ViewLocator>()
                .AddTransient<WebGpuViewModel>()
                .AddView<WebGpuViewModel, WebGpuView>()
-               .AddTransient<MainWindowViewModel>();
+               .AddSingleton<EntityTreeViewModel>()
+               .AddView<EntityTreeViewModel, EntityTreeViewControl>()
+               .AddSingleton(logViewerVM)
+               .AddView<LogViewerViewModel, LogViewerControl>()
+               .AddSingleton<MainWindowViewModel>();
 
         GlobalHost = builder.Build();
 

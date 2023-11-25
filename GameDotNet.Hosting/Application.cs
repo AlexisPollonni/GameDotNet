@@ -34,8 +34,8 @@ public class Application : IDisposable
         if (string.IsNullOrWhiteSpace(appName))
             throw new ArgumentException("Application name can't be null or empty", nameof(appName));
         ApplicationName = appName;
-
-        Log.Logger = CreateLogger(appName);
+        
+        Log.Logger = CreateLogger(CreateLoggerConfig(appName));
 
         _mainView = CreateSilkView();
 
@@ -83,7 +83,9 @@ public class Application : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public static ILogger CreateLogger(string appName, LogEventLevel minConsoleLevel = LogEventLevel.Debug, LogEventLevel minFileLevel = LogEventLevel.Verbose)
+    public static LoggerConfiguration CreateLoggerConfig(string appName,
+                                                         LogEventLevel minConsoleLevel = LogEventLevel.Debug,
+                                                         LogEventLevel minFileLevel = LogEventLevel.Verbose)
     {
         var logDirPath = Path.Combine(Constants.LogsDirectoryPath, appName);
         var logPath = Path.Combine(logDirPath, "game.gz");
@@ -104,7 +106,7 @@ public class Application : IDisposable
             }
         }
 
-        var logger = new LoggerConfiguration()
+        var config = new LoggerConfiguration()
                      .Enrich.FromLogContext()
                      .MinimumLevel.Verbose()
                      .WriteTo.Async(a =>
@@ -115,13 +117,19 @@ public class Application : IDisposable
                                 restrictedToMinimumLevel: minFileLevel,
                                 hooks: new GZipHooks(CompressionLevel.SmallestSize),
                                 retainedFileCountLimit: 5, rollOnFileSizeLimit: true, buffered: true);
-                     }, monitor, 100000)
-                     .CreateLogger();
-
+                     }, monitor, 100000);
+        
         //TODO: Separate monitor logger maybe?
-        monitor.SelfLog = logger;
+        monitor.SelfLogFactory = () => Log.Logger;
 
-        logger.Information("Log started for {ApplicationName}", appName);
+        return config;
+    }
+    
+    public static ILogger CreateLogger(LoggerConfiguration configuration)
+    {
+        var logger = configuration.CreateLogger();
+
+        logger.Information("Log started for GameDotNet Engine");
         logger.Information("""
                            Is 64 bit: {Is64Bit}
                            Running directory: {RunningDirectory}
@@ -130,6 +138,8 @@ public class Application : IDisposable
                         Environment.Is64BitProcess,
                         Environment.CurrentDirectory,
                         Environment.Version);
+
+        Log.Logger = logger;
 
         return logger;
     }
