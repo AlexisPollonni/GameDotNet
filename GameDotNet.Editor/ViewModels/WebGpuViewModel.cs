@@ -14,10 +14,8 @@ using ReactiveUI.Fody.Helpers;
 
 namespace GameDotNet.Editor.ViewModels;
 
-public class WebGpuViewModel : ViewModelBase, IActivatableViewModel
+public class WebGpuViewModel : ViewModelBase
 {
-    public ViewModelActivator Activator { get; }
-    
     [ObservableAsProperty]
     public TimelineStats RenderStats { get; }
     
@@ -32,8 +30,7 @@ public class WebGpuViewModel : ViewModelBase, IActivatableViewModel
         _universe = universe;
         _importer = importer;
         _renderSystem = renderSystem;
-
-        Activator = new();
+        
         this.WhenActivated(d =>
         {
             Observable.Interval(TimeSpan.FromSeconds(0.5))
