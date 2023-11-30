@@ -103,7 +103,7 @@ public sealed class Device : IDisposable
 
         if (swPtr is null) throw new ResourceCreationError("swapchain");
         
-        return new(_api, _dawn, swPtr);
+        return new(_api, _dawn, swPtr, size);
     }
     
     

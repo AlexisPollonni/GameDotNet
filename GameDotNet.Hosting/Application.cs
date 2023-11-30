@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Nito.AsyncEx;
+using Schedulers;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
@@ -34,21 +35,21 @@ public class Application : IDisposable
         if (string.IsNullOrWhiteSpace(appName))
             throw new ArgumentException("Application name can't be null or empty", nameof(appName));
         ApplicationName = appName;
-        
+
         Log.Logger = CreateLogger(CreateLoggerConfig(appName));
 
         _mainView = CreateSilkView();
 
         var tcs = new TaskCompletionSource();
-        
+
         _mainView.Load += () => tcs.SetResult();
         _mainView.Closing += () => tcs.TrySetCanceled();
         _loaded = tcs.Task;
-        
+
         var hostBuilder = CreateHostBuilder(Log.Logger);
-        
+
         hostBuilder.Services.AddCoreSystemServices();
-        
+
         GlobalHost = hostBuilder.Build();
     }
 
@@ -56,7 +57,7 @@ public class Application : IDisposable
     {
         _mainView.Initialize();
         await _loaded;
-        
+
         //https://stackoverflow.com/questions/39271492/how-do-i-create-a-custom-synchronizationcontext-so-that-all-continuations-can-be
         AsyncContext.Run(InitializeCore);
     }
@@ -65,11 +66,11 @@ public class Application : IDisposable
     {
         if (!_mainView.IsInitialized)
             throw new InvalidOperationException("Engine not initialized");
-        
+
         _mainView.Run();
 
         await GlobalHost.StopAsync();
-        
+
         return 0;
     }
 
@@ -101,8 +102,7 @@ public class Application : IDisposable
                     File.Delete(file);
                 }
                 catch (IOException e)
-                {
-                }
+                { }
             }
         }
 
@@ -111,20 +111,20 @@ public class Application : IDisposable
                      .MinimumLevel.Verbose()
                      .WriteTo.Async(a =>
                      {
-                         a.Console(minConsoleLevel, 
+                         a.Console(minConsoleLevel,
                                    "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}");
                          a.File(new CompactJsonFormatter(), logPath,
                                 restrictedToMinimumLevel: minFileLevel,
                                 hooks: new GZipHooks(CompressionLevel.SmallestSize),
                                 retainedFileCountLimit: 5, rollOnFileSizeLimit: true, buffered: true);
                      }, monitor, 100000);
-        
+
         //TODO: Separate monitor logger maybe?
         monitor.SelfLogFactory = () => Log.Logger;
 
         return config;
     }
-    
+
     public static ILogger CreateLogger(LoggerConfiguration configuration)
     {
         var logger = configuration.CreateLogger();
@@ -135,9 +135,9 @@ public class Application : IDisposable
                            Running directory: {RunningDirectory}
                            .NET version: {NetVersion}
                            """,
-                        Environment.Is64BitProcess,
-                        Environment.CurrentDirectory,
-                        Environment.Version);
+                           Environment.Is64BitProcess,
+                           Environment.CurrentDirectory,
+                           Environment.Version);
 
         Log.Logger = logger;
 
@@ -151,9 +151,9 @@ public class Application : IDisposable
             => serilog.ForContext(sender?.GetType() ?? typeof(TaskScheduler))
                       .Fatal(args.Exception, "Unobserved task exception triggered, is observed: {Observed}",
                              args.Observed);
-        
+
         var builder = Host.CreateApplicationBuilder(Environment.GetCommandLineArgs());
-        
+
         builder.Logging.ClearProviders();
         builder.Logging.AddSerilog(serilog, true);
 
@@ -164,9 +164,9 @@ public class Application : IDisposable
     {
         IView view;
         Window.PrioritizeGlfw();
-        
+
         var api = new GraphicsAPI(ContextAPI.None, new(1, 0));
-        
+
         if (Window.IsViewOnly)
         {
             var opt = ViewOptions.Default;
@@ -203,13 +203,14 @@ public class Application : IDisposable
 
         var eventFactory = GlobalHost.Services.GetRequiredService<EventFactory>();
         GlobalHost.Services.GetRequiredService<NativeViewManager>().MainView = new SilkView(_mainView, eventFactory);
-        
+
         var universe = GlobalHost.Services.GetRequiredService<Universe>();
-        _mainView.Update += _ => universe.Update();
 
         await GlobalHost.StartAsync();
-        
+
         await universe.Initialize();
+
+        _mainView.Update += _ => universe.Update();
     }
 }
 
@@ -223,16 +224,29 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCoreSystemServices(this IServiceCollection services)
     {
         services
+            .AddMetrics()
             .AddMessagePipe()
+            .AddSingleton<JobScheduler>(_ => new(new()
+            {
+                MaxExpectedConcurrentJobs = 100,
+                ThreadPrefixName = "UpdateJob"
+            }))
             .AddSingleton<Universe>()
             .AddTransient<AssimpNetImporter>()
             .AddSingleton<ShaderCompiler>()
             .AddSingleton<WebGpuContext>()
             .AddSingleton<NativeViewManager>()
             .AddSingleton<WebGpuRenderer>()
-            .AddSingleton<WebGpuRenderSystem>()
-            .AddSingleton<SystemBase, WebGpuRenderSystem>(p => p.GetRequiredService<WebGpuRenderSystem>())
-            .AddSingleton<SystemBase, CameraSystem>();
+            .AddSystem<WebGpuRenderSystem>()
+            .AddSystem<CameraSystem>();
+
+        return services;
+    }
+
+    public static IServiceCollection AddSystem<TSys>(this IServiceCollection services) where TSys : SystemBase
+    {
+        services.AddSingleton<TSys>()
+                .AddSingleton<SystemBase, TSys>(p => p.GetRequiredService<TSys>());
 
         return services;
     }

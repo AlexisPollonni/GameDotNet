@@ -11,13 +11,11 @@ using GameDotNet.Management.ECS.Components;
 using MessagePipe;
 using Silk.NET.Input;
 using IInputContext = GameDotNet.Input.Abstract.IInputContext;
-using Query = GameDotNet.Management.ECS.Query;
 
 namespace GameDotNet.Management;
 
 // Tag component for cameras
-public struct Camera
-{ }
+public struct Camera;
 
 public sealed class CameraSystem : SystemBase, IDisposable
 {
@@ -37,7 +35,7 @@ public sealed class CameraSystem : SystemBase, IDisposable
     private float _yaw, _pitch;
     private Vector2 _lastMousePos;
 
-    public CameraSystem(NativeViewManager viewManager) : base(Query.All(typeof(Translation), typeof(Camera)))
+    public CameraSystem(Universe universe, NativeViewManager viewManager) : base(universe, new(1, false))
     {
         _viewManager = viewManager;
         _disposables = new DisposableList();
@@ -60,7 +58,7 @@ public sealed class CameraSystem : SystemBase, IDisposable
         Matrix4x4.Decompose(Matrix4x4.CreateLookAt(new(0, 0, -3), Vector3.Zero, -Vector3.UnitY),
                             out _, out var rot, out var pos);
 
-        _camera = ParentWorld.Create(new Tag("Camera"),
+        _camera = Universe.World.Create(new Tag("Camera"),
                                      new Camera(),
                                      new Translation(pos),
                                      new Rotation(rot))
@@ -111,12 +109,6 @@ public sealed class CameraSystem : SystemBase, IDisposable
     {
         var moveInput = new Vector3();
 
-        void AddMovement(Key key, Vector3 dir)
-        {
-            if (_input.IsKeyDown(key))
-                moveInput += dir;
-        }
-
         AddMovement(Key.Z, -Vector3.UnitZ);
         AddMovement(Key.W, -Vector3.UnitZ);
 
@@ -139,6 +131,12 @@ public sealed class CameraSystem : SystemBase, IDisposable
             return direction * (Acceleration * AccSprintMultiplier);
 
         return direction * Acceleration;
+
+        void AddMovement(Key key, Vector3 dir)
+        {
+            if (_input.IsKeyDown(key))
+                moveInput += dir;
+        }
     }
 
     private void ChangeFocusState(bool focused)
