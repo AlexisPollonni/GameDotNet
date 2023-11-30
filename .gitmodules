@@ -1,0 +1,3 @@
+[submodule "ThirdParty/Arch"]
+	path = ThirdParty/Arch
+	url = https://github.com/AlexisPollonni/Arch.git
