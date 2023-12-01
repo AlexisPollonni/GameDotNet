@@ -87,7 +87,7 @@ public sealed class WebGpuContext : IDisposable
         //device.Queue.OnSubmittedWorkDone(status => logger.LogDebug("[WebGPU] Queue submit {Status}", status));
 
 
-        var sw = device.CreateSwapchain(surface, new(view.Size.X, view.Size.Y), TextureFormat.Bgra8Unorm,
+        var sw = device.CreateSwapchain(surface, view.Size, TextureFormat.Bgra8Unorm,
                                         TextureUsage.RenderAttachment, PresentMode.Fifo, "create-swapchain");
 
         Surface = surface;

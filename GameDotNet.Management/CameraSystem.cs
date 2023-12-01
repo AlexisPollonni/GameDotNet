@@ -15,17 +15,23 @@ using IInputContext = GameDotNet.Input.Abstract.IInputContext;
 namespace GameDotNet.Management;
 
 // Tag component for cameras
-public struct Camera;
+public record struct Camera(
+    float FieldOfView = 70,
+    float NearPlaneDistance = 0.1f,
+    float FarPlaneDistance = 5000f,
+    float Acceleration = 50,
+    float AccSprintMultiplier = 4,
+    float LookSensitivity = 1,
+    float DampingCoefficient = 5)
+{
+    public Camera() : this(70f)
+    { }
+}
 
 public sealed class CameraSystem : SystemBase, IDisposable
 {
-    public float Acceleration = 50;
-    public float AccSprintMultiplier = 4;
-    public float LookSensitivity = 1f;
-    public float DampingCoefficient = 5;
-
     private readonly NativeViewManager _viewManager;
-    private readonly ICompositeDisposable _disposables;
+    private readonly DisposableList _disposables;
     private INativeView _view = null!;
     private IInputContext _input = null!;
     private EntityReference _camera;
@@ -38,14 +44,14 @@ public sealed class CameraSystem : SystemBase, IDisposable
     public CameraSystem(Universe universe, NativeViewManager viewManager) : base(universe, new(1, false))
     {
         _viewManager = viewManager;
-        _disposables = new DisposableList();
+        _disposables = new();
     }
 
     public override ValueTask<bool> Initialize(CancellationToken token = default)
     {
         _view = _viewManager.MainView ?? throw new NullReferenceException();
         _input = _view.Input;
-        
+
         _view.FocusChanged.Subscribe(ChangeFocusState).DisposeWith(_disposables);
         _input.KeyUp.Subscribe(e =>
         {
@@ -59,24 +65,25 @@ public sealed class CameraSystem : SystemBase, IDisposable
                             out _, out var rot, out var pos);
 
         _camera = Universe.World.Create(new Tag("Camera"),
-                                     new Camera(),
-                                     new Translation(pos),
-                                     new Rotation(rot))
-                             .Reference();
-
+                                        new Camera(),
+                                        new Translation(pos),
+                                        new Rotation(rot))
+                          .Reference();
+        
         return ValueTask.FromResult(true);
     }
 
     public override void Update(TimeSpan delta)
     {
+        ref readonly var camData = ref _camera.Entity.Get<Camera>();
         ref var camPos = ref _camera.Entity.Get<Translation>();
 
         if (_isFocused)
-            UpdateInput(delta);
+            UpdateInput(delta, in camData);
         else if (_input.IsButtonDown(MouseButton.Left))
             ChangeFocusState(true);
 
-        _velocity = Vector3.Lerp(_velocity, Vector3.Zero, (float)(DampingCoefficient * delta.TotalSeconds));
+        _velocity = Vector3.Lerp(_velocity, Vector3.Zero, (float)(camData.DampingCoefficient * delta.TotalSeconds));
         camPos.Value += _velocity * (float)delta.TotalSeconds;
     }
 
@@ -85,15 +92,15 @@ public sealed class CameraSystem : SystemBase, IDisposable
         _disposables.Dispose();
     }
 
-    private void UpdateInput(TimeSpan delta)
+    private void UpdateInput(TimeSpan delta, in Camera camData)
     {
         var mousePos = _input.MousePosition;
-        var winSize = new Vector2(_view.Size.X, _view.Size.Y);
+        var winSize = new Vector2(_view.Size.Width, _view.Size.Height);
 
         var mouseDeltaPixels = mousePos - _lastMousePos;
         _lastMousePos = _input.MousePosition;
 
-        var mouseDelta = LookSensitivity * mouseDeltaPixels / winSize;
+        var mouseDelta = camData.LookSensitivity * mouseDeltaPixels / winSize;
         var mouseDeltaRad = -(mouseDelta * MathF.PI);
 
         _yaw += mouseDeltaRad.X;
@@ -102,10 +109,10 @@ public sealed class CameraSystem : SystemBase, IDisposable
         var finalRot = Quaternion.CreateFromYawPitchRoll(_yaw, _pitch, 0);
         _camera.Entity.Get<Rotation>().Value = finalRot;
 
-        _velocity += Vector3.Transform(GetAccelerationVector() * (float)delta.TotalSeconds, finalRot);
+        _velocity += Vector3.Transform(GetAccelerationVector(in camData) * (float)delta.TotalSeconds, finalRot);
     }
 
-    private Vector3 GetAccelerationVector()
+    private Vector3 GetAccelerationVector(in Camera camData)
     {
         var moveInput = new Vector3();
 
@@ -128,9 +135,9 @@ public sealed class CameraSystem : SystemBase, IDisposable
         var direction = Vector3.Normalize(moveInput);
 
         if (_input.IsKeyDown(Key.ShiftLeft))
-            return direction * (Acceleration * AccSprintMultiplier);
+            return direction * (camData.Acceleration * camData.AccSprintMultiplier);
 
-        return direction * Acceleration;
+        return direction * camData.Acceleration;
 
         void AddMovement(Key key, Vector3 dir)
         {
@@ -141,10 +148,9 @@ public sealed class CameraSystem : SystemBase, IDisposable
 
     private void ChangeFocusState(bool focused)
     {
-
         _input.CursorHidden = focused;
         _input.CursorRestricted = focused;
-        
+
         _isFocused = focused;
     }
 }

@@ -1,8 +1,10 @@
+using System.Drawing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.WGPU.Extensions;
+using GameDotNet.Management;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Maths;
 using Silk.NET.WebGPU;
@@ -19,7 +21,6 @@ namespace GameDotNet.Graphics.WGPU;
 
 public class WebGpuRenderer
 {
-    public Transform CurrentCamera { get; set; }
     public IList<MeshInstanceRender> MeshInstances => _meshInstances;
     
     
@@ -85,18 +86,18 @@ public class WebGpuRenderer
         _context.Device!.Queue.WriteBuffer<Matrix4x4>(_modelUniformBuffer, modelMatrices);
     }
 
-    public void WriteCameraUniform(Extent3D viewSize)
+    public void WriteCameraUniform(in Size viewSize, in Transform transform, in Camera camData)
     {
         // camera position
-        var view = Transform.ToMatrix(Vector3.One, CurrentCamera.Rotation, CurrentCamera.Translation);
+        var view = transform.ToMatrix();
         
-        var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
+        var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(camData.FieldOfView),
                                                                 (float)viewSize.Width / viewSize.Height,
-                                                                0.1f, 5000f);
+                                                                camData.NearPlaneDistance, camData.FarPlaneDistance);
         
-        var camData = new CameraRenderInfo(view, projection);
+        var renderData = new CameraRenderInfo(view, projection);
         
-        _context.Device!.Queue.WriteBuffer<CameraRenderInfo>(_cameraUniformBuffer, camData.AsSpan());
+        _context.Device!.Queue.WriteBuffer<CameraRenderInfo>(_cameraUniformBuffer, renderData.AsSpan());
     }
 
     public void RecreateDepthTexture(Extent3D size)
@@ -151,9 +152,6 @@ public class WebGpuRenderer
         {
             RecreateDepthTexture(view.Texture.Size);
         }
-        
-        WriteCameraUniform(view.Texture.Size);
-        
         
         using var encoder = _context.Device!.CreateCommandEncoder("render-command-encoder");
 

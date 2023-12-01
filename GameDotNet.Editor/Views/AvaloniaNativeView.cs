@@ -8,17 +8,16 @@ using GameDotNet.Editor.Tools;
 using GameDotNet.Graphics.Abstractions;
 using MessagePipe;
 using Silk.NET.Core.Contexts;
-using Silk.NET.Maths;
 using IInputContext = GameDotNet.Input.Abstract.IInputContext;
 
 namespace GameDotNet.Editor.Views;
 
 internal sealed class AvaloniaNativeView : INativeView, IDisposable
 {
-    public ISubscriber<Vector2D<int>> Resized { get; }
+    public ISubscriber<System.Drawing.Size> Resized { get; }
     public ISubscriber<bool> FocusChanged { get; }
 
-    public Vector2D<int> Size { get; private set; }
+    public System.Drawing.Size Size { get; private set; }
 
     public IInputContext Input { get; }
     public bool IsClosing { get; private set; }
@@ -27,7 +26,7 @@ internal sealed class AvaloniaNativeView : INativeView, IDisposable
 
     private readonly double _renderScaling;
 
-    private readonly IDisposablePublisher<Vector2D<int>> _resized;
+    private readonly IDisposablePublisher<System.Drawing.Size> _resized;
     private readonly IDisposablePublisher<bool> _focusChanged;
 
 
@@ -36,7 +35,7 @@ internal sealed class AvaloniaNativeView : INativeView, IDisposable
         var win = (Window)host.GetVisualRoot()!;
         _renderScaling = win.RenderScaling;
 
-        (_resized, Resized) = eventFactory.CreateEvent<Vector2D<int>>();
+        (_resized, Resized) = eventFactory.CreateEvent<System.Drawing.Size>();
         (_focusChanged, FocusChanged) = eventFactory.CreateEvent<bool>();
 
         win.Closing += (_, _) => IsClosing = true;
@@ -54,7 +53,7 @@ internal sealed class AvaloniaNativeView : INativeView, IDisposable
         if (host.Bounds != default) Resize(host.Bounds.Size);
     }
 
-    private Vector2D<int> AvaloniaPixelSizeToVector(Size size)
+    private System.Drawing.Size AvaloniaPixelSizeToSize(Size size)
     {
         var pxS = PixelSize.FromSize(size, _renderScaling);
 
@@ -63,7 +62,7 @@ internal sealed class AvaloniaNativeView : INativeView, IDisposable
 
     private void Resize(Size size)
     {
-        var newSize = AvaloniaPixelSizeToVector(size);
+        var newSize = AvaloniaPixelSizeToSize(size);
         Size = newSize;
         _resized.Publish(newSize);
     }

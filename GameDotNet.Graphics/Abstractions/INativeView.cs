@@ -1,16 +1,16 @@
+using System.Drawing;
 using MessagePipe;
 using Silk.NET.Core.Contexts;
-using Silk.NET.Maths;
 using IInputContext = GameDotNet.Input.Abstract.IInputContext;
 
 namespace GameDotNet.Graphics.Abstractions;
 
 public interface INativeView
 {
-    public ISubscriber<Vector2D<int>> Resized { get; }
+    public ISubscriber<Size> Resized { get; }
     public ISubscriber<bool> FocusChanged { get; }
 
-    public Vector2D<int> Size { get; }
+    public Size Size { get; }
     
     public IInputContext Input { get; }
     
