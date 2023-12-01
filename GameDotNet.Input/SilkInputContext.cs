@@ -1,8 +1,11 @@
 using System.Numerics;
+using GameDotNet.Input.Abstract;
 using MessagePipe;
 using Silk.NET.Input;
+using IInputContext = GameDotNet.Input.Abstract.IInputContext;
 
-namespace GameDotNet.Input.Abstract;
+
+namespace GameDotNet.Input;
 
 public class SilkInputContext : IInputContext
 {

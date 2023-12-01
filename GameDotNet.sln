@@ -40,7 +40,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GameDotNet.Editor", "GameDo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.Graphics.WGPU", "GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj", "{B4287FE2-D94D-430B-81E4-EFFEC3F4F8F0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.Input.Abstract", "GameDotNet.Input.Abstract\GameDotNet.Input.Abstract.csproj", "{1B1D4131-D073-4CEA-BDB9-3606A331F409}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GameDotNet.Input", "GameDotNet.Input\GameDotNet.Input.csproj", "{1B1D4131-D073-4CEA-BDB9-3606A331F409}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Arch", "ThirdParty\Arch\src\Arch\Arch.csproj", "{C0DC57B3-080E-42DD-A37E-F2A0B2173368}"
 EndProject

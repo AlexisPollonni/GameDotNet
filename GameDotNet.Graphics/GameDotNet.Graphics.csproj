@@ -16,7 +16,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
-        <ProjectReference Include="..\GameDotNet.Input.Abstract\GameDotNet.Input.Abstract.csproj" />
+        <ProjectReference Include="..\GameDotNet.Input\GameDotNet.Input.csproj" />
     </ItemGroup>
 
 </Project>
