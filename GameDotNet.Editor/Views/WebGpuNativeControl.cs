@@ -1,6 +1,7 @@
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Platform;
+using GameDotNet.Editor.Tools;
 using GameDotNet.Graphics;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;

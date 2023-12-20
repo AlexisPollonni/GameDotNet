@@ -4,13 +4,12 @@ using Avalonia.Controls;
 using Avalonia.Platform;
 using Avalonia.VisualTree;
 using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Editor.Tools;
 using GameDotNet.Graphics.Abstractions;
 using MessagePipe;
 using Silk.NET.Core.Contexts;
 using IInputContext = GameDotNet.Input.Abstract.IInputContext;
 
-namespace GameDotNet.Editor.Views;
+namespace GameDotNet.Editor.Tools;
 
 internal sealed class AvaloniaNativeView : INativeView, IDisposable
 {
