@@ -13,17 +13,22 @@ using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
+using EntityNode = DynamicData.Node<GameDotNet.Editor.ViewModels.EntityEntryViewModel, Arch.Core.EntityReference>;
 
 namespace GameDotNet.Editor.ViewModels;
 
 public sealed class EntityTreeViewModel : ViewModelBase
 {
     [Reactive]
-    public ReadOnlyObservableCollection<Node<EntityEntryViewModel, EntityReference>>? EntityTree { get; set; }
+    public ObservableCollection<EntityNode> SelectedItems { get; set; }
+    
+    [Reactive]
+    public ReadOnlyObservableCollection<EntityNode>? EntityTree { get; set; }
 
     public EntityTreeViewModel(Universe universe)
     {
         var cache = new SourceList<Entity>();
+        SelectedItems = new();
 
         this.WhenActivated(d =>
         {
@@ -32,7 +37,7 @@ public sealed class EntityTreeViewModel : ViewModelBase
                       .Subscribe(_ =>
                       {
                           var entities = universe.World.Archetypes
-                                                 .SelectMany(static arch => arch?.Chunks ?? Enumerable.Empty<Chunk>())
+                                                 .SelectMany(static arch => arch.Chunks)
                                                  .SelectMany(static chunk =>
                                                                  chunk.Entities.AsSpan(0, chunk.Size).ToArray());
 
@@ -49,6 +54,7 @@ public sealed class EntityTreeViewModel : ViewModelBase
                  .Bind(out var tree)
                  .Subscribe()
                  .DisposeWith(d);
+            
             EntityTree = tree;
         });
     }

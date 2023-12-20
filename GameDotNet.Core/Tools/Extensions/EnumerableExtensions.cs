@@ -33,4 +33,25 @@ public static class EnumerableExtensions
     {
         return (ulong)(sizeof(T) * list.Count);
     }
+    
+    public static IEnumerable<T> FlattenLevelOrder<T>(
+        this IEnumerable<T> items,
+        Func<T, IEnumerable<T>?> getChildren)
+    {
+        var stack = new Queue<T>();
+        foreach (var item in items)
+            stack.Enqueue(item);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Dequeue();
+            yield return current;
+
+            var children = getChildren(current);
+            if (children is null) continue;
+
+            foreach (var child in children)
+                stack.Enqueue(child);
+        }
+    }
 }

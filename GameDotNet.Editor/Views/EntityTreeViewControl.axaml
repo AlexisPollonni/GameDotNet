@@ -8,7 +8,10 @@
 			 d:DesignHeight="450"
 			 x:Class="GameDotNet.Editor.Views.EntityTreeViewControl"
 			 x:DataType="viewModels:EntityTreeViewModel">
-	<TreeView ItemsSource="{CompiledBinding EntityTree}">
+	
+	<TreeView SelectedItems="{CompiledBinding SelectedItems}"
+			  ItemsSource="{CompiledBinding EntityTree}"
+			  SelectionMode="AlwaysSelected, Single">
 		<TreeView.ItemTemplate>
 			<TreeDataTemplate ItemsSource="{Binding Children}">
 				<TextBlock Text="{Binding Item.Name}" />

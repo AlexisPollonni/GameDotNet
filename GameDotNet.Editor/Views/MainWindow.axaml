@@ -29,13 +29,15 @@
 					<Run>ms</Run>
 				</TextBlock>
 		</StackPanel>
-		<Grid ColumnDefinitions="*, 6*" RowDefinitions="6*, *">
+		<Grid ColumnDefinitions="*, 6*, 2*" RowDefinitions="6*, *">
 			<ContentControl Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" 
 							Content="{CompiledBinding TreeViewModel}"/>
 			<ContentControl Grid.Row="0" Grid.Column="1"
 							Content="{CompiledBinding WebGpuViewModel}"
 							VerticalAlignment="Stretch"
 							HorizontalAlignment="Stretch" />
+			<ContentControl Grid.Row="0" Grid.Column="2" Grid.RowSpan="2"
+							Content="{CompiledBinding InspectorViewModel}"/>
 			<ContentControl Grid.Row="1" Grid.Column="1"
 							Content="{CompiledBinding LogViewModel}"/>
 		</Grid>

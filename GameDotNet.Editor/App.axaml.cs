@@ -38,7 +38,9 @@ public partial class App : Application
                .AddView<EntityTreeViewModel, EntityTreeViewControl>()
                .AddSingleton(logViewerVM)
                .AddView<LogViewerViewModel, LogViewerControl>()
-               .AddSingleton<MainWindowViewModel>();
+               .AddSingleton<MainWindowViewModel>()
+               .AddView<EntityInspectorViewModel, EntityInspectorControl>()
+               .AddSingleton<EntityInspectorViewModel>();
 
         GlobalHost = builder.Build();
 
