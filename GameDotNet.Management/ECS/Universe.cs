@@ -87,6 +87,7 @@ public sealed class Universe : IDisposable
     
 
     private bool _initialized;
+    private bool _disposed;
     private Scene? _loadedScene;
 
     public Universe(ILogger<Universe> logger, IMeterFactory meterFactory, IServiceProvider provider)
@@ -150,6 +151,7 @@ public sealed class Universe : IDisposable
 
     public void Update()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         if (!_initialized) return;
 
         _scheduler ??= _provider.GetRequiredService<JobScheduler>();
@@ -236,6 +238,9 @@ public sealed class Universe : IDisposable
 
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        
         foreach (var system in _systemEntries.Keys) system.DisposeIf();
 
         _loadedSceneEntities.Dispose();
