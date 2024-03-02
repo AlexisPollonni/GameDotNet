@@ -9,6 +9,7 @@ using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Assets;
 using GameDotNet.Management.ECS.Components;
+using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Schedulers;
@@ -92,12 +93,13 @@ public sealed class Universe : IDisposable
     {
         _logger = logger;
         _provider = provider;
-        World = World.Create();
-
         _meter = meterFactory.Create(new("Universe.Updates"));
         _systemEntries = new();
         _updateQueue = new();
         _loadedSceneEntities = new();
+        
+        GlobalMessagePipe.SetProvider(provider);
+        World = World.Create();
     }
 
     public async Task Initialize(CancellationToken token = default)
