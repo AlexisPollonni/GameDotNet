@@ -7,13 +7,16 @@ using Microsoft.Extensions.DependencyInjection;
 
 Console.WriteLine("Hello, World!");
 
-using var app = new Application("SampleGame");
+using var app = new StandaloneApplication("SampleGame");
 
-var assetManager = app.GlobalHost.Services.GetRequiredService<AssimpNetImporter>();
+using var _ = app.Engine.OnInitialized.Subscribe(host =>
+{
+    var s = host.Services;
+    var assetManager = s.GetRequiredService<AssimpNetImporter>();
 
-assetManager.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
+    assetManager.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
 
-app.GlobalHost.Services.GetRequiredService<Universe>().LoadScene(scene!);
+    s.GetRequiredService<Universe>().LoadScene(scene!);
+});
 
-await app.Initialize();
 return await app.Run();

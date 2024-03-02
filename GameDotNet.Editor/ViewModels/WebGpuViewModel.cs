@@ -2,8 +2,6 @@ using System;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using GameDotNet.Graphics;
 using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Graphics.WGPU;
@@ -39,20 +37,5 @@ public class WebGpuViewModel : ViewModelBase
                       .ToPropertyEx(this, vm => vm.RenderStats)
                       .DisposeWith(d);
         });
-    }
-
-    public async Task Run(CancellationToken token = default)
-    {
-        _importer.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
-
-        _universe.LoadScene(scene);
-        
-        await _universe.Initialize(token);
-        
-        await Task.Run(() =>
-        {
-            while (!token.IsCancellationRequested)
-                _universe.Update();
-        }, token);
     }
 }
