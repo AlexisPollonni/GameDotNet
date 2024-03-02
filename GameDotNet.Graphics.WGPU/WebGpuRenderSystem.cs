@@ -1,8 +1,12 @@
 using System.Drawing;
 using System.Numerics;
+using System.Reactive.Linq;
 using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.Physics.Components;
+using GameDotNet.Core.Tools.Containers;
+using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
@@ -16,72 +20,82 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
 {
     public TimingsRingBuffer RenderTimings { get; }
 
-
     private static readonly QueryDescription CameraQueryDesc = new QueryDescription().WithAny<Camera>();
     private static readonly QueryDescription MeshQueryDesc = new QueryDescription().WithAny<Mesh>();
 
     private readonly ILogger<WebGpuRenderSystem> _logger;
+    private readonly DisposableList _disposables;
     private readonly WebGpuContext _gpuContext;
     private readonly WebGpuRenderer _renderer;
     private readonly NativeViewManager _viewManager;
 
     private Size _lastFramebufferSize;
 
-    public WebGpuRenderSystem(ILogger<WebGpuRenderSystem> logger, Universe universe, WebGpuContext gpuContext,
-                              WebGpuRenderer renderer, NativeViewManager viewManager)
-        : base(universe, new(0, true))
+    public WebGpuRenderSystem(ILogger<WebGpuRenderSystem> logger,
+                              Universe universe,
+                              WebGpuContext gpuContext,
+                              WebGpuRenderer renderer,
+                              NativeViewManager viewManager) : base(universe, new(0, true, false))
     {
         _logger = logger;
+        _disposables = new();
         _gpuContext = gpuContext;
         _renderer = renderer;
         _viewManager = viewManager;
         RenderTimings = new(512);
         _lastFramebufferSize = new(-1, -1);
+
+        var viewChanged = viewManager.MainViewChanged.AsObservable().Where(v => v is not null).Select(v => v!);
+
+        viewChanged.FirstAsync()
+                   .SelectMany(async (v, token) => await InitializeGraphicsResources(v, token))
+                   .Subscribe()
+                   .DisposeWith(_disposables);
+
+        viewChanged.SelectMany(v => v.Resized.AsObservable()).Subscribe(OnFramebufferResize).DisposeWith(_disposables);
     }
 
-    public override async ValueTask<bool> Initialize(CancellationToken token = default)
+    private async ValueTask<bool> InitializeGraphicsResources(INativeView view, CancellationToken token = default)
     {
-        if (_viewManager.MainView is null)
-            return false;
-
-        _viewManager.MainView.Resized.Subscribe(OnFramebufferResize);
-
-        if (!await _gpuContext.Initialize(_viewManager.MainView, token))
-            return false;
-
+        await _gpuContext.Initialize(view, token);
         await _renderer.Initialize(token);
 
-        _gpuContext.ResizeSurface(_viewManager.MainView.Size);
+        _gpuContext.ResizeSurface(view.Size);
 
         //TODO: Move this to asset manager when its implemented
-        Universe.World.Query(MeshQueryDesc, (Entity e, ref Mesh mesh) =>
-        {
-            if (mesh.Vertices.Count is 0)
-            {
-                Log.Warning("Skipped mesh {Name} with no vertices", e.Get<Tag>().Name);
-                return;
-            }
+        Universe.World.Query(MeshQueryDesc,
+                             (Entity e, ref Mesh mesh) =>
+                             {
+                                 if (mesh.Vertices.Count is 0)
+                                 {
+                                     Log.Warning("Skipped mesh {Name} with no vertices", e.Get<Tag>().Name);
+                                     return;
+                                 }
 
-            //model transform
-            var model = Transform.FromEntity(e)?.ToMatrix() ?? Matrix4x4.Identity;
+                                 //model transform
+                                 var model = Transform.FromEntity(e)?.ToMatrix() ?? Matrix4x4.Identity;
 
-            _renderer.MeshInstances.Add(new(model, mesh));
+                                 _renderer.MeshInstances.Add(new(model, mesh));
 
-            _renderer.UploadMeshes(mesh);
-        });
+                                 _renderer.UploadMeshes(mesh);
+                             });
 
         _renderer.WriteModelUniforms();
 
+        IsRunning = true;
         return true;
     }
 
     public override void Update(TimeSpan delta)
     {
-        if (_viewManager.MainView!.IsClosing)
+        if (_viewManager.MainView is null) return;
+        if (_viewManager.MainView.IsClosing)
         {
             IsRunning = false;
             return;
         }
+
+        if (!_gpuContext.IsInitialized) return;
 
         var surfaceSize = _gpuContext.SwapChain!.Size;
 
@@ -95,15 +109,14 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
 
         {
             using var swTextureView = _gpuContext.SwapChain?.GetCurrentTextureView();
-            if (swTextureView is null)
-                return;
-            
+            if (swTextureView is null) return;
+
             var cam = Universe.World.GetFirstEntity(CameraQueryDesc);
             var camTransform = Transform.FromEntity(cam) ?? new();
             ref readonly var camData = ref cam.Get<Camera>();
-            
+
             _renderer.WriteCameraUniform(in surfaceSize, in camTransform, in camData);
-            
+
             _renderer.Draw(delta, swTextureView);
 
             _gpuContext.SwapChain?.Present();
@@ -114,6 +127,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
     public void Dispose()
     {
         _gpuContext.Dispose();
+        _disposables.Dispose();
     }
 
     // Checks if view is minimized and if it is pause render job
@@ -125,8 +139,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
             if (last.Width is not 0 || last.Height is not 0)
             {
                 IsRunning = false;
-                _logger.LogInformation("<Render> Render thread {Id} entering sleep",
-                                       Environment.CurrentManagedThreadId);
+                _logger.LogInformation("<Render> Render thread {Id} entering sleep", Environment.CurrentManagedThreadId);
             }
         }
         else if (last.Width is 0 || last.Height is 0)
