@@ -29,7 +29,7 @@ public sealed class SilkView : INativeView, IDisposable
 
         (_resized, Resized) = factory.CreateEvent<Size>();
         (_focusChanged, FocusChanged) = factory.CreateEvent<bool>();
-        
+
         _view.FramebufferResize += s => _resized.Publish(new(s.X, s.Y));
         _view.FocusChanged += b => _focusChanged.Publish(b);
     }
@@ -38,5 +38,6 @@ public sealed class SilkView : INativeView, IDisposable
     {
         _resized.Dispose();
         _focusChanged.Dispose();
+        _view.Dispose();
     }
 }
