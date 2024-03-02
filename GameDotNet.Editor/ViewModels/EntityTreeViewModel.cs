@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -11,6 +10,7 @@ using DynamicData;
 using DynamicData.Alias;
 using GameDotNet.Management.ECS;
 using GameDotNet.Management.ECS.Components;
+using MessagePipe;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using EntityNode = DynamicData.Node<GameDotNet.Editor.ViewModels.EntityEntryViewModel, Arch.Core.EntityReference>;
@@ -21,7 +21,7 @@ public sealed class EntityTreeViewModel : ViewModelBase
 {
     [Reactive]
     public ObservableCollection<EntityNode> SelectedItems { get; set; }
-    
+
     [Reactive]
     public ReadOnlyObservableCollection<EntityNode>? EntityTree { get; set; }
 
@@ -32,19 +32,23 @@ public sealed class EntityTreeViewModel : ViewModelBase
 
         this.WhenActivated(d =>
         {
-            //TODO: Replace with creation events when implemented
-            Observable.Interval(TimeSpan.FromMilliseconds(100), Scheduler.Default)
-                      .Subscribe(_ =>
-                      {
-                          var entities = universe.World.Archetypes
-                                                 .SelectMany(static arch => arch.Chunks)
-                                                 .SelectMany(static chunk =>
-                                                                 chunk.Entities.AsSpan(0, chunk.Size).ToArray());
+            cache.Edit(list =>
+            {
+                foreach (var arch in universe.World)
+                {
+                    foreach (var chunk in arch)
+                    {
+                        foreach (var i in chunk)
+                        {
+                            list.Add(chunk.Entity(i));
+                        }
+                    }
+                }
+            });
 
-                          cache.EditDiff(entities);
-                      })
-                      .DisposeWith(d);
-
+            universe.World.EntityCreated.AsObservable().Subscribe(args => cache.Add(args.Entity)).DisposeWith(d);
+            universe.World.EntityDestroyed.AsObservable().Subscribe(args => cache.Remove(args.Entity)).DisposeWith(d);
+            
             cache.Connect()
                  .ObserveOn(Scheduler.Default)
                  .AddKey(static entity => entity.Reference())
@@ -54,7 +58,7 @@ public sealed class EntityTreeViewModel : ViewModelBase
                  .Bind(out var tree)
                  .Subscribe()
                  .DisposeWith(d);
-            
+
             EntityTree = tree;
         });
     }
