@@ -64,19 +64,20 @@ public sealed class WebGpuContext : IDisposable
 
         device.SetLoggingCallback((type, message) =>
         {
+            var fmtMessage = message.ReplaceLineEndings();
             switch (type)
             {
                 case LoggingType.Verbose:
-                    _logger.LogTrace("[WebGPU] {Msg}", message);
+                    _logger.LogTrace("[WebGPU] {Msg}", fmtMessage);
                     break;
                 case LoggingType.Info:
-                    _logger.LogInformation("[WebGPU] {Msg}", message);
+                    _logger.LogInformation("[WebGPU] {Msg}", fmtMessage);
                     break;
                 case LoggingType.Warning:
-                    _logger.LogWarning("[WebGPU] {Msg}", message);
+                    _logger.LogWarning("[WebGPU] {Msg}", fmtMessage);
                     break;
                 case LoggingType.Error:
-                    _logger.LogError("[WebGPU] {Msg}", message);
+                    _logger.LogError("[WebGPU] {Msg}", fmtMessage);
                     break;
                 case LoggingType.Force32:
                 default:
