@@ -9,5 +9,15 @@
 			 d:DesignHeight="450"
 			 x:Class="GameDotNet.Editor.Views.WebGpuView"
 			 x:DataType="viewModels:WebGpuViewModel">
-	<views:WebGpuNativeControl x:Name="NativeControl"/>
+	<Grid>
+		<views:GpuNativeControl x:Name="NativeControl">
+			<Border BorderBrush="Crimson"
+					BorderThickness="1"
+					HorizontalAlignment="Stretch"
+					VerticalAlignment="Stretch">
+				<TextBlock>THIS IS A TEST OVERLAY</TextBlock>
+			</Border>
+		</views:GpuNativeControl>
+
+	</Grid>
 </UserControl>
