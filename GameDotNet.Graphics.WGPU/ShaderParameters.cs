@@ -114,7 +114,15 @@ public sealed class ShaderParameters : IDisposable
         var set = _entries[name].Set;
         var offsets = _bindData[set].BindingOffsets;
 
-        var binding = Array.FindIndex(offsets, tuple => tuple.Name == name);
+        var binding = -1;
+        for (var i = 0; i < offsets.Length; i++)
+        {
+            if (offsets[i].Name != name) continue;
+            
+            binding = i;
+            break;
+        }
+
         ref var current = ref offsets[binding].Offset;
 
         if (current + deltaOffset >= UniformBuffers[name].SizeInBytes)
