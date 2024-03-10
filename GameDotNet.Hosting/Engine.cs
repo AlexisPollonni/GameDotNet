@@ -166,7 +166,7 @@ public sealed class Engine : IDisposable
         return logger;
     }
 
-    private static HostApplicationBuilder CreateHostBuilder(ILogger serilog)
+    private HostApplicationBuilder CreateHostBuilder(ILogger serilog)
     {
         // ReSharper disable once ContextualLoggerProblem
         TaskScheduler.UnobservedTaskException += (sender, args) =>
@@ -178,7 +178,9 @@ public sealed class Engine : IDisposable
         builder.Logging.ClearProviders();
         builder.Logging.AddSerilog(serilog, true);
 
-        builder.Services.AddCoreSystemServices();
+        builder.Services
+               .AddSingleton(this)
+               .AddCoreSystemServices();
 
         return builder;
     }
