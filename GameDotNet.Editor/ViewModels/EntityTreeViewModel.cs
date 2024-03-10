@@ -8,7 +8,7 @@ using Arch.Core.Extensions;
 using Avalonia.ReactiveUI;
 using DynamicData;
 using DynamicData.Alias;
-using GameDotNet.Management.ECS;
+using GameDotNet.Management;
 using GameDotNet.Management.ECS.Components;
 using MessagePipe;
 using ReactiveUI;
@@ -25,7 +25,7 @@ public sealed class EntityTreeViewModel : ViewModelBase
     [Reactive]
     public ReadOnlyObservableCollection<EntityNode>? EntityTree { get; set; }
 
-    public EntityTreeViewModel(Universe universe)
+    public EntityTreeViewModel(SceneManager sceneManager)
     {
         var cache = new SourceList<Entity>();
         SelectedItems = new();
@@ -34,7 +34,7 @@ public sealed class EntityTreeViewModel : ViewModelBase
         {
             cache.Edit(list =>
             {
-                foreach (var arch in universe.World)
+                foreach (var arch in sceneManager.World)
                 {
                     foreach (var chunk in arch)
                     {
@@ -46,8 +46,8 @@ public sealed class EntityTreeViewModel : ViewModelBase
                 }
             });
 
-            universe.World.EntityCreated.AsObservable().Subscribe(args => cache.Add(args.Entity)).DisposeWith(d);
-            universe.World.EntityDestroyed.AsObservable().Subscribe(args => cache.Remove(args.Entity)).DisposeWith(d);
+            sceneManager.World.EntityCreated.AsObservable().Subscribe(args => cache.Add(args.Entity)).DisposeWith(d);
+            sceneManager.World.EntityDestroyed.AsObservable().Subscribe(args => cache.Remove(args.Entity)).DisposeWith(d);
             
             cache.Connect()
                  .ObserveOn(Scheduler.Default)

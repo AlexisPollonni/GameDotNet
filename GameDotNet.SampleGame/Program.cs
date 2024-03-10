@@ -2,7 +2,7 @@
 
 using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Hosting;
-using GameDotNet.Management.ECS;
+using GameDotNet.Management;
 using Microsoft.Extensions.DependencyInjection;
 
 Console.WriteLine("Hello, World!");
@@ -16,7 +16,7 @@ using var _ = app.Engine.OnInitialized.Subscribe(host =>
 
     assetManager.LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
 
-    s.GetRequiredService<Universe>().LoadScene(scene!);
+    s.GetRequiredService<SceneManager>().LoadScene(scene ?? throw new InvalidOperationException());
 });
 
 return await app.Run();

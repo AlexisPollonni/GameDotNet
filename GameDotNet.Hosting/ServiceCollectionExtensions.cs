@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
                     ThreadPrefixName = "UpdateJob"
                 }))
                 .AddSingleton<Universe>()
+                .AddSingleton<SceneManager>()
                 .AddTransient<AssimpNetImporter>()
                 .AddSingleton<ShaderCompiler>()
                 .AddSingleton<WebGpuContext>()

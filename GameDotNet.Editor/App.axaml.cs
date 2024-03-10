@@ -11,7 +11,7 @@ using GameDotNet.Editor.ViewModels;
 using GameDotNet.Editor.Views;
 using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Hosting;
-using GameDotNet.Management.ECS;
+using GameDotNet.Management;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Application = Avalonia.Application;
@@ -63,7 +63,7 @@ public partial class App : Application
                 
                 //TODO: Remove when asset manager and scene loading Ui is done
                 s.GetRequiredService<AssimpNetImporter>().LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
-                s.GetRequiredService<Universe>().LoadScene(scene);
+                s.GetRequiredService<SceneManager>().LoadScene(scene ?? throw new InvalidOperationException());
             });
 
 

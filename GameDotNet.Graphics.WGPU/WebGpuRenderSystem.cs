@@ -24,6 +24,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
     private static readonly QueryDescription MeshQueryDesc = new QueryDescription().WithAny<Mesh>();
 
     private readonly ILogger<WebGpuRenderSystem> _logger;
+    private readonly SceneManager _sceneManager;
     private readonly DisposableList _disposables;
     private readonly WebGpuContext _gpuContext;
     private readonly WebGpuRenderer _renderer;
@@ -32,12 +33,13 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
     private Size _lastFramebufferSize;
 
     public WebGpuRenderSystem(ILogger<WebGpuRenderSystem> logger,
-                              Universe universe,
+                              SceneManager sceneManager,
                               WebGpuContext gpuContext,
                               WebGpuRenderer renderer,
-                              NativeViewManager viewManager) : base(universe, new(0, true, false))
+                              NativeViewManager viewManager) : base(new(0, true, false))
     {
         _logger = logger;
+        _sceneManager = sceneManager;
         _disposables = new();
         _gpuContext = gpuContext;
         _renderer = renderer;
@@ -63,7 +65,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         _gpuContext.ResizeSurface(view.Size);
 
         //TODO: Move this to asset manager when its implemented
-        Universe.World.Query(MeshQueryDesc,
+        _sceneManager.World.Query(MeshQueryDesc,
                              (Entity e, ref Mesh mesh) =>
                              {
                                  if (mesh.Vertices.Count is 0)
@@ -111,7 +113,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
             using var swTextureView = _gpuContext.SwapChain?.GetCurrentTextureView();
             if (swTextureView is null) return;
 
-            var cam = Universe.World.GetFirstEntity(CameraQueryDesc);
+            var cam = _sceneManager.World.GetFirstEntity(CameraQueryDesc);
             var camTransform = Transform.FromEntity(cam) ?? new();
             ref readonly var camData = ref cam.Get<Camera>();
 

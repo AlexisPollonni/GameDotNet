@@ -1,19 +1,15 @@
-using Arch.Core;
-
 namespace GameDotNet.Management.ECS;
 
 public abstract class SystemBase
 {
-    public Universe Universe { get; }
     public SystemDescription Description { get; }
 
     public bool IsInitialized { get; internal set; }
 
     public bool IsRunning { get; set; }
 
-    protected SystemBase(Universe universe, SystemDescription description)
+    protected SystemBase(SystemDescription description)
     {
-        Universe = universe;
         Description = description;
     }
 

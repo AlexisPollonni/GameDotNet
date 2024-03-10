@@ -30,6 +30,7 @@ public record struct Camera(
 
 public sealed class CameraSystem : SystemBase, IDisposable
 {
+    private readonly SceneManager _sceneManager;
     private readonly NativeViewManager _viewManager;
     private readonly DisposableList _disposables;
     
@@ -40,8 +41,9 @@ public sealed class CameraSystem : SystemBase, IDisposable
     private float _yaw, _pitch;
     private Vector2 _lastMousePos;
 
-    public CameraSystem(Universe universe, NativeViewManager viewManager) : base(universe, new(1, false))
+    public CameraSystem(SceneManager sceneManager, NativeViewManager viewManager) : base(new(1, false))
     {
+        _sceneManager = sceneManager;
         _viewManager = viewManager;
         _disposables = new();
         
@@ -70,7 +72,7 @@ public sealed class CameraSystem : SystemBase, IDisposable
         Matrix4x4.Decompose(Matrix4x4.CreateLookAt(new(0, 0, -3), Vector3.Zero, -Vector3.UnitY),
                             out _, out var rot, out var pos);
 
-        _camera = Universe.World.Create(new Tag("Camera"),
+        _camera = _sceneManager.World.Create(new Tag("Camera"),
                                         new Camera(),
                                         new Translation(pos),
                                         new Rotation(rot))
