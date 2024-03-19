@@ -12,6 +12,6 @@ public static class ReactiveExtensions
 
     public static async Task StartAsync(this IScheduler scheduler, Func<CancellationToken, Task> func, CancellationToken token = default)
     {
-        await Observable.StartAsync(func, scheduler).RunAsync(token);
+        await Observable.FromAsync(func, scheduler).SubscribeOn(scheduler).RunAsync(token);
     }
 }

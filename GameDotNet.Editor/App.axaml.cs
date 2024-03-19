@@ -34,7 +34,7 @@ public partial class App : Application
         var loggerConfig = Engine.CreateLoggerConfig(Current?.Name ?? "GameDotNet-Editor").WriteTo.LogViewSink(logViewerVM);
         var logger = Engine.CreateLogger(loggerConfig);
 
-        Engine = new(logger, AvaloniaScheduler.Instance);
+        Engine = new(logger);
 
         Engine.Builder.Services
               .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
@@ -54,7 +54,9 @@ public partial class App : Application
         {
             desktop.MainWindow = new MainWindow();
             
-            Engine.OnInitialized.Subscribe(host =>
+            Engine.OnInitialized
+                  .ObserveOn(AvaloniaScheduler.Instance)
+                  .Subscribe(host =>
             {
                 var s = host.Services;
                 Logger.Sink = s.GetRequiredService<ILogSink>();

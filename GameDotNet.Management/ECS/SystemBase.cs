@@ -13,34 +13,64 @@ public abstract class SystemBase
         Description = description;
     }
 
-    public virtual ValueTask<bool> Initialize(CancellationToken token = default) => ValueTask.FromResult(true);
+    public virtual ValueTask<bool> Initialize(CancellationToken token = default) =>
+        ValueTask.FromResult(true);
 
-    public virtual void OnPauseChanged(bool isPaused)
-    { }
-
-    public virtual void BeforeUpdate()
-    { }
+    public virtual void OnRunningStatusChanged(bool isRunning) { }
 
     public abstract void Update(TimeSpan delta);
-
-    public virtual void AfterUpdate()
-    { }
 }
 
-public abstract class SystemWithQuery : SystemBase
+public record SystemDescription(int Priority = 0, bool RunsOnMainThread = false, bool StartAfterInitialization = true)
 {
-    public QueryDescription Query { get; }
+    public TimeSpan UpdateThrottle { get; init; } = TimeSpan.Zero;
+}
 
-    protected SystemWithQuery(Universe universe, QueryDescription query, SystemDescription description) :
-        base(universe, description)
+public abstract class BeforeAfterSystemBase : SystemBase, IDisposable
+{
+    private readonly Universe _universe;
+    private readonly BeforePassSystem _beforePass;
+    private readonly AfterPassSystem _afterPass;
+
+    protected BeforeAfterSystemBase(SystemDescription description, Universe universe) : base(description)
     {
-        Query = query;
+        _universe = universe;
+        _beforePass = new(description, this);
+        _afterPass = new(description, this);
     }
 
-    public sealed override void Update(TimeSpan delta)
-    { }
+    public virtual void BeforeUpdate() { }
+    public virtual void AfterUpdate() { }
 
-    public abstract void UpdateAll(TimeSpan delta, ReadOnlySpan<Entity> entities);
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!disposing) return;
+        
+        _universe.RemoveSystem(_beforePass);
+        _universe.RemoveSystem(_afterPass);
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    private sealed class BeforePassSystem(SystemDescription description, BeforeAfterSystemBase parent)
+        : SystemBase(description with { Priority = int.MinValue })
+    {
+        public override void Update(TimeSpan delta)
+        {
+            parent.BeforeUpdate();
+        }
+    }
+
+    private sealed class AfterPassSystem(SystemDescription description, BeforeAfterSystemBase parent)
+        : SystemBase(description with { Priority = int.MaxValue })
+    {
+        public override void Update(TimeSpan delta)
+        {
+            parent.AfterUpdate();
+        }
+    }
 }
-
-public record SystemDescription(int Priority, bool HasDedicatedThread, bool StartAfterInitialization = true);

@@ -6,6 +6,7 @@ using System.Reactive.Subjects;
 using GameDotNet.Core;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Management.ECS;
+using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -41,6 +42,7 @@ public sealed class Engine : IDisposable
     {
         GlobalHost = Builder.Build();
 
+        GlobalMessagePipe.SetProvider(GlobalHost.Services);
         var universe = GlobalHost.Services.GetRequiredService<Universe>();
 
         await MainScheduler.StartAsync(universe.Initialize, token);
