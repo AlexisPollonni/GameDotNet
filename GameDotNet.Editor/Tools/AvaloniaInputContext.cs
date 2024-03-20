@@ -86,6 +86,7 @@ internal sealed class AvaloniaInputContext : IInputContext, IDisposable
         var delta = vecPos - MousePosition;
         
         _mouseMove.Publish(new(delta));
+        MousePosition = vecPos;
     }
 
     private void ElementOnPointerWheelChanged(object? sender, PointerWheelEventArgs e)
