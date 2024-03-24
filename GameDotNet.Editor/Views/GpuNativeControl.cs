@@ -93,7 +93,8 @@ public class GpuNativeControl : NativeControlHost
             ShowInTaskbar = false,
             WindowStartupLocation = WindowStartupLocation.Manual,
             ZIndex = int.MaxValue,
-            Opacity = 1
+            Opacity = 1,
+            Focusable = true
         };
     }
 
