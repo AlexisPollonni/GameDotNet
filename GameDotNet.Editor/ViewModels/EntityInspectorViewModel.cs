@@ -1,19 +1,28 @@
 using System;
+using System.Buffers;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Numerics;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Reflection.Emit;
+using System.Windows.Input;
 using Arch.Core;
 using Arch.Core.Extensions;
+using Arch.Core.Utils;
+using Assimp;
+using Collections.Pooled;
 using DynamicData;
 using DynamicData.Binding;
 using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Editor.Tools;
+using Microsoft.Toolkit.HighPerformance;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using Serilog;
@@ -22,15 +31,22 @@ namespace GameDotNet.Editor.ViewModels;
 
 public sealed class EntityInspectorViewModel : ViewModelBase
 {
-    [Reactive] public ReadOnlyObservableCollection<PropertyNodeViewModel>? Components { get; set; }
+    public ICommand RefreshCommand { get; }
 
-    private readonly SourceList<PropertyNodeViewModel> _components;
-    private readonly ConcurrentDictionary<Type, PropertyInfo[]> _typeToPropertyCache;
 
-    public EntityInspectorViewModel(EntityTreeViewModel treeView)
+
+    [Reactive] public ReadOnlyObservableCollection<ComponentNodeViewModel>? Components { get; set; }
+
+    private readonly SourceList<ComponentNodeViewModel> _components;
+    private EntityReference _selectedEntity;
+    private PropertyNodeCache _propertyCache;
+
+
+    public EntityInspectorViewModel(EntityTreeViewModel treeView, EditorUiUpdateSystem uiUpdateSystem)
     {
         _components = new();
-        _typeToPropertyCache = new();
+        _propertyCache = new();
+        _selectedEntity = EntityReference.Null;
 
         this.WhenActivated(d =>
         {
@@ -48,35 +64,25 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                        .Subscribe()
                        .DisposeWith(d);
             Components = comps;
+
+            //uiUpdateSystem.SampledUpdate.Subscribe(args => UpdateInspector()).DisposeWith(d);
+        });
+
+        RefreshCommand = ReactiveCommand.Create(() =>
+        {
+            UpdateInspector();
         });
     }
 
-    private PropertyInfo[] GetOrCreatePropertyInfos(Type type) =>
-        _typeToPropertyCache.GetOrAdd(type, t => t.GetProperties(BindingFlags.Public | BindingFlags.NonPublic |
-                                                                 BindingFlags.Instance | BindingFlags.Static));
+
 
     private void UpdateComponents(EntityReference nodeKey)
     {
+        _selectedEntity = nodeKey;
         var entity = nodeKey.Entity;
-        
         var types = entity.GetComponentTypes();
 
-        foreach (var _ in types.Select(type => type.Type)
-                               .FlattenLevelOrder(type =>
-                               {
-                                   if (_typeToPropertyCache.ContainsKey(type)) return Enumerable.Empty<Type>();
-                                   return GetOrCreatePropertyInfos(type)
-                                          .Select(info => info.PropertyType)
-                                          .Where(t => t != type)
-                                          .Distinct();
-                               }))
-        { }
-
-        var components = entity.GetAllComponents();
-        
-        var nodes = components
-                    .Where(o => o is not null)
-                    .SelectMany((o, i) => GetPropertyNode(o!, types[i].Type.Name));
+        var nodes = types.Select(type => ComputeNodesFromComponent(entity, type));
 
         _components.Edit(list =>
         {
@@ -85,114 +91,144 @@ public sealed class EntityInspectorViewModel : ViewModelBase
         });
     }
 
-
-    private PropertyNodeViewModel[] GetPropertyNode(object value, string? propertyName)
+    private ComponentNodeViewModel ComputeNodesFromComponent(Entity entity, ComponentType type)
     {
-        var type = value.GetType();
-        var properties = GetOrCreatePropertyInfos(type)
-                         .Where(info => info.GetIndexParameters().Length == 0 && info.GetMethod is not null &&
-                                        info.GetMethod.IsPublic && !info.IsStatic())
-                         .Select(info =>
-                         {
-                             var empty = Enumerable.Empty<PropertyNodeViewModel>();
-                             var propValue = info.GetValue(value);
+        using var queue = new PooledQueue<PropertyNodeViewModel>();
 
-                             if (propValue is null) return null;
-                             //To avoid stack overflow
-                             if (ReferenceEquals(value, propValue)) return null;
-                             
-                             return GetPropertyNode(propValue, info.Name).Single();
-                         })
-                         .WhereNotNull();
-
-        if (value is IEnumerable enumerable)
+        var rootNode = new ComponentNodeViewModel(entity, type)
         {
-            var elements = enumerable.Cast<object?>().WhereNotNull().Select((o, i) => GetPropertyNode(o, i.ToString()).Single());
+            PropertyGetters = _propertyCache.GetDefaultPropertyGetters(type).ToArray(),
+            PropertySetters = _propertyCache.GetDefaultPropertySetters(type).ToArray()
+        };
 
-            properties = properties.Concat(elements);
+        queue.Enqueue(rootNode);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+
+
+            using var collectionChildrenItems = GetChildrenFromCollectionNode(current);
+
+            foreach (var entry in current.)
+            {
+                if (current.Value is null) continue;
+                var value = entry.Getter?.Invoke(current.Value);
+
+                var node = new PropertyNodeViewModel()
+                {
+                    Name = entry.Info.Name,
+                    Type = entry.Info.PropertyType,
+                    Value = value,
+                    IsDirty = false,
+                    PropertyGetters = _propertyCache.GetDefaultPropertyGetters(type).ToArray(),
+                    PropertySetters = _propertyCache.GetDefaultPropertySetters(type).ToArray()
+                };
+
+                current.Children.Add(node);
+                queue.Enqueue(node);
+            }
+
+            if (collectionChildrenItems is not null)
+            {
+                current.Children.AddRange(collectionChildrenItems);
+                foreach (var item in collectionChildrenItems) queue.Enqueue(item);
+            }
         }
 
-        if (propertyName is null) return properties.ToArray();
-
-        var (getter, setter) = GetPropertyAccessorsFromValue(type, value);
-        return [new(propertyName, type, getter, setter, new (properties))];
+        return rootNode;
     }
 
-    //TODO: replace value parameter with expression and entity id
-    private static (Func<object> getter, Action<object?> setter) GetPropertyAccessorsFromValue(Type type, object value)
+    private static PooledList<PropertyNodeViewModel>? GetChildrenFromCollectionNode(PropertyNodeViewModel node)
     {
-        object DefaultGetter() => value;
-        void DefaultSetter(object? v) =>
-            Log.Error(new NotImplementedException("Inspector object setters not yet implemented"), "[Inspector] Value = {Value}", value);
-        
-        if (type.IsPrimitive || type == typeof(string))
+        if (node.Value is ICollection col)
         {
-            return (DefaultGetter, DefaultSetter);
+            var res = new PooledList<PropertyNodeViewModel>(col.Count);
+            IEnumerable<PropertyNodeViewModel> enumerable;
+
+            if (node.Value is IDictionary dict)
+            {
+                enumerable = from DictionaryEntry entry in dict
+                             select new PropertyNodeViewModel(entry.Key.ToString(),
+                                                              entry.Value?.GetType() ?? typeof(object),
+                                                              entry.Value);
+
+            }
+            else
+            {
+                enumerable = col.Cast<object?>()
+                                .Select((o, i) => new PropertyNodeViewModel(i.ToString(),
+                                                                            o?.GetType() ?? typeof(object), o));
+            }
+
+            res.AddRange(enumerable);
+            return res;
         }
+        else if (node.Value is IEnumerable enumerable)
+            return enumerable.Cast<object?>()
+                             .Select((o, i) => new PropertyNodeViewModel(i.ToString(),
+                                                                         o?.GetType() ?? typeof(object), o))
+                             .ToPooledList();
 
-        // if (TryGetEnumerableType(type, out var _))
-        // {
-        //     var e = (IEnumerable)value;
-        //
-        //     var elements = 
-        //     return new EnumerablePropertyViewModel(type, properties, elements);
-        // }
-
-        return (DefaultGetter, DefaultSetter);
+        return null;
     }
 
-    private static Func<object, object> GenerateGetterLambda(PropertyInfo property)
+    private void UpdateInspector()
     {
-        // Define our instance parameter, which will be the input of the Func
-        var objParameterExpr = Expression.Parameter(typeof(object), "instance");
-        // 1. Cast the instance to the correct type
-        var instanceExpr = Expression.TypeAs(objParameterExpr, property.DeclaringType);
-        // 2. Call the getter and retrieve the value of the property
-        var propertyExpr = Expression.Property(instanceExpr, property);
-        // 3. Convert the property's value to object
-        var propertyObjExpr = Expression.Convert(propertyExpr, typeof(object));
-        // Create a lambda expression of the latest call & compile it
-        return Expression.Lambda<Func<object, object>>(propertyObjExpr, objParameterExpr).Compile();
-    }
+        if (Components is null) return;
+        if (_selectedEntity == EntityReference.Null)
+            return;
 
-    private static bool TryGetEnumerableType(Type type, out Type? elemTypeArg)
-    {
-        var res = TryGetTypeArgumentsForInterface(type, typeof(IEnumerable<>), out var typeArguments);
 
-        elemTypeArg = typeArguments.FirstOrDefault();
+        _components.Edit(list =>
+            {
+                var entity = _selectedEntity.Entity;
 
-        return res;
-    }
+                var newCompTypes = entity.GetComponentTypes();
+                var oldCompTypes = list.Select(x => x.ComponentType);
 
-    private static bool TryGetTypeArgumentsForInterface(Type type, Type interfaceDef, out IList<Type> typeArgs)
-    {
-        typeArgs = new List<Type>();
-        var typeArguments = type.GetInterfaces()
-                                .Append(type)
-                                .FirstOrDefault(t => t.IsGenericType && t.GetGenericTypeDefinition() == interfaceDef)
-                                ?.GenericTypeArguments ?? Type.EmptyTypes;
+                var areCompChanged = !oldCompTypes.SequenceEqual(newCompTypes);
 
-        typeArgs.AddRange(typeArguments);
-        return typeArguments.Length > 0;
+                if (areCompChanged)
+                {
+                    var removedComponents = oldCompTypes.Except(newCompTypes);
+
+                    foreach (var component in removedComponents)
+                    {
+                        var i = oldCompTypes.IndexOf(component);
+                        list.RemoveAt(i);
+                    }
+                }
+
+                using var queue = ((IExtendedList<PropertyNodeViewModel>)list).ToPooledQueue();
+
+                while (queue.Count > 0)
+                {
+                    var current = queue.Dequeue();
+
+
+
+                    if (current is CollectionNodeViewModel colNode)
+                    {
+                        using var nodeChildren = GetChildrenFromCollectionNode(current);
+
+                        colNode.Items.EditDiff(nodeChildren!);
+                    }
+
+                    foreach (var child in current.Children)
+                        queue.Enqueue(child);
+                }
+
+
+                if (areCompChanged)
+                {
+                    var addedComponents = newCompTypes.Except(oldCompTypes);
+
+                    var newComps = addedComponents.Select(c => ComputeNodesFromComponent(entity, c));
+
+                    list.AddRange(newComps);
+                }
+            });
     }
 }
 
-
-public class PropertyNodeViewModel(
-    string name,
-    Type type,
-    Func<object> getter,
-    Action<object?> setter,
-    ObservableCollection<PropertyNodeViewModel> children) : ViewModelBase
-{
-    public string Name { get; } = name;
-    public Type Type { get; } = type;
-
-    public object? Value
-    {
-        get => getter();
-        set => setter(value);
-    }
-
-    public ObservableCollection<PropertyNodeViewModel> Children { get; } = children;
-}

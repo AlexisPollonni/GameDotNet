@@ -1,4 +1,6 @@
+using System.Collections;
 using System.Runtime.CompilerServices;
+using Collections.Pooled;
 
 namespace GameDotNet.Core.Tools.Extensions;
 
@@ -38,7 +40,7 @@ public static class EnumerableExtensions
         this IEnumerable<T> items,
         Func<T, IEnumerable<T>?> getChildren)
     {
-        var stack = new Queue<T>();
+        using var stack = new PooledQueue<T>();
         foreach (var item in items)
             stack.Enqueue(item);
 
@@ -54,4 +56,28 @@ public static class EnumerableExtensions
                 stack.Enqueue(child);
         }
     }
+
+    // public static IEnumerable<T> FlattenPostOrder<T>(
+    //     this IEnumerable<T> items,
+    //     Func<T, IEnumerable<T>?> getChildren)
+    // {
+    //     var currentRootIndex = 0;
+    //     using var stack = new PooledStack<(T, int index)>();
+    //     T? root = default;
+    //
+    //     while (root != null || stack.Count > 0)
+    //     {
+    //         if (root != null)
+    //         {
+    //             stack.Push((root, currentRootIndex));
+    //             currentRootIndex = 0;
+    //         }
+    //
+    //         if (root.)
+    //         {
+    //             
+    //         }
+    //     }
+    //
+    // }
 }

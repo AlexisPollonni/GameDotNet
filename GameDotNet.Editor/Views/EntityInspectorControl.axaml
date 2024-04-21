@@ -49,21 +49,30 @@
 		<DataTemplate DataType="viewModels:PropertyNodeViewModel" />
 	</UserControl.DataTemplates>
 
-	<ScrollViewer>
-		<TreeView ItemsSource="{CompiledBinding Components}">
-			<TreeView.ItemTemplate>
-				<TreeDataTemplate ItemsSource="{CompiledBinding Children}">
-					<StackPanel Orientation="Horizontal">
-						<TextBlock Text="{CompiledBinding Type.Name}"
-								   FontSize="10"
-								   FontWeight="Bold" />
-						<TextBlock Text="{CompiledBinding Name}"
-								   FontSize="12" />
-						<ContentControl Content="{CompiledBinding Value}"
-										ContentTemplate="{StaticResource InspectorValueDataTemplate}" />
-					</StackPanel>
-				</TreeDataTemplate>
-			</TreeView.ItemTemplate>
-		</TreeView>
-	</ScrollViewer>
+  <StackPanel Orientation="Vertical">
+    <StackPanel HorizontalAlignment="Right">
+      <Button Command="{CompiledBinding RefreshCommand}"
+							ClickMode="Release">
+        REFRESH
+      </Button>
+    </StackPanel>
+    <ScrollViewer>
+      <TreeView ItemsSource="{CompiledBinding Components}"
+                Padding="0, 10, 0, 10">
+        <TreeView.ItemTemplate>
+          <TreeDataTemplate ItemsSource="{CompiledBinding Children}">
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{CompiledBinding Type.Name}"
+                     FontSize="10"
+                     FontWeight="Bold" />
+              <TextBlock Text="{CompiledBinding Name}"
+                     FontSize="12" />
+              <ContentControl Content="{CompiledBinding Value}"
+                      ContentTemplate="{StaticResource InspectorValueDataTemplate}" />
+            </StackPanel>
+          </TreeDataTemplate>
+        </TreeView.ItemTemplate>
+      </TreeView>
+    </ScrollViewer>
+  </StackPanel>
 </UserControl>
