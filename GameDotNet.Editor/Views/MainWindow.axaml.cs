@@ -1,13 +1,15 @@
-using Avalonia.Controls;
+using Avalonia.ReactiveUI;
+using Avalonia.Rendering;
+using GameDotNet.Editor.ViewModels;
 
 namespace GameDotNet.Editor.Views
 {
-    public partial class MainWindow : Window
+    public partial class MainWindow : ReactiveWindow<MainWindowViewModel>
     {
         public MainWindow()
         {
             InitializeComponent();
-            Renderer.DrawFps = true;
+            RendererDiagnostics.DebugOverlays = RendererDebugOverlays.Fps;
         }
     }
 }

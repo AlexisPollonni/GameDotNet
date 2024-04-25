@@ -303,8 +303,8 @@ public class InstanceBuilder
             PNext = null,
             EnabledValidationFeatureCount = (uint)EnabledValidationFeatures.Count,
             DisabledValidationFeatureCount = (uint)DisabledValidationFeatures.Count,
-            PEnabledValidationFeatures = EnabledValidationFeatures.AsPtr(d),
-            PDisabledValidationFeatures = DisabledValidationFeatures.AsPtr(d)
+            PEnabledValidationFeatures = EnabledValidationFeatures.ToPtr(d),
+            PDisabledValidationFeatures = DisabledValidationFeatures.ToPtr(d)
         };
 
         return d;

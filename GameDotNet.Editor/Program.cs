@@ -1,7 +1,6 @@
 ﻿using System;
 using Avalonia;
 using Avalonia.ReactiveUI;
-using Avalonia.Vulkan;
 
 namespace GameDotNet.Editor
 {
@@ -17,19 +16,6 @@ namespace GameDotNet.Editor
         // Avalonia configuration, don't remove; also used by visual designer.
         public static AppBuilder BuildAvaloniaApp()
             => AppBuilder.Configure<App>()
-                         .With(new X11PlatformOptions { UseVulkan = true })
-                         .With(new Win32PlatformOptions { UseVulkan = true })
-                         .With(new VulkanOptions
-                         {
-                             VulkanInstanceCreationOptions =
-                             {
-                                 UseDebug = true
-                             },
-                             VulkanDeviceCreationOptions =
-                             {
-                                 PreferDiscreteGpu = true
-                             }
-                         })
                          .UsePlatformDetect()
                          .LogToTrace()
                          .UseReactiveUI();

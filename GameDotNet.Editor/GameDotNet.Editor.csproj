@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <OutputType>WinExe</OutputType>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <!--Avalonia doesen't support TrimMode=link currently,but we are working on that https://github.com/AvaloniaUI/Avalonia/issues/6892 -->
         <TrimMode>copyused</TrimMode>
@@ -21,15 +21,43 @@
         <TrimmableAssembly Include="Avalonia.Themes.Default" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="11.0.999-cibuild0027790-beta"/>
-        <PackageReference Include="Avalonia.Desktop" Version="11.0.999-cibuild0027790-beta"/>
+        <PackageReference Include="Avalonia" Version="11.0.5" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.0.5" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.999-cibuild0027790-beta"/>
-        <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.999-cibuild0027790-beta"/>
-        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.999-cibuild0027790-beta"/>
-        <PackageReference Include="XamlNameReferenceGenerator" Version="1.6.1"/>
+        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.5" />
+        <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.5" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.5" />
     </ItemGroup>
     <ItemGroup>
-      <ProjectReference Include="..\GameDotNet.Graphics.Vulkan\GameDotNet.Graphics.Vulkan.csproj" />
+      <ProjectReference Include="..\GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />
+      <ProjectReference Include="..\GameDotNet.Hosting\GameDotNet.Hosting.csproj" />
     </ItemGroup>
+    <ItemGroup>
+      <Content Include="..\GameDotNet.SampleGame\Assets\Mesh.frag">
+        <Link>Assets\Mesh.frag</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <Content Include="..\GameDotNet.SampleGame\Assets\Mesh.vert">
+        <Link>Assets\Mesh.vert</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <Content Include="..\GameDotNet.SampleGame\Assets\Monkey.dae">
+        <Link>Assets\Monkey.dae</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <Content Include="..\GameDotNet.SampleGame\Assets\MonkeyScene.blend">
+        <Link>Assets\MonkeyScene.blend</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+      <Content Include="..\GameDotNet.SampleGame\Assets\MonkeyScene.dae">
+        <Link>Assets\MonkeyScene.dae</Link>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </Content>
+    </ItemGroup>
+
+    <PropertyGroup>
+        <!-- For Microsoft.CodeAnalysis -->
+        <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+    </PropertyGroup>
 </Project>

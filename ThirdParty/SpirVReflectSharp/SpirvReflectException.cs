@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.Serialization;
+using Silk.NET.SPIRV.Reflect;
 
 namespace SpirvReflectSharp;
 
@@ -28,7 +29,7 @@ public class SpirvReflectException : Exception
 
 	}
 
-	internal SpirvReflectException(SpirvReflectNative.SpvReflectResult result)
+	internal SpirvReflectException(Result result)
 		: base(result.ToString())
 	{
 	}

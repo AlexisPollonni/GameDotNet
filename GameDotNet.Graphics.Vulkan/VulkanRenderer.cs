@@ -8,10 +8,8 @@ using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
-using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Maths;
 using Silk.NET.Vulkan;
-using static GameDotNet.Graphics.Shaders.Shaders;
 
 namespace GameDotNet.Graphics.Vulkan;
 
@@ -58,12 +56,12 @@ public sealed class VulkanRenderer : IDisposable
         _swapchain?.Dispose();
     }
 
-    public void Initialize()
+    public void Initialize(SpirVShader meshVertexShader, SpirVShader meshFragmentShader)
     {
         CreateSwapchain();
 
-        _meshFragShader = new(_ctx.Api, _ctx.Device, ShaderStageFlags.FragmentBit, MeshFragmentShader);
-        _meshVertShader = new(_ctx.Api, _ctx.Device, ShaderStageFlags.VertexBit, MeshVertexShader);
+        _meshVertShader = new(_ctx.Api, _ctx.Device, meshVertexShader);
+        _meshFragShader = new(_ctx.Api, _ctx.Device, meshFragmentShader);
 
         CreateRenderPass();
         CreateFrameBuffers();
@@ -193,7 +191,7 @@ public sealed class VulkanRenderer : IDisposable
         if (!mapping.TryGetSpan(out var span))
             throw new AllocationException("Couldn't get vertices span from allocation");
 
-        mesh.Vertices.AsSpan().CopyTo(span);
+        mesh.Vertices.ToArray().AsSpan().CopyTo(span);
     }
 
     private bool CreateSwapchain()

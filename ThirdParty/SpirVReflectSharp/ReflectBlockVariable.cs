@@ -1,4 +1,7 @@
-﻿namespace SpirvReflectSharp;
+﻿using Silk.NET.Core.Native;
+using Silk.NET.SPIRV.Reflect;
+
+namespace SpirvReflectSharp;
 
 public struct ReflectBlockVariable
 {
@@ -8,10 +11,10 @@ public struct ReflectBlockVariable
 	public uint AbsoluteOffset;
 	public uint Size;
 	public uint PaddedSize;
-	public ReflectDecoration DecorationFlags;
+	public DecorationFlagBits DecorationFlags;
 	public ReflectNumericTraits Numeric;
 	public ReflectArrayTraits Array;
-	public ReflectVariable Flags;
+	public VariableFlagBits Flags;
 	public ReflectBlockVariable[] Members;
 	public ReflectTypeDescription TypeDescription;
 
@@ -20,7 +23,7 @@ public struct ReflectBlockVariable
 		return "ReflectBlockVariable {" + Name + "} [" + Members.Length + "]";
 	}
 
-	internal static unsafe ReflectBlockVariable[] ToManaged(SpirvReflectNative.SpvReflectBlockVariable** push_consts, uint var_count)
+	internal static unsafe ReflectBlockVariable[] ToManaged(BlockVariable** push_consts, uint var_count)
 	{
 		var blockVars = new ReflectBlockVariable[var_count];
 
@@ -31,7 +34,7 @@ public struct ReflectBlockVariable
 			var variable = new ReflectBlockVariable();
 
 			PopulateReflectBlockVariable(ref block, ref variable);
-			variable.Members = ToManagedArray(block.members, block.member_count);
+			variable.Members = ToManagedArray(block.Members, block.MemberCount);
 
 			blockVars[i] = variable;
 		}
@@ -39,7 +42,7 @@ public struct ReflectBlockVariable
 		return blockVars;
 	}
 
-	private static unsafe ReflectBlockVariable[] ToManagedArray(SpirvReflectNative.SpvReflectBlockVariable* push_consts, uint var_count)
+	private static unsafe ReflectBlockVariable[] ToManagedArray(BlockVariable* push_consts, uint var_count)
 	{
 		var blockVars = new ReflectBlockVariable[var_count];
 
@@ -49,7 +52,7 @@ public struct ReflectBlockVariable
 			var variable = new ReflectBlockVariable();
 
 			PopulateReflectBlockVariable(ref block, ref variable);
-			variable.Members = ToManagedArray(block.members, block.member_count);
+			variable.Members = ToManagedArray(block.Members, block.MemberCount);
 
 			blockVars[i] = variable;
 		}
@@ -58,24 +61,23 @@ public struct ReflectBlockVariable
 	}
 
 	internal static unsafe void PopulateReflectBlockVariable(
-		ref SpirvReflectNative.SpvReflectBlockVariable block,
+		ref BlockVariable block,
 		ref ReflectBlockVariable variable)
 	{
-		variable.SpirvId = block.spirv_id;
-		variable.Name = new(block.name);
-		variable.Offset = block.offset;
-		variable.AbsoluteOffset = block.absolute_offset;
-		variable.Size = block.size;
-		variable.PaddedSize = block.padded_size;
-		variable.DecorationFlags = (ReflectDecoration)block.decoration_flags.Data;
-		variable.Flags = (ReflectVariable)block.flags.Data;
-		if (block.type_description != null)
+		variable.SpirvId = block.SpirvId;
+		variable.Name = SilkMarshal.PtrToString((nint)block.Name)!;
+		variable.Offset = block.Offset;
+		variable.AbsoluteOffset = block.AbsoluteOffset;
+		variable.Size = block.Size;
+		variable.PaddedSize = block.PaddedSize;
+		variable.DecorationFlags = (DecorationFlagBits)block.DecorationFlags;
+		variable.Flags = (VariableFlagBits)block.Flags;
+		if (block.TypeDescription is not null)
 		{
-			variable.TypeDescription = ReflectTypeDescription.GetManaged(ref *block.type_description);
+			variable.TypeDescription = ReflectTypeDescription.GetManaged(ref *block.TypeDescription);
 		}
 
-		variable.Array = new(block.array);
-		variable.Numeric = new(block.numeric);
-
+		variable.Array = new(block.Array);
+		variable.Numeric = new(block.Numeric);
 	}
 }

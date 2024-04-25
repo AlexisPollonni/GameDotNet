@@ -1,11 +1,13 @@
 namespace GameDotNet.Graphics;
 
-public class Mesh
+public sealed class Mesh
 {
-    public List<Vertex> Vertices { get; set; }
+    public IReadOnlyList<Vertex> Vertices { get; }
+    public IReadOnlyList<uint> Indices { get; }
 
-    public Mesh(List<Vertex> vertices)
+    public Mesh(Vertex[] vertices, uint[] indices)
     {
         Vertices = vertices;
+        Indices = indices;
     }
 }

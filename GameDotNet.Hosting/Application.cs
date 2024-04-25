@@ -1,24 +1,32 @@
 using System.IO.Compression;
 using GameDotNet.Core;
-using GameDotNet.Graphics.Vulkan;
+using GameDotNet.Graphics;
+using GameDotNet.Graphics.Abstractions;
+using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Nito.AsyncEx;
 using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
-using Serilog.Sinks.Async;
 using Serilog.Sinks.File.GZip;
 using Silk.NET.Input;
 using Silk.NET.Windowing;
-using Timer = System.Timers.Timer;
+using ILogger = Serilog.ILogger;
 
 namespace GameDotNet.Hosting;
 
 public class Application : IDisposable
 {
-    public Universe Universe { get; }
+    public string ApplicationName { get; }
+    public IHost GlobalHost { get; private set; }
 
     private readonly IView _mainView;
+    private readonly Task _loaded;
+
 
     public Application(string appName)
     {
@@ -26,46 +34,48 @@ public class Application : IDisposable
             throw new ArgumentException("Application name can't be null or empty", nameof(appName));
         ApplicationName = appName;
 
-        CreateLogger();
+        Log.Logger = CreateLogger(appName);
 
-        Window.PrioritizeGlfw();
+        _mainView = CreateSilkView();
 
-        if (Window.IsViewOnly)
-        {
-            var opt = ViewOptions.DefaultVulkan;
-
-            _mainView = Window.GetView(opt);
-        }
-        else
-        {
-            var opt = WindowOptions.DefaultVulkan;
-            opt.VSync = true;
-            opt.Size = new(800, 600);
-            opt.Title = "Test";
-
-            _mainView = Window.Create(opt);
-        }
-
-        Universe = new();
-        _mainView.Load += OnWindowLoad;
-        _mainView.Update += d => Universe.Update();
-
-        Universe.RegisterSystem(new VulkanRenderSystem(_mainView));
-        Universe.RegisterSystem(new CameraSystem(_mainView));
+        var tcs = new TaskCompletionSource();
+        
+        _mainView.Load += () => tcs.SetResult();
+        _mainView.Closing += () => tcs.TrySetCanceled();
+        _loaded = tcs.Task;
+        
+        var hostBuilder = CreateHostBuilder(Log.Logger);
+        
+        hostBuilder.Services.AddSilkServices(_mainView)
+                   .AddCoreSystemServices();
+        
+        GlobalHost = hostBuilder.Build();
     }
 
-    public string ApplicationName { get; }
-
-    public int Run()
+    public async Task Initialize()
     {
+        _mainView.Initialize();
+        await _loaded;
+        
+        //https://stackoverflow.com/questions/39271492/how-do-i-create-a-custom-synchronizationcontext-so-that-all-continuations-can-be
+        AsyncContext.Run(InitializeCore);
+    }
+
+    public async Task<int> Run()
+    {
+        if (!_mainView.IsInitialized)
+            throw new InvalidOperationException("Engine not initialized");
+        
         _mainView.Run();
 
+        await GlobalHost.StopAsync();
+        
         return 0;
     }
 
     public void Dispose()
     {
-        Universe.Dispose();
+        GlobalHost.Dispose();
         _mainView.Dispose();
 
         Log.CloseAndFlush();
@@ -73,9 +83,103 @@ public class Application : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    private void OnWindowLoad()
+    public static ILogger CreateLogger(string appName, LogEventLevel minConsoleLevel = LogEventLevel.Debug, LogEventLevel minFileLevel = LogEventLevel.Verbose)
     {
-        using var input = _mainView.CreateInput();
+        var logDirPath = Path.Combine(Constants.LogsDirectoryPath, appName);
+        var logPath = Path.Combine(logDirPath, "game.gz");
+
+        var monitor = new AsyncSinkMonitorHook();
+
+        if (Directory.Exists(logDirPath))
+        {
+            foreach (var file in Directory.GetFiles(logDirPath, "*.gz"))
+            {
+                try
+                {
+                    File.Delete(file);
+                }
+                catch (IOException e)
+                {
+                }
+            }
+        }
+
+        var logger = new LoggerConfiguration()
+                     .Enrich.FromLogContext()
+                     .MinimumLevel.Verbose()
+                     .WriteTo.Async(a =>
+                     {
+                         a.Console(minConsoleLevel, 
+                                   "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}   {NewLine}{Message:lj}{NewLine}{Exception}");
+                         a.File(new CompactJsonFormatter(), logPath,
+                                restrictedToMinimumLevel: minFileLevel,
+                                hooks: new GZipHooks(CompressionLevel.SmallestSize),
+                                retainedFileCountLimit: 5, rollOnFileSizeLimit: true, buffered: true);
+                     }, monitor, 100000)
+                     .CreateLogger();
+
+        //TODO: Separate monitor logger maybe?
+        monitor.SelfLog = logger;
+
+        logger.Information("Log started for {ApplicationName}", appName);
+        logger.Information("""
+                           Is 64 bit: {Is64Bit}
+                           Running directory: {RunningDirectory}
+                           .NET version: {NetVersion}
+                           """,
+                        Environment.Is64BitProcess,
+                        Environment.CurrentDirectory,
+                        Environment.Version);
+
+        return logger;
+    }
+
+    public static HostApplicationBuilder CreateHostBuilder(ILogger serilog)
+    {
+        // ReSharper disable once ContextualLoggerProblem
+        TaskScheduler.UnobservedTaskException += (sender, args)
+            => serilog.ForContext(sender?.GetType() ?? typeof(TaskScheduler))
+                      .Fatal(args.Exception, "Unobserved task exception triggered, is observed: {Observed}",
+                             args.Observed);
+        
+        var builder = Host.CreateApplicationBuilder(Environment.GetCommandLineArgs());
+        
+        builder.Logging.ClearProviders();
+        builder.Logging.AddSerilog(serilog, true);
+
+        return builder;
+    }
+
+    private static IView CreateSilkView()
+    {
+        IView view;
+        Window.PrioritizeGlfw();
+        
+        var api = new GraphicsAPI(ContextAPI.None, new(1, 0));
+        
+        if (Window.IsViewOnly)
+        {
+            var opt = ViewOptions.Default;
+            opt.API = api;
+            view = Window.GetView(opt);
+        }
+        else
+        {
+            var opt = WindowOptions.Default;
+            opt.API = api;
+            opt.VSync = true;
+            opt.Size = new(800, 600);
+            opt.Title = "Test";
+
+            view = Window.Create(opt);
+        }
+
+        return view;
+    }
+
+    private async Task InitializeCore()
+    {
+        var input = _mainView.CreateInput();
         foreach (var kb in input.Keyboards)
         {
             kb.KeyUp += (_, key, _) =>
@@ -87,97 +191,42 @@ public class Application : IDisposable
             };
         }
 
-        Universe.Initialize();
+        GlobalHost.Services.GetRequiredService<NativeViewManager>().MainView = new SilkView(_mainView);
+        var universe = GlobalHost.Services.GetRequiredService<Universe>();
+        _mainView.Update += _ => universe.Update();
+
+        await GlobalHost.StartAsync();
+        
+        await universe.Initialize();
+    }
+}
+
+public static class ServiceCollectionExtensions
+{
+    /// <summary>
+    /// Registers all necessary services to run the core
+    /// </summary>
+    /// <param name="services"></param>
+    /// <returns></returns>
+    public static IServiceCollection AddCoreSystemServices(this IServiceCollection services)
+    {
+        services
+            .AddSingleton<Universe>()
+            .AddSingleton<ShaderCompiler>()
+            .AddSingleton<WebGpuContext>()
+            .AddSingleton<NativeViewManager>()
+            .AddSingleton<WebGpuRenderer>()
+            .AddSingleton<SystemBase, WebGpuRenderSystem>();
+
+        return services;
     }
 
-    private void CreateLogger()
+    internal static IServiceCollection AddSilkServices(this IServiceCollection services, IView mainView)
     {
-        var logDirPath = Path.Combine(Constants.LogsDirectoryPath, ApplicationName);
-        var logPath = Path.Combine(logDirPath, "game.gz");
-
-        var monitor = new AsyncSinkMonitorHook();
-
-        foreach (var file in Directory.EnumerateFiles(logDirPath, "*.gz"))
-            File.Delete(file);
-
-        Log.Logger = new LoggerConfiguration()
-                     .Enrich.FromLogContext()
-                     .MinimumLevel.Verbose()
-                     .WriteTo.Async(a =>
-                     {
-                         a.Console(LogEventLevel.Debug);
-                         a.File(new CompactJsonFormatter(), logPath,
-                                hooks: new GZipHooks(CompressionLevel.SmallestSize),
-                                retainedFileCountLimit: 5, rollOnFileSizeLimit: true, buffered: true);
-                     }, monitor, 100000)
-                     .CreateLogger();
-
-        monitor.SelfLog = Log.Logger;
-
-        Log.Information("Log started for {ApplicationName}", ApplicationName);
-        Log.Information(@"
-Is 64 bit: {Is64Bit}
-Running directory: {RunningDirectory}
-.NET version: {NetVersion}",
-                        Environment.Is64BitProcess,
-                        Environment.CurrentDirectory,
-                        Environment.Version);
-    }
-
-    private sealed class AsyncSinkMonitorHook : IAsyncLogEventSinkMonitor
-    {
-        public ILogger? SelfLog { get; set; }
-
-        private readonly object _lock;
-
-        private Timer? _timer;
-        private IAsyncLogEventSinkInspector? _inspector;
-        private long _lastDroppedCount;
-
-        public AsyncSinkMonitorHook()
-        {
-            _lastDroppedCount = 0;
-            _lock = new();
-        }
-
-        public void StartMonitoring(IAsyncLogEventSinkInspector inspector)
-        {
-            _inspector = inspector;
-            if (_timer is not null) return;
-
-            _timer = new();
-            _timer.Interval = 1000;
-            _timer.Elapsed += Timer_Elapsed;
-            _timer.Start();
-        }
-
-        private void Timer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
-        {
-            if (_inspector is null) return;
-
-            var usagePct = (float)_inspector.Count / _inspector.BufferSize;
-            if (usagePct <= 0.8) return;
-
-            long dropped;
-            int queueCount;
-            lock (_lock)
-            {
-                queueCount = _inspector.Count;
-                dropped = _inspector.DroppedMessagesCount - _lastDroppedCount;
-                _lastDroppedCount = _inspector.DroppedMessagesCount;
-            }
-
-            if (dropped > 0)
-                SelfLog?.Warning("Log buffer overflow: dropped {DropCount} messages on {QueuedCount}/{BufferSize} ({PercentFill}%)",
-                                 dropped, queueCount, _inspector.BufferSize, (float)queueCount / _inspector.BufferSize);
-        }
-
-        public void StopMonitoring(IAsyncLogEventSinkInspector inspector)
-        {
-            if (_timer is null) return;
-            _timer.Stop();
-            _timer.Dispose();
-            _timer = null;
-        }
+        services.AddSingleton<IView>(_ => mainView)
+                .AddSingleton<INativeView, SilkView>()
+                .AddSingleton<SystemBase, CameraSystem>(); //TODO: Move to core services when input service implemented
+        
+        return services;
     }
 }
