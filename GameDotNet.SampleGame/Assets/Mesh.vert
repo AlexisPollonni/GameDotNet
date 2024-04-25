@@ -15,17 +15,21 @@ struct CameraData
     mat4 Projection;
 };
 
-layout(set = 0, binding = 0) uniform DataBlock
+layout(set = 0, binding = 0) uniform BU
 {
     CameraData Camera;
+} Uniforms;
+
+layout(set = 1, binding = 2) uniform BD
+{
     mat4 ModelMatrix;
-} Data;
+} Dynamics;
 
 
 
 void main()
 {
-    gl_Position =  Data.Camera.Projection * Data.Camera.View * Data.ModelMatrix * vec4(vPosition, 1.0f);
+    gl_Position =  Uniforms.Camera.Projection * Uniforms.Camera.View * Dynamics.ModelMatrix * vec4(vPosition, 1.0f);
     outColor = vColor;
 
     //    debugPrintfEXT("RenderMat = [ %f, %f, %f, %f ]; [ %f, %f, %f, %f ]; [%f, %f, %f, %f ]; [ %f, %f, %f, %f ]",

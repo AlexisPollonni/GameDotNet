@@ -1,5 +1,5 @@
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Runtime.Serialization;
 
 namespace GameDotNet.Core.Tools;
 
@@ -28,10 +28,10 @@ public static class BlittableHelper
 
         try
         {
-            var instance = FormatterServices.GetUninitializedObject(type);
+            var instance = RuntimeHelpers.GetUninitializedObject(type);
 
             _gch.Target = instance; //TODO: Test this construct
-            //GCHandle.Alloc(instance, GCHandleType.Pinned).Free();
+            GCHandle.Alloc(instance, GCHandleType.Pinned).Free();
 
             return true;
         }

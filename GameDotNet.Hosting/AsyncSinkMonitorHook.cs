@@ -6,7 +6,7 @@ namespace GameDotNet.Hosting;
 
 internal sealed class AsyncSinkMonitorHook : IAsyncLogEventSinkMonitor
 {
-    public ILogger? SelfLog { get; set; }
+    public Func<ILogger?>? SelfLogFactory { get; set; }
 
     private readonly object _lock;
 
@@ -48,7 +48,7 @@ internal sealed class AsyncSinkMonitorHook : IAsyncLogEventSinkMonitor
         }
 
         if (dropped > 0)
-            SelfLog?.Warning("Log buffer overflow: dropped {DropCount} messages on {QueuedCount}/{BufferSize} ({PercentFill}%)",
+            SelfLogFactory?.Invoke()?.Warning("Log buffer overflow: dropped {DropCount} messages on {QueuedCount}/{BufferSize} ({PercentFill}%)",
                              dropped, queueCount, _inspector.BufferSize, (float)queueCount / _inspector.BufferSize);
     }
 

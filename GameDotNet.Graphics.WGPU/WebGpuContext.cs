@@ -59,24 +59,25 @@ public sealed class WebGpuContext : IDisposable
 
         device.SetUncapturedErrorCallback((type, message) =>
         {
-            _logger.LogError("[WebGPU][{ErrorType}: {Message}]", type, message);
+            _logger.LogError("[WebGPU][{ErrorType}: {Message}]", type, message.ReplaceLineEndings());
         });
 
         device.SetLoggingCallback((type, message) =>
         {
+            var fmtMessage = message.ReplaceLineEndings();
             switch (type)
             {
                 case LoggingType.Verbose:
-                    _logger.LogTrace("[WebGPU] {Msg}", message);
+                    _logger.LogTrace("[WebGPU] {Msg}", fmtMessage);
                     break;
                 case LoggingType.Info:
-                    _logger.LogInformation("[WebGPU] {Msg}", message);
+                    _logger.LogInformation("[WebGPU] {Msg}", fmtMessage);
                     break;
                 case LoggingType.Warning:
-                    _logger.LogWarning("[WebGPU] {Msg}", message);
+                    _logger.LogWarning("[WebGPU] {Msg}", fmtMessage);
                     break;
                 case LoggingType.Error:
-                    _logger.LogError("[WebGPU] {Msg}", message);
+                    _logger.LogError("[WebGPU] {Msg}", fmtMessage);
                     break;
                 case LoggingType.Force32:
                 default:
@@ -87,7 +88,7 @@ public sealed class WebGpuContext : IDisposable
         //device.Queue.OnSubmittedWorkDone(status => logger.LogDebug("[WebGPU] Queue submit {Status}", status));
 
 
-        var sw = device.CreateSwapchain(surface, new(view.Size.X, view.Size.Y), TextureFormat.Bgra8Unorm,
+        var sw = device.CreateSwapchain(surface, view.Size, TextureFormat.Bgra8Unorm,
                                         TextureUsage.RenderAttachment, PresentMode.Fifo, "create-swapchain");
 
         Surface = surface;

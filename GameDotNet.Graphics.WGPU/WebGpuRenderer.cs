@@ -1,13 +1,13 @@
+using System.Drawing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.WGPU.Extensions;
+using GameDotNet.Management;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Maths;
 using Silk.NET.WebGPU;
-using BindGroup = GameDotNet.Graphics.WGPU.Wrappers.BindGroup;
-using BindGroupEntry = GameDotNet.Graphics.WGPU.Wrappers.BindGroupEntry;
 using Buffer = GameDotNet.Graphics.WGPU.Wrappers.Buffer;
 using ColorTargetState = GameDotNet.Graphics.WGPU.Wrappers.ColorTargetState;
 using FragmentState = GameDotNet.Graphics.WGPU.Wrappers.FragmentState;
@@ -21,7 +21,6 @@ namespace GameDotNet.Graphics.WGPU;
 
 public class WebGpuRenderer
 {
-    public Transform CurrentCamera { get; set; }
     public IList<MeshInstanceRender> MeshInstances => _meshInstances;
     
     
@@ -32,11 +31,11 @@ public class WebGpuRenderer
 
     private readonly Dictionary<Mesh, MeshRenderInfo> _meshBufferCache;
     private readonly List<MeshInstanceRender> _meshInstances;
-    private BindGroup _uniformBind;
     private Buffer _modelUniformBuffer;
     private Buffer _cameraUniformBuffer;
     private Texture? _depthTexture;
     private TextureView? _depthTextureView;
+    private ShaderParameters? _shaderParams;
 
     public WebGpuRenderer(WebGpuContext context, ShaderCompiler compiler, ILogger<WebGpuRenderer> logger)
     {
@@ -70,27 +69,10 @@ public class WebGpuRenderer
                                                            (ulong)Unsafe.SizeOf<Matrix4x4>() * 128,
                                                            BufferUsage.Uniform | BufferUsage.CopyDst);
 
-        using var camLayout = _meshPipeline.GetBindGroupLayout(0);
-
-        var bindGroupEntries = new BindGroupEntry[]
-        {
-            new()
-            {
-                Binding = 0,
-                Buffer = _cameraUniformBuffer,
-                Offset = 0,
-                Size = (ulong)Unsafe.SizeOf<CameraRenderInfo>()
-            },
-            new()
-            {
-                Binding = 1,
-                Buffer = _modelUniformBuffer,
-                Offset = 0,
-                Size = (ulong)Unsafe.SizeOf<Matrix4x4>()
-            }
-        };
-
-        _uniformBind = _context.Device.CreateBindGroup("uniform-bindgroup", camLayout, bindGroupEntries);
+        _shaderParams.UniformBuffers["Uniforms"] = _cameraUniformBuffer;
+        _shaderParams.UniformBuffers["Dynamics"] = _modelUniformBuffer;
+        
+        _shaderParams.BuildGroups();
     }
 
     public void WriteModelUniforms()
@@ -98,28 +80,24 @@ public class WebGpuRenderer
         var modelMatrices = new Matrix4x4[_meshInstances.Count];
         for (var i = 0; i < _meshInstances.Count; i++)
         {
-            modelMatrices[i] = Matrix4x4.Transpose(_meshInstances[i].Model);
+            modelMatrices[i] = _meshInstances[i].Model;
         }
         
         _context.Device!.Queue.WriteBuffer<Matrix4x4>(_modelUniformBuffer, modelMatrices);
     }
 
-    public void WriteCameraUniform(Extent3D viewSize)
+    public void WriteCameraUniform(in Size viewSize, in Transform transform, in Camera camData)
     {
         // camera position
-        var view = Transform.ToMatrix(Vector3.One, CurrentCamera.Rotation, CurrentCamera.Translation);
-        Matrix4x4.Invert(view, out view);
-
-        view = Matrix4x4.Transpose(view);
+        var view = transform.ToMatrix();
         
-        var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(70f),
+        var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(camData.FieldOfView),
                                                                 (float)viewSize.Width / viewSize.Height,
-                                                                0.1f, 5000f);
-
-        projection = Matrix4x4.Transpose(projection);
-        var camData = new CameraRenderInfo(view, projection);
+                                                                camData.NearPlaneDistance, camData.FarPlaneDistance);
         
-        _context.Device!.Queue.WriteBuffer<CameraRenderInfo>(_cameraUniformBuffer, camData.AsSpan());
+        var renderData = new CameraRenderInfo(view, projection);
+        
+        _context.Device!.Queue.WriteBuffer<CameraRenderInfo>(_cameraUniformBuffer, renderData.AsSpan());
     }
 
     public void RecreateDepthTexture(Extent3D size)
@@ -175,9 +153,6 @@ public class WebGpuRenderer
             RecreateDepthTexture(view.Texture.Size);
         }
         
-        WriteCameraUniform(view.Texture.Size);
-        
-        
         using var encoder = _context.Device!.CreateCommandEncoder("render-command-encoder");
 
         var colorAttach = new RenderPassColorAttachment
@@ -185,7 +160,7 @@ public class WebGpuRenderer
             View = view,
             LoadOp = LoadOp.Clear,
             StoreOp = StoreOp.Store,
-            ClearValue = new(255)
+            ClearValue = new(0.2, 0.2, 0.2, 1d)
         };
         var depthAttach = new RenderPassDepthStencilAttachment
         {
@@ -199,28 +174,30 @@ public class WebGpuRenderer
             StencilStoreOp = StoreOp.Undefined,
             StencilReadOnly = true
         };
-        using var renderPass = encoder.BeginRenderPass("render-encoder-begin", new[] { colorAttach }, depthAttach);
+        using var renderPass = encoder.BeginRenderPass("render-encoder-begin", colorAttach.AsSpan(), depthAttach);
         
         renderPass.SetPipeline(_meshPipeline);
         
-        // for (var i = 0; i < _meshInstances.Count; i++)
-        // {
-        //     var instance = _meshInstances[i];
-        //     if (!_meshBufferCache.TryGetValue(instance.Mesh, out var meshData))
-        //     {
-        //         _logger.LogWarning("mesh was not loaded");
-        //         continue;
-        //     }
-        //
-        //     renderPass.SetVertexBuffer(0, meshData.VertexBuffer, 0, meshData.VertexBuffer.SizeInBytes);
-        //     renderPass.SetIndexBuffer(meshData.IndexBuffer, IndexFormat.Uint32, 0, meshData.IndexBuffer.SizeInBytes);
-        //     
-        //     //renderPass.SetBindGroup(0, _uniformBind, new uint[] { 0, (uint)i });
-        //
-        //     renderPass.DrawIndexed((uint)instance.Mesh.Indices.Count, 1, 0, 0, 0);
-        // }
+        _shaderParams.BindStaticDescriptors(renderPass);
+        
+        foreach (var instance in _meshInstances)
+        {
+            if (!_meshBufferCache.TryGetValue(instance.Mesh, out var meshData))
+            {
+                _logger.LogWarning("mesh was not loaded");
+                continue;
+            }
+        
+            renderPass.SetVertexBuffer(0, meshData.VertexBuffer, 0, meshData.VertexBuffer.SizeInBytes);
+            renderPass.SetIndexBuffer(meshData.IndexBuffer, IndexFormat.Uint32, 0, meshData.IndexBuffer.SizeInBytes);
+            
+            _shaderParams.DynamicEntryAddOffset("Dynamics", (uint)Unsafe.SizeOf<Assimp.Matrix4x4>());
+            _shaderParams.BindDynamicDescriptors(renderPass);
+            
+            renderPass.DrawIndexed((uint)instance.Mesh.Indices.Count, 1, 0, 0, 0);
+        }
 
-
+        _shaderParams.DynamicEntryResetOffset("Dynamics");
         renderPass.End();
         using var buffer = encoder.Finish("render-encoder-finish");
         _context.Device.Queue.Submit(buffer);
@@ -276,12 +253,13 @@ public class WebGpuRenderer
             AlphaToCoverageEnabled = false
         };
 
-        var vertLayout = vert.GetPipelineGroupBindLayouts();
-        var fragLayout = frag.GetPipelineGroupBindLayouts();
+        _shaderParams = new(_context, vert, frag);
+        ((UniformEntry)_shaderParams.ShaderEntries["Dynamics"]).IsDynamic = true;
 
-        //using webgpu autolayout for now so ignore this. Change when automatic resource alloc/render graph dev started
-        var layout = _context.Device!.CreatePipelineLayout("render-pipeline-layout", vertLayout.Concat(fragLayout).ToArray());
-
+        _shaderParams.BuildLayouts();
+        
+        var layout = _shaderParams.CreatePipelineLayout();
+        
         // Defaults face state for Dawn
         var stencilFaceState = new StencilFaceState
         {
@@ -301,7 +279,7 @@ public class WebGpuRenderer
             StencilBack = stencilFaceState
         };
         var pipeline = _context.Device.CreateRenderPipelineAsync("render-pipeline", vertexState, primState, multisampleState,
-                                                         null, depthState, fragState, token).WaitWhilePollingAsync(_context, token);
+                                                         layout, depthState, fragState, token).WaitWhilePollingAsync(_context, token);
 
         return pipeline;
     }

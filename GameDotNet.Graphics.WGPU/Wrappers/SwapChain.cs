@@ -7,16 +7,19 @@ namespace GameDotNet.Graphics.WGPU.Wrappers;
 
 public sealed class SwapChain : IDisposable
 {
+    public Size Size { get; private set; }
+    
     private readonly WebGPU _api;
     private readonly Dawn _dawn;
 
     internal unsafe Silk.NET.WebGPU.Extensions.Dawn.SwapChain* Handle { get; private set; }
 
-    public unsafe SwapChain(WebGPU api, Dawn dawn, Silk.NET.WebGPU.Extensions.Dawn.SwapChain* handle)
+    public unsafe SwapChain(WebGPU api, Dawn dawn, Silk.NET.WebGPU.Extensions.Dawn.SwapChain* handle, Size size)
     {
         _api = api;
         _dawn = dawn;
         Handle = handle;
+        Size = size;
     }
 
     public unsafe void Present()
@@ -64,6 +67,7 @@ public sealed class SwapChain : IDisposable
 
         if (swPtr is null) throw new ResourceCreationError("swapchain");
 
+        Size = size;
         Handle = swPtr;
     }
     

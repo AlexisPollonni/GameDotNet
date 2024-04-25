@@ -61,13 +61,19 @@ public sealed class RenderPassEncoder : IDisposable
 
     public unsafe void PopDebugGroup() => _api.RenderPassEncoderPopDebugGroup(_handle);
 
-    public unsafe void SetBindGroup(uint groupIndex, BindGroup group, uint[]? dynamicOffsets = null)
+    public unsafe void SetBindGroup(uint groupIndex, BindGroup group, ReadOnlySpan<uint> dynamicOffsets)
     {
-        using var dynamicOffsetsPtr = dynamicOffsets.AsMemory().Pin();
+        fixed (uint* offsetsPtr = dynamicOffsets)
+            _api.RenderPassEncoderSetBindGroup(_handle, groupIndex,
+                                               group.Handle,
+                                               (nuint)dynamicOffsets.Length,
+                                               offsetsPtr);
+    }
+
+    public unsafe void SetBindGroup(uint groupIndex, BindGroup group)
+    {
         _api.RenderPassEncoderSetBindGroup(_handle, groupIndex,
-                                           group.Handle,
-                                           (nuint)(dynamicOffsets?.Length ?? 0),
-                                           (uint*)dynamicOffsetsPtr.Pointer);
+                                           group.Handle, 0, null);
     }
 
     public unsafe void SetBlendConstant(in Color color) => _api.RenderPassEncoderSetBlendConstant(_handle, color);

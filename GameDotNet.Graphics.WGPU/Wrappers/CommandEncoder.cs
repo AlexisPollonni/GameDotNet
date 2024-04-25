@@ -46,7 +46,7 @@ public sealed class CommandEncoder : IDisposable
     }
 
     public unsafe RenderPassEncoder BeginRenderPass(string label,
-                                                    RenderPassColorAttachment[] colorAttachments,
+                                                    ReadOnlySpan<RenderPassColorAttachment> colorAttachments,
                                                     RenderPassDepthStencilAttachment? depthStencilAttachment = null
     )
     {

@@ -41,7 +41,7 @@ public sealed class Device : IDisposable
         Queue = new(_api, _api.DeviceGetQueue(handle));
     }
 
-    public unsafe BindGroup CreateBindGroup(string label, BindGroupLayout layout, BindGroupEntry[] entries)
+    public unsafe BindGroup CreateBindGroup(string label, BindGroupLayout layout, ReadOnlySpan<BindGroupEntry> entries)
     {
         Span<Silk.NET.WebGPU.BindGroupEntry> entriesInner = stackalloc Silk.NET.WebGPU.BindGroupEntry[entries.Length];
 
@@ -103,7 +103,7 @@ public sealed class Device : IDisposable
 
         if (swPtr is null) throw new ResourceCreationError("swapchain");
         
-        return new(_api, _dawn, swPtr);
+        return new(_api, _dawn, swPtr, size);
     }
     
     

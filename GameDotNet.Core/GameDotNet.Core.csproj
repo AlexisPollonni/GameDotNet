@@ -9,14 +9,14 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\ThirdParty\Arch\src\Arch\Arch.csproj" />
         <ProjectReference Include="..\ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="Arch" Version="1.2.3"/>
         <PackageReference Include="ByteSize" Version="2.1.1"/>
         <PackageReference Include="dotVariant" Version="0.5.3"/>
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0-rc.2.23479.6" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
         <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2"/>
         <PackageReference Include="Serilog.Extensions.Logging" Version="7.0.0" />
         <PackageReference Include="Serilog.Formatting.Compact" Version="1.1.1-dev-00944"/>
@@ -25,6 +25,8 @@
         <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0"/>
         <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947"/>
         <PackageReference Include="Silk.NET.Core" Version="2.18.0" />
+        <PackageReference Include="System.Reactive.Interfaces" Version="6.0.1-preview.1" />
+        <PackageReference Include="ValueTaskSupplement" Version="1.1.0" />
     </ItemGroup>
 
     <ItemGroup>

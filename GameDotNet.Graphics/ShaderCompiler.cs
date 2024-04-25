@@ -5,24 +5,6 @@ using Vortice.ShaderCompiler;
 
 namespace GameDotNet.Graphics;
 
-public sealed class SpirVShader : IShader
-{
-    public SpirVShader(ReadOnlySpan<uint> code, ShaderDescription description)
-    {
-        Code = code.ToArray();
-        Description = description;
-    }
-
-    public Task SaveToFile(string path, CancellationToken token = default) 
-        => File.WriteAllBytesAsync(path, Code.AsSpan().AsBytes().ToArray(),token);
-
-    public void Dispose()
-    { }
-
-    public uint[] Code { get; }
-    public ShaderDescription Description { get; }
-}
-
 public class ShaderCompiler(ILogger<ShaderCompiler> logger)
 {
     public async Task<SpirVShader?> TranslateGlsl(string path, string includePath = ".",

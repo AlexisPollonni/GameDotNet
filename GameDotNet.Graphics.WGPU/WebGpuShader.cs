@@ -3,13 +3,9 @@ using CommunityToolkit.HighPerformance;
 using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
-using Silk.NET.SPIRV;
-using Silk.NET.SPIRV.Reflect;
 using Silk.NET.WebGPU;
 using SpirvReflectSharp;
-using BindGroupLayout = GameDotNet.Graphics.WGPU.Wrappers.BindGroupLayout;
 using ShaderModule = GameDotNet.Graphics.WGPU.Wrappers.ShaderModule;
-using ShaderStage = Silk.NET.WebGPU.ShaderStage;
 using VertexBufferLayout = GameDotNet.Graphics.WGPU.Wrappers.VertexBufferLayout;
 using VertexState = GameDotNet.Graphics.WGPU.Wrappers.VertexState;
 
@@ -17,24 +13,23 @@ namespace GameDotNet.Graphics.WGPU;
 
 public sealed class WebGpuShader : IShader
 {
-    public ShaderDescription Description { get; }
+    public ShaderDescription Description => Source.Description;
     public ShaderModule? Module { get; private set; }
+    public SpirVShader Source { get; }
 
 
     private readonly WebGpuContext _ctx;
-    private readonly SpirVShader _bytecode;
     private readonly ILogger _logger;
     private readonly SpirvReflectSharp.ShaderModule _reflectModule;
 
 
-    public WebGpuShader(WebGpuContext ctx, SpirVShader bytecode, ILogger logger)
+    public WebGpuShader(WebGpuContext ctx, SpirVShader source, ILogger logger)
     {
         _logger = logger;
         _ctx = ctx;
-        _bytecode = bytecode;
-        Description = bytecode.Description;
+        Source = source;
         
-        _reflectModule = SpirvReflect.ReflectCreateShaderModule(bytecode.Code.AsMemory().AsBytes().Span);
+        _reflectModule = SpirvReflect.ReflectCreateShaderModule(source.Code.AsMemory().AsBytes().Span);
     }
 
     public async ValueTask<ShaderModule?> Compile(CancellationToken token = default)
@@ -43,11 +38,11 @@ public sealed class WebGpuShader : IShader
         ShaderModule module;
         try
         {
-            module = _ctx.Device.CreateSpirVShaderModule($"create-shader-module-spirv:{_bytecode.Description.Stage}/{_bytecode.Description.Name}", _bytecode.Code);
+            module = _ctx.Device.CreateSpirVShaderModule($"create-shader-module-spirv:{Source.Description.Stage}/{Source.Description.Name}", Source.Code);
         }
         catch (SEHException e)
         {
-            _logger.LogError("Shader module {Name} compilation failed, check uncaptured output for more details", _bytecode.Description.Name);
+            _logger.LogError("Shader module {Name} compilation failed, check uncaptured output for more details", Source.Description.Name);
             return null;
         }
         
@@ -57,7 +52,7 @@ public sealed class WebGpuShader : IShader
             token.ThrowIfCancellationRequested();
             if (status is not CompilationInfoRequestStatus.Success)
             {
-                _logger.LogError("Shader module {Name} compilation failed : {Message}", _bytecode.Description.Name,string.Join(Environment.NewLine, messages.ToArray()));
+                _logger.LogError("Shader module {Name} compilation failed : {Message}", Source.Description.Name,string.Join(Environment.NewLine, messages.ToArray()));
                 return;
             }
             
@@ -88,7 +83,7 @@ public sealed class WebGpuShader : IShader
         var vertBufferLayout = new VertexBufferLayout
         {
             StepMode = VertexStepMode.Vertex,
-            ArrayStride = 0,
+            ArrayStride = stride,
             Attributes = attributes
         };
 
@@ -100,60 +95,6 @@ public sealed class WebGpuShader : IShader
             EntryPoint = entryPoint.Name,
             BufferLayouts = new[] { vertBufferLayout }
         };
-    }
-
-    public BindGroupLayout[] GetPipelineGroupBindLayouts()
-    {
-        var entry = _reflectModule.EntryPoints.Single();
-
-        var sets = entry.DescriptorSets;
-
-        return sets.Select(set =>
-        {
-            var bindGroupLayoutEntries = set.Bindings.Select(binding =>
-            {
-                var bindEntry = new BindGroupLayoutEntry
-                {
-                    Binding = binding.Binding,
-                    Visibility = entry.SpirvExecutionModel switch
-                    {
-                        ExecutionModel.Vertex => ShaderStage.Vertex,
-                        ExecutionModel.Fragment => ShaderStage.Fragment,
-                        ExecutionModel.GLCompute => ShaderStage.Compute,
-                        _ => throw new ArgumentOutOfRangeException(nameof(entry.SpirvExecutionModel),
-                                                                   "SpirV shader execution model is not supported by WebGPU")
-                    }
-                };
-
-                
-
-                if (binding.DescriptorType is DescriptorType.UniformBuffer)
-                {
-                    bindEntry.Buffer.Type = BufferBindingType.Uniform;
-                }
-
-                if (binding.DescriptorType is DescriptorType.StorageBuffer)
-                {
-                    bindEntry.Buffer.Type = BufferBindingType.Storage;
-                }
-                
-
-                return bindEntry;
-            }).ToArray();
-
-            return _ctx.Device.CreateBindgroupLayout("bind-group-layout-create", bindGroupLayoutEntries);
-        }).ToArray();
-    }
-
-    private ulong MinByteSizeFromTypeDef(ReflectTypeDescription type)
-    {
-        if (type.TypeFlags.HasFlag(TypeFlagBits.Vector))
-        {
-            var count = type.Traits.Numeric.Vector.ComponentCount;
-            
-        }
-
-        return 0;
     }
     
     public void Dispose()

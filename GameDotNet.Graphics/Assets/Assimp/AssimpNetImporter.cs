@@ -107,7 +107,7 @@ public sealed class AssimpNetImporter : IDisposable
         var metadata = GetMetadata(node.Metadata);
         transform.Decompose(out var scale, out var rot, out var pos);
 
-        return new(node.Name, new(scale.AsVector3(), rot.ToQuaternion(), pos.AsVector3()),
+        return new(node.Name, new(pos.AsVector3(), rot.ToQuaternion(), scale.AsVector3()),
                    GetMeshesFromNode(node, loadedMeshes), metadata);
     }
 

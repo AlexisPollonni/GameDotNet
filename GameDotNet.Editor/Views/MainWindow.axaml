@@ -9,5 +9,37 @@
         Icon="/Assets/avalonia-logo.ico"
         Title="GameDotNet.Editor">
 	
-	<ContentControl Content="{CompiledBinding WebGpuViewModel}"/>
+	<DockPanel LastChildFill="True">
+		<StackPanel DockPanel.Dock="Bottom"
+					Orientation="Horizontal"
+					Background="DimGray">
+				<TextBlock HorizontalAlignment="Right" 
+						   Foreground="White"
+						   Padding="10, 0">
+					<Run FontWeight="Bold">FPS: </Run>
+					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.AverageFps}"/>
+					<Run> | Render: </Run>
+					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Average.TotalMilliseconds}"/>
+					<Run>ms | Min: </Run>
+					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Min.TotalMilliseconds}"/>
+					<Run>ms | Max: </Run>
+					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Max.TotalMilliseconds}"/>
+					<Run>ms | StdDev: </Run>
+					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.StdDev.TotalMilliseconds}"/>
+					<Run>ms</Run>
+				</TextBlock>
+		</StackPanel>
+		<Grid ColumnDefinitions="*, 6*, 2*" RowDefinitions="6*, *">
+			<ContentControl Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" 
+							Content="{CompiledBinding TreeViewModel}"/>
+			<ContentControl Grid.Row="0" Grid.Column="1"
+							Content="{CompiledBinding WebGpuViewModel}"
+							VerticalAlignment="Stretch"
+							HorizontalAlignment="Stretch" />
+			<ContentControl Grid.Row="0" Grid.Column="2" Grid.RowSpan="2"
+							Content="{CompiledBinding InspectorViewModel}"/>
+			<ContentControl Grid.Row="1" Grid.Column="1"
+							Content="{CompiledBinding LogViewModel}"/>
+		</Grid>
+	</DockPanel>
 </Window>

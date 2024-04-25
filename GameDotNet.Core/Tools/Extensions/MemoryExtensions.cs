@@ -10,17 +10,22 @@ namespace GameDotNet.Core.Tools.Extensions;
 
 public static class MemoryExtensions
 {
-    public static Span<T> AsSpan<T>(ref this T t) where T : unmanaged
+    public static bool Has<T>(this T e, T other) where T : Enum
+    {
+        return e.HasFlag(other);
+    }
+    
+    public static Span<T> AsSpan<T>(ref this T t) where T : struct
     {
         return MemoryMarshal.CreateSpan(ref t, 1);
     }
 
-    public static ref T AsRefOrNull<T>(ref this T? nullable) where T : unmanaged
+    public static ref T AsRefOrNull<T>(ref this T? nullable) where T : struct
     {
         return ref nullable is null ? ref Unsafe.NullRef<T>() : ref nullable.DangerousGetValueOrDefaultReference();
     }
 
-    public static ref readonly T AsReadOnlyRefOrNull<T>(in this T? nullable) where T : unmanaged
+    public static ref readonly T AsReadOnlyRefOrNull<T>(in this T? nullable) where T : struct
     {
         if (nullable is null)
             return ref Unsafe.NullRef<T>();
