@@ -1,5 +1,5 @@
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.Dawn;
+using Silk.NET.WebGPU.Extensions.WGPU;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
@@ -12,7 +12,7 @@ public delegate void CreateComputePipelineAsyncCallback(CreatePipelineAsyncStatu
 
 public delegate void ErrorCallback(ErrorType type, string message);
 
-public delegate void LoggingCallback(LoggingType type, string message);
+public delegate void LoggingCallback(LogLevel type, string message);
 
 public delegate void DeviceLostCallback(DeviceLostReason reason, string message);
 
@@ -23,20 +23,9 @@ public delegate void CompilationInfoCallback(CompilationInfoRequestStatus status
 
 public delegate void QueueWorkDoneCallback(QueueWorkDoneStatus status);
 
-public unsafe struct DawnInstanceDescriptor
-{
-    public InstanceFeatures Features;
-    public ChainedStruct* Next;
-}
-
 public struct RequiredLimits
 {
     public Limits Limits;
-}
-
-public partial struct RequiredLimitsExtras
-{
-    public uint MaxPushConstantSize;
 }
 
 public struct DeviceExtras
@@ -56,24 +45,6 @@ public struct RenderPassColorAttachment
     public StoreOp StoreOp;
 
     public Color ClearValue;
-}
-
-/// <summary>
-/// The dawn implementation RenderPassColorAttachment has a different memory layout than the Silk.Net bindings.
-/// Fixes segfaults while this is fixed
-/// </summary>
-internal unsafe struct DawnRenderPassColorAttachment
-{
-    public ChainedStruct* NextInChain = null;
-    public Silk.NET.WebGPU.TextureView* View = default;
-    public uint DepthSlice = 0;
-    public Silk.NET.WebGPU.TextureView* ResolveTarget = default;
-    public LoadOp LoadOp = LoadOp.Undefined;
-    public StoreOp StoreOp = StoreOp.Undefined;
-    public Color ClearValue = default;
-
-    public DawnRenderPassColorAttachment()
-    { }
 }
 
 public struct RenderPassDepthStencilAttachment

@@ -13,6 +13,7 @@ using GameDotNet.Management.ECS.Components;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
 using Serilog;
+using Silk.NET.WebGPU;
 
 namespace GameDotNet.Graphics.WGPU;
 
@@ -98,10 +99,10 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         }
 
         if (!_gpuContext.IsInitialized) return;
+        
+        var surfaceSize = _gpuContext.Surface.Size;
 
-        var surfaceSize = _gpuContext.SwapChain!.Size;
-
-        _gpuContext.Instance.ProcessEvents();
+        _gpuContext.Device.WGpuDevicePoll();
 
         if (surfaceSize != _viewManager.MainView.Size)
         {
@@ -110,8 +111,10 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
         }
 
         {
-            using var swTextureView = _gpuContext.SwapChain?.GetCurrentTextureView();
-            if (swTextureView is null) return;
+            var surfaceTexture = _gpuContext.Surface?.GetCurrentTexture();
+            if (surfaceTexture?.Status is not SurfaceGetCurrentTextureStatus.Success) return;
+
+            using var swTextureView = surfaceTexture.Value.Texture?.CreateTextureView();
 
             var cam = _sceneManager.World.GetFirstEntity(CameraQueryDesc);
             var camTransform = Transform.FromEntity(cam) ?? new();
@@ -121,7 +124,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
 
             _renderer.Draw(delta, swTextureView);
 
-            _gpuContext.SwapChain?.Present();
+            _gpuContext.Surface!.Present();
         }
         RenderTimings.Add(delta);
     }

@@ -3,7 +3,6 @@ using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.Dawn;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
@@ -18,9 +17,8 @@ public sealed class Instance : IDisposable
 
         unsafe
         {
-            var desc = new DawnInstanceDescriptor
-                { Features = new() { TimedWaitAnyEnable = false, TimedWaitAnyMaxCount = 0 } };
-            _handle = api.CreateInstance((InstanceDescriptor*)(&desc));
+            var desc = new InstanceDescriptor();
+            _handle = api.CreateInstance(&desc);
         }
     }
 
@@ -62,7 +60,10 @@ public sealed class Instance : IDisposable
         }));
     }
 
-    public unsafe void ProcessEvents() => _api.InstanceProcessEvents(_handle);
+    public unsafe void ProcessEvents()
+    {
+        _api.InstanceProcessEvents(_handle);
+    }
 
     public unsafe void RequestAdapter(Surface compatibleSurface, PowerPreference powerPreference,
                                       bool forceFallbackAdapter, RequestAdapterCallback callback,

@@ -1,5 +1,4 @@
-﻿using System.Runtime.InteropServices;
-using Silk.NET.WebGPU;
+﻿using Silk.NET.WebGPU;
 using unsafe BufferPtr = Silk.NET.WebGPU.Buffer*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
@@ -35,25 +34,21 @@ public sealed class Buffer : IDisposable
         SizeInBytes = descriptor.Size;
     }
 
-    public unsafe Span<T> GetConstMappedRange<T>(ulong offset, int size)
+    public unsafe ReadOnlySpan<T> GetConstMappedRange<T>(nuint offset, nuint size)
         where T : unmanaged
     {
-        var structSize = (nuint)Marshal.SizeOf<T>();
+        var ptr = _api.BufferGetConstMappedRange(_handle, offset, size);
 
-        var ptr = _api.BufferGetConstMappedRange(_handle, (nuint)(offset * structSize), (nuint)size * structSize);
-
-        return new(ptr, size);
+        return new(ptr, (int)size);
     }
 
-    public unsafe Span<T> GetMappedRange<T>(ulong offset, int size)
+    public unsafe Span<T> GetMappedRange<T>(nuint offset, nuint size)
         where T : unmanaged
     {
-        var structSize = (nuint)Marshal.SizeOf<T>();
-
         var ptr = _api.BufferGetMappedRange(_handle,
-                                            (nuint)(offset * structSize), (nuint)size * structSize);
+                                            offset, size);
 
-        return new(ptr, size);
+        return new(ptr, (int)size);
     }
 
     public unsafe void MapAsync(MapMode mode, nuint offset, nuint size, BufferMapCallback callback)
@@ -68,16 +63,5 @@ public sealed class Buffer : IDisposable
         _api.BufferDestroy(_handle);
         _api.BufferRelease(_handle);
         _handle = null;
-    }
-}
-
-public static class BufferExtensions
-{
-    public static void SetData<T>(this Buffer buffer, ulong offset, ReadOnlySpan<T> span)
-        where T : unmanaged
-    {
-        var dest = buffer.GetMappedRange<T>(offset, span.Length);
-
-        span.CopyTo(dest);
     }
 }

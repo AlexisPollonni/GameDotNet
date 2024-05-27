@@ -1,16 +1,16 @@
 using Silk.NET.SPIRV.Reflect;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.Dawn;
+using Silk.NET.WebGPU.Extensions.WGPU;
 
 namespace GameDotNet.Graphics.WGPU.Extensions;
 
 public static class UtilsExtensions
 {
-    public static unsafe Dawn? GetDawnExtension(this WebGPU api)
+    public static unsafe Wgpu? GetWgpuExtension(this WebGPU api)
     {
-        api.TryGetDeviceExtension(null, out Dawn? dawn);
+        api.TryGetDeviceExtension(null, out Wgpu? wgpu);
 
-        return dawn;
+        return wgpu;
     }
     
     public static VertexFormat ToVertexFormat(this Format format)

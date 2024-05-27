@@ -5,57 +5,56 @@ using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Contexts;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.Dawn;
 using Adapter = GameDotNet.Graphics.WGPU.Wrappers.Adapter;
 using Device = GameDotNet.Graphics.WGPU.Wrappers.Device;
 using Instance = GameDotNet.Graphics.WGPU.Wrappers.Instance;
+using LogLevel = Silk.NET.WebGPU.Extensions.WGPU.LogLevel;
 using Surface = GameDotNet.Graphics.WGPU.Wrappers.Surface;
-using SwapChain = GameDotNet.Graphics.WGPU.Wrappers.SwapChain;
-using TextureFormat = Silk.NET.WebGPU.TextureFormat;
 
 namespace GameDotNet.Graphics.WGPU;
 
 public sealed class WebGpuContext : IDisposable
 {
-    [MemberNotNullWhen(true, nameof(Surface), nameof(Adapter), nameof(Device), nameof(SwapChain))]
+    [MemberNotNullWhen(true, nameof(Surface), nameof(Adapter), nameof(Device))]
     public bool IsInitialized { get; private set; }
+
     public WebGPU Api { get; }
     public Instance Instance { get; }
     public Surface? Surface { get; private set; }
     public Adapter? Adapter { get; private set; }
     public Device? Device { get; private set; }
-    public SwapChain? SwapChain { get; private set; }
 
-    
+
     private readonly ILogger<WebGpuContext> _logger;
-    
+
 
     public WebGpuContext(ILogger<WebGpuContext> logger)
     {
         _logger = logger;
-        
+
         Api = WebGPU.GetApi();
+
         Instance = new(Api);
     }
 
-    [MemberNotNullWhen(true, nameof(Surface), nameof(Adapter), nameof(Device), nameof(SwapChain))]
+    [MemberNotNullWhen(true, nameof(Surface), nameof(Adapter), nameof(Device))]
     public async ValueTask<bool> Initialize(INativeView view, CancellationToken token = default)
     {
         if (IsInitialized) return true;
-        
+
         var surface = CreateSurfaceFromView(Instance, view);
 
         var adapter =
             await Instance.RequestAdapterAsync(surface, PowerPreference.HighPerformance, false, BackendType.Vulkan,
-                                               token).WaitWhilePollingAsync(Instance, token);
+                token).WaitWhilePollingAsync(Instance, token);
 
         adapter.GetProperties(out var properties);
         adapter.GetLimits(out var limits);
-        
-        var device = await adapter.RequestDeviceAsync(limits: limits.Limits, label: "Device", nativeFeatures: new[]
-        {
+
+        var device = await adapter.RequestDeviceAsync(limits: limits.Limits, label: "Device", nativeFeatures:
+        [
             FeatureName.IndirectFirstInstance
-        }, token: token);
+        ], token: token);
 
         device.SetUncapturedErrorCallback((type, message) =>
         {
@@ -67,43 +66,41 @@ public sealed class WebGpuContext : IDisposable
             var fmtMessage = message.ReplaceLineEndings();
             switch (type)
             {
-                case LoggingType.Verbose:
+                case LogLevel.Trace:
                     _logger.LogTrace("[WebGPU] {Msg}", fmtMessage);
                     break;
-                case LoggingType.Info:
+                case LogLevel.Debug:
+                    _logger.LogDebug("[WebGPU] {Msg}", fmtMessage);
+                    break;
+                case LogLevel.Info:
                     _logger.LogInformation("[WebGPU] {Msg}", fmtMessage);
                     break;
-                case LoggingType.Warning:
+                case LogLevel.Warn:
                     _logger.LogWarning("[WebGPU] {Msg}", fmtMessage);
                     break;
-                case LoggingType.Error:
+                case LogLevel.Error:
                     _logger.LogError("[WebGPU] {Msg}", fmtMessage);
                     break;
-                case LoggingType.Force32:
+                case LogLevel.Force32:
+                case LogLevel.Off:
                 default:
                     throw new ArgumentOutOfRangeException(nameof(type), type, null);
             }
         });
 
-        //device.Queue.OnSubmittedWorkDone(status => logger.LogDebug("[WebGPU] Queue submit {Status}", status));
-
-
-        var sw = device.CreateSwapchain(surface, view.Size, TextureFormat.Bgra8Unorm,
-                                        TextureUsage.RenderAttachment, PresentMode.Fifo, "create-swapchain");
+        device.Queue.OnSubmittedWorkDone(status => _logger.LogTrace("[WebGPU] Queue submit {Status}", status));
 
         Surface = surface;
         Adapter = adapter;
         Device = device;
-        SwapChain = sw;
-        
-        
+
         IsInitialized = true;
+        ResizeSurface(view.Size);
         return true;
     }
 
     public void Dispose()
     {
-        SwapChain?.Dispose();
         Device?.Dispose();
         Adapter?.Dispose();
         Surface?.Dispose();
@@ -114,9 +111,17 @@ public sealed class WebGpuContext : IDisposable
     public void ResizeSurface(Size size)
     {
         if (!IsInitialized) throw new InvalidOperationException("Context is not initialized");
+
+        var fmt = Surface.GetPreferredFormat(Adapter);
         
-        SwapChain.Configure(Device, Surface, size, TextureFormat.Bgra8Unorm, TextureUsage.RenderAttachment,
-                            PresentMode.Fifo);
+        if (size.Height is 0 || size.Width is 0)
+        {
+            Surface.UnConfigure(Device);
+        }
+        else
+            Surface.Configure(Device,
+                new(fmt, TextureUsage.RenderAttachment, [fmt],
+                    CompositeAlphaMode.Auto, size, PresentMode.Fifo));
     }
 
     private static unsafe Surface CreateSurfaceFromView(Instance instance, INativeView view)
@@ -128,14 +133,14 @@ public sealed class WebGpuContext : IDisposable
         if (nat.Kind.HasFlag(NativeWindowFlags.Win32))
         {
             surface = instance.CreateSurfaceFromWindowsHWND((void*)nat.Win32!.Value.HInstance,
-                                                            (void*)nat.Win32.Value.Hwnd,
-                                                            "surface-create-Win32");
+                (void*)nat.Win32.Value.Hwnd,
+                "surface-create-Win32");
         }
         else if (nat.Kind.HasFlag(NativeWindowFlags.X11))
         {
             surface = instance.CreateSurfaceFromXlibWindow((void*)nat.X11!.Value.Display,
-                                                           (uint)nat.X11.Value.Window,
-                                                           "surface-create-X11");
+                (uint)nat.X11.Value.Window,
+                "surface-create-X11");
         }
         else if (nat.Kind.HasFlag(NativeWindowFlags.Cocoa))
         {

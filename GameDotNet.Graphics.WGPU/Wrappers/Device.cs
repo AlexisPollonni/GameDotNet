@@ -1,12 +1,11 @@
-﻿using System.Drawing;
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using GameDotNet.Core.Tools.Containers;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.WGPU.Extensions;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.Dawn;
+using Silk.NET.WebGPU.Extensions.WGPU;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
@@ -15,7 +14,6 @@ public sealed class Device : IDisposable
     public Queue Queue { get; private set; }
 
     private readonly WebGPU _api;
-    private Dawn? _dawn;
     private unsafe Silk.NET.WebGPU.Device* _handle;
 
     public unsafe Silk.NET.WebGPU.Device* Handle
@@ -37,6 +35,7 @@ public sealed class Device : IDisposable
             throw new ResourceCreationError(nameof(Device));
 
         _api = api;
+        _wgpu = api.GetWgpuExtension();
         _handle = handle;
         Queue = new(_api, _api.DeviceGetQueue(handle));
     }
@@ -77,49 +76,23 @@ public sealed class Device : IDisposable
 
     public unsafe void SetLoggingCallback(LoggingCallback proc)
     {
-        _api.TryGetDeviceExtension(_handle, out Dawn d);
-
-        d.DeviceSetLoggingCallback(_handle, new((lvl, msg, _) => proc(lvl, SilkMarshal.PtrToString((nint)msg)!)), null);
+        _api.GetWgpuExtension()?.SetLogCallback(new((lvl, msgB, _) => proc(lvl, SilkMarshal.PtrToString((IntPtr)msgB)!)), null);
     }
 
 
-    public unsafe SwapChain CreateSwapchain(Surface surface, Size size, TextureFormat fmt, TextureUsage usage,
-                                            PresentMode presentMode, string? label = null)
-    {
-        _dawn ??= _api.GetDawnExtension() ?? throw new PlatformException("Dawn not found");
-        
-        var mem = label?.ToGlobalMemory();
-        
-        var swDesc = new SwapChainDescriptor
-        {
-            Width = (uint)size.Width,
-            Height = (uint)size.Height,
-            Format = fmt,
-            Usage = usage,
-            PresentMode = presentMode,
-            Label = mem is null ? null : mem.AsPtr<byte>()
-        };
-        var swPtr = _dawn.DeviceCreateSwapChain(_handle, surface.Handle, &swDesc);
-
-        if (swPtr is null) throw new ResourceCreationError("swapchain");
-        
-        return new(_api, _dawn, swPtr, size);
-    }
-    
-    
     public unsafe BindGroupLayout CreateBindgroupLayout(string label, BindGroupLayoutEntry[] entries)
     {
         using var mem = label.ToGlobalMemory();
         fixed (BindGroupLayoutEntry* entriesPtr = entries)
         {
             return new(_api,
-                       _api.DeviceCreateBindGroupLayout(_handle, new BindGroupLayoutDescriptor
-                       {
-                           Label = mem.AsPtr<byte>(),
-                           Entries = entriesPtr,
-                           EntryCount = (uint)entries.Length
-                       })
-                      );
+                _api.DeviceCreateBindGroupLayout(_handle, new BindGroupLayoutDescriptor
+                {
+                    Label = mem.AsPtr<byte>(),
+                    Entries = entriesPtr,
+                    EntryCount = (uint)entries.Length
+                })
+            );
         }
     }
 
@@ -141,45 +114,45 @@ public sealed class Device : IDisposable
     {
         using var mem = label.ToGlobalMemory();
         return new(_api, _api.DeviceCreateCommandEncoder(_handle, new CommandEncoderDescriptor
-                   {
-                       Label = mem.AsPtr<byte>()
-                   })
-                  );
+            {
+                Label = mem.AsPtr<byte>()
+            })
+        );
     }
 
     public unsafe ComputePipeline CreateComputePipeline(string label, ProgrammableStageDescriptor compute)
     {
         using var mem = label.ToGlobalMemory();
         using var mem2 = compute.EntryPoint.ToGlobalMemory();
-        
+
         return new(_api, _api.DeviceCreateComputePipeline(_handle, new ComputePipelineDescriptor
-                   {
-                       Label = mem.AsPtr<byte>(),
-                       Compute = new()
-                       {
-                           Module = compute.Module.Handle,
-                           EntryPoint = mem2.AsPtr<byte>()
-                       }
-                   })
-                  );
+            {
+                Label = mem.AsPtr<byte>(),
+                Compute = new()
+                {
+                    Module = compute.Module.Handle,
+                    EntryPoint = mem2.AsPtr<byte>()
+                }
+            })
+        );
     }
 
     public unsafe void CreateComputePipelineAsync(string label, CreateComputePipelineAsyncCallback callback,
-                                                  ProgrammableStageDescriptor compute)
+        ProgrammableStageDescriptor compute)
     {
         using var mem = label.ToGlobalMemory();
         using var mem2 = compute.EntryPoint.ToGlobalMemory();
         _api.DeviceCreateComputePipelineAsync(_handle, new ComputePipelineDescriptor
-                                         {
-                                             Label = mem.AsPtr<byte>(),
-                                             Compute = new()
-                                             {
-                                                 Module = compute.Module.Handle,
-                                                 EntryPoint = mem2.AsPtr<byte>()
-                                             }
-                                         }, new((s, p, m, _) => callback(s, new(_api, p), SilkMarshal.PtrToString((nint)m)!)), 
-                                              null
-                                        );
+            {
+                Label = mem.AsPtr<byte>(),
+                Compute = new()
+                {
+                    Module = compute.Module.Handle,
+                    EntryPoint = mem2.AsPtr<byte>()
+                }
+            }, new((s, p, m, _) => callback(s, new(_api, p), SilkMarshal.PtrToString((nint)m)!)),
+            null
+        );
     }
 
     public unsafe PipelineLayout CreatePipelineLayout(string label, BindGroupLayout[] bindGroupLayouts)
@@ -191,131 +164,126 @@ public sealed class Device : IDisposable
             bindGroupLayoutsInner[i] = (nint)bindGroupLayouts[i].Handle;
 
         return new(_api, _api.DeviceCreatePipelineLayout(_handle, new PipelineLayoutDescriptor
-                   {
-                       Label = mem.AsPtr<byte>(),
-                       BindGroupLayouts = 
-                           (Silk.NET.WebGPU.BindGroupLayout**)Unsafe.AsPointer(ref bindGroupLayoutsInner
-                                                                                   .GetPinnableReference()),
-                       BindGroupLayoutCount = (nuint)bindGroupLayouts.Length
-                   })
-                  );
+            {
+                Label = mem.AsPtr<byte>(),
+                BindGroupLayouts =
+                    (Silk.NET.WebGPU.BindGroupLayout**)Unsafe.AsPointer(ref bindGroupLayoutsInner
+                        .GetPinnableReference()),
+                BindGroupLayoutCount = (nuint)bindGroupLayouts.Length
+            })
+        );
     }
 
-    public unsafe QuerySet CreateQuerySet(string label, QueryType queryType, uint count,
-                                   PipelineStatisticName[] pipelineStatistics)
+    public unsafe QuerySet CreateQuerySet(string label, QueryType queryType, uint count)
     {
         using var mem = label.ToGlobalMemory();
-        fixed (PipelineStatisticName* pipelineStatisticsPtr = pipelineStatistics)
-        {
-            return new(_api, _api.DeviceCreateQuerySet(_handle, new QuerySetDescriptor
-                       {
-                           Label = mem.AsPtr<byte>(),
-                           Type = queryType,
-                           Count = count,
-                           PipelineStatistics = pipelineStatisticsPtr,
-                           PipelineStatisticCount = (nuint)pipelineStatistics.Length
-                       })
-                      );
-        }
+
+        return new(_api, _api.DeviceCreateQuerySet(_handle, new QuerySetDescriptor
+            {
+                Label = mem.AsPtr<byte>(),
+                Type = queryType,
+                Count = count
+            })
+        );
     }
 
     public unsafe RenderBundleEncoder CreateRenderBundleEncoder(string label, TextureFormat[] colorFormats,
-                                                         TextureFormat depthStencilFormat,
-                                                         uint sampleCount, bool depthReadOnly, bool stencilReadOnly)
+        TextureFormat depthStencilFormat,
+        uint sampleCount, bool depthReadOnly, bool stencilReadOnly)
     {
         using var mem = label.ToGlobalMemory();
         fixed (TextureFormat* colorFormatsPtr = colorFormats)
         {
             return new(_api, _api.DeviceCreateRenderBundleEncoder(_handle,
-                                                                  new RenderBundleEncoderDescriptor
-                                                                  {
-                                                                      Label = mem.AsPtr<byte>(),
-                                                                      ColorFormats = colorFormatsPtr,
-                                                                      ColorFormatCount = (nuint)colorFormats.Length,
-                                                                      DepthStencilFormat = depthStencilFormat,
-                                                                      SampleCount = sampleCount,
-                                                                      DepthReadOnly = depthReadOnly,
-                                                                      StencilReadOnly = stencilReadOnly
-                                                                  })
-                      );
+                new RenderBundleEncoderDescriptor
+                {
+                    Label = mem.AsPtr<byte>(),
+                    ColorFormats = colorFormatsPtr,
+                    ColorFormatCount = (nuint)colorFormats.Length,
+                    DepthStencilFormat = depthStencilFormat,
+                    SampleCount = sampleCount,
+                    DepthReadOnly = depthReadOnly,
+                    StencilReadOnly = stencilReadOnly
+                })
+            );
         }
     }
 
     public unsafe RenderPipeline CreateRenderPipeline(string label,
-                                                      VertexState vertexState, 
-                                                      PrimitiveState primitiveState,
-                                                      MultisampleState multisampleState,
-                                                      PipelineLayout? layout = null,
-                                                      DepthStencilState? depthStencilState = null,
-                                                      FragmentState? fragmentState = null)
+        VertexState vertexState,
+        PrimitiveState primitiveState,
+        MultisampleState multisampleState,
+        PipelineLayout? layout = null,
+        DepthStencilState? depthStencilState = null,
+        FragmentState? fragmentState = null)
     {
         using var d = new DisposableList();
         var desc = CreateRenderPipelineDescriptor(label, layout, vertexState, primitiveState,
-                                                  multisampleState, depthStencilState,
-                                                  fragmentState, d);
+            multisampleState, depthStencilState,
+            fragmentState, d);
         var pipelineImpl = _api.DeviceCreateRenderPipeline(_handle, desc);
-        
+
         return new(_api, pipelineImpl);
     }
 
     public unsafe void CreateRenderPipelineAsync(string label, CreateRenderPipelineAsyncCallback callback,
-                                                 VertexState vertexState, 
-                                                 PrimitiveState primitiveState,
-                                                 MultisampleState multisampleState,
-                                                 PipelineLayout? layout = null,
-                                                 DepthStencilState? depthStencilState = null,
-                                                 FragmentState? fragmentState = null)
+        VertexState vertexState,
+        PrimitiveState primitiveState,
+        MultisampleState multisampleState,
+        PipelineLayout? layout = null,
+        DepthStencilState? depthStencilState = null,
+        FragmentState? fragmentState = null)
     {
         using var d = new DisposableList();
         var desc = CreateRenderPipelineDescriptor(label, layout, vertexState, primitiveState,
-                                                  multisampleState, depthStencilState,
-                                                  fragmentState, d);
+            multisampleState, depthStencilState,
+            fragmentState, d);
         _api.DeviceCreateRenderPipelineAsync(_handle, desc, new((s, p, m, _) =>
         {
             RenderPipeline? pipeline = null;
-            if(p is not null) 
+            if (p is not null)
                 pipeline = new(_api, p);
             callback(s, pipeline, SilkMarshal.PtrToString((nint)m)!);
         }), null);
     }
 
     public async ValueTask<RenderPipeline> CreateRenderPipelineAsync(string label,
-                                                                            VertexState vertexState,
-                                                                            PrimitiveState primitiveState,
-                                                                            MultisampleState multisampleState,
-                                                                            PipelineLayout? layout = null,
-                                                                            DepthStencilState? depthStencilState = null,
-                                                                            FragmentState? fragmentState = null,
-                                                                            CancellationToken token = default)
+        VertexState vertexState,
+        PrimitiveState primitiveState,
+        MultisampleState multisampleState,
+        PipelineLayout? layout = null,
+        DepthStencilState? depthStencilState = null,
+        FragmentState? fragmentState = null,
+        CancellationToken token = default)
     {
         var tcs = new TaskCompletionSource<RenderPipeline>();
 
         token.ThrowIfCancellationRequested();
         CreateRenderPipelineAsync(label, (status, pipeline, message) =>
-                                  {
-                                      token.ThrowIfCancellationRequested();
-                                      if (status is not CreatePipelineAsyncStatus.Success)
-                                      {
-                                          tcs.SetException(new PlatformException($"Failed to create render pipeline {message}"));
-                                      }
-                                      
-                                      tcs.SetResult(pipeline);
-                                  },
-                                  vertexState, primitiveState, multisampleState, layout, depthStencilState, fragmentState);
+            {
+                token.ThrowIfCancellationRequested();
+                if (status is not CreatePipelineAsyncStatus.Success)
+                {
+                    tcs.SetException(new PlatformException($"Failed to create render pipeline {message}"));
+                }
+
+                tcs.SetResult(pipeline);
+            },
+            vertexState, primitiveState, multisampleState, layout, depthStencilState, fragmentState);
 
         return await tcs.Task;
     }
 
-    public delegate void CreateRenderPipelineAsyncCallback(CreatePipelineAsyncStatus status, 
-                                                           RenderPipeline? pipeline,
-                                                           string message);
+    public delegate void CreateRenderPipelineAsyncCallback(CreatePipelineAsyncStatus status,
+        RenderPipeline? pipeline,
+        string message);
 
     private static unsafe RenderPipelineDescriptor CreateRenderPipelineDescriptor(
-        string label, 
-        PipelineLayout? layout, 
+        string label,
+        PipelineLayout? layout,
         VertexState vertexState,
-        PrimitiveState primitiveState, 
-        MultisampleState multisampleState, 
+        PrimitiveState primitiveState,
+        MultisampleState multisampleState,
         DepthStencilState? depthStencilState,
         FragmentState? fragmentState,
         ICompositeDisposable dispose)
@@ -335,19 +303,19 @@ public sealed class Device : IDisposable
         }).ToArray();
 
         var fragTargets = fragmentState?.ColorTargets
-                                       .Select(x => new Silk.NET.WebGPU.ColorTargetState
-                                       {
-                                           Format = x.Format,
-                                           Blend = x.BlendState.ToPtrPinned(dispose),
-                                           WriteMask = x.WriteMask
-                                       }).ToArray();
+            .Select(x => new Silk.NET.WebGPU.ColorTargetState
+            {
+                Format = x.Format,
+                Blend = x.BlendState.ToPtrPinned(dispose),
+                WriteMask = x.WriteMask
+            }).ToArray();
 
         var fConstLayouts = fragmentState?.ConstantEntries?.Select(e => new Silk.NET.WebGPU.ConstantEntry
         {
             Key = e.Key.ToPtr(dispose),
             Value = e.Value
         }).ToArray();
-        
+
         Silk.NET.WebGPU.FragmentState? fragState = null;
         if (fragmentState is not null)
         {
@@ -356,7 +324,7 @@ public sealed class Device : IDisposable
                 Module = fragmentState.Value.Module.Handle,
                 EntryPoint = fragmentState.Value.EntryPoint.ToPtr(dispose),
                 Targets = fragTargets.AsPtr(dispose),
-                TargetCount = (nuint)(fragTargets?.Length ?? 0), 
+                TargetCount = (nuint)(fragTargets?.Length ?? 0),
                 Constants = fConstLayouts.AsPtr(dispose),
                 ConstantCount = (nuint)(fConstLayouts?.Length ?? 0)
             };
@@ -381,64 +349,64 @@ public sealed class Device : IDisposable
             Fragment = fragState.ToPtrPinned(dispose)
         };
     }
-    
+
 
     public unsafe Sampler CreateSampler(string label, AddressMode addressModeU, AddressMode addressModeV,
-                                        AddressMode addressModeW,
-                                        FilterMode magFilter, FilterMode minFilter, MipmapFilterMode mipmapFilter,
-                                        float lodMinClamp, float lodMaxClamp, CompareFunction compare, ushort maxAnisotropy)
+        AddressMode addressModeW,
+        FilterMode magFilter, FilterMode minFilter, MipmapFilterMode mipmapFilter,
+        float lodMinClamp, float lodMaxClamp, CompareFunction compare, ushort maxAnisotropy)
     {
         using var mem = label.ToGlobalMemory();
         return new(_api, _api.DeviceCreateSampler(_handle, new SamplerDescriptor
-                           {
-                               Label = mem.AsPtr<byte>(),
-                               AddressModeU = addressModeU,
-                               AddressModeV = addressModeV,
-                               AddressModeW = addressModeW,
-                               MagFilter = magFilter,
-                               MinFilter = minFilter,
-                               MipmapFilter = mipmapFilter,
-                               LodMinClamp = lodMinClamp,
-                               LodMaxClamp = lodMaxClamp,
-                               Compare = compare,
-                               MaxAnisotropy = maxAnisotropy
-                           })
-                          );
+            {
+                Label = mem.AsPtr<byte>(),
+                AddressModeU = addressModeU,
+                AddressModeV = addressModeV,
+                AddressModeW = addressModeW,
+                MagFilter = magFilter,
+                MinFilter = minFilter,
+                MipmapFilter = mipmapFilter,
+                LodMinClamp = lodMinClamp,
+                LodMaxClamp = lodMaxClamp,
+                Compare = compare,
+                MaxAnisotropy = maxAnisotropy
+            })
+        );
     }
 
     public unsafe ShaderModule CreateSpirVShaderModule(string label, uint[] spirvCode)
     {
         using var d = new DisposableList();
         return new(_api, _api.DeviceCreateShaderModule(_handle, new ShaderModuleDescriptor
-                                {
-                                    Label = label.ToPtr(d),
-                                    Hints = null,
-                                    HintCount = 0,
-                                    NextInChain = new WgpuStructChain()
-                                                  .AddShaderModuleSPIRVDescriptor(spirvCode)
-                                                  .DisposeWith(d)
-                                                  .Ptr
-                                })
-                               );
+            {
+                Label = label.ToPtr(d),
+                Hints = null,
+                HintCount = 0,
+                NextInChain = new WgpuStructChain()
+                    .AddShaderModuleSPIRVDescriptor(spirvCode)
+                    .DisposeWith(d)
+                    .Ptr
+            })
+        );
     }
 
     public unsafe ShaderModule CreateWgslShaderModule(string label, string wgslCode)
     {
         using var d = new DisposableList();
-        return new (_api, _api.DeviceCreateShaderModule(_handle, new ShaderModuleDescriptor
-                                {
-                                    Label = label.ToPtr(d),
-                                    NextInChain = new WgpuStructChain()
-                                                  .AddShaderModuleWGSLDescriptor(wgslCode)
-                                                  .DisposeWith(d)
-                                                  .Ptr
-                                })
-                               );
+        return new(_api, _api.DeviceCreateShaderModule(_handle, new ShaderModuleDescriptor
+            {
+                Label = label.ToPtr(d),
+                NextInChain = new WgpuStructChain()
+                    .AddShaderModuleWGSLDescriptor(wgslCode)
+                    .DisposeWith(d)
+                    .Ptr
+            })
+        );
     }
 
     public unsafe Texture CreateTexture(string label, TextureUsage usage,
-                                        TextureDimension dimension, Extent3D size, TextureFormat format,
-                                        uint mipLevelCount, uint sampleCount, TextureFormat[]? viewFormats = null)
+        TextureDimension dimension, Extent3D size, TextureFormat format,
+        uint mipLevelCount, uint sampleCount, TextureFormat[]? viewFormats = null)
     {
         using var mem = label.ToGlobalMemory();
         using var vFmtPtr = viewFormats.AsMemory().Pin();
@@ -492,12 +460,14 @@ public sealed class Device : IDisposable
     public unsafe void PopErrorScope(ErrorCallback callback)
     {
         _api.DevicePopErrorScope(_handle,
-                            new((t, m, _) => callback(t, SilkMarshal.PtrToString((nint)m)!)),
-                            null);
+            new((t, m, _) => callback(t, SilkMarshal.PtrToString((nint)m)!)),
+            null);
     }
 
     private static readonly List<Silk.NET.WebGPU.ErrorCallback> SErrorCallbacks =
         new();
+
+    private readonly Wgpu? _wgpu;
 
     public unsafe void SetUncapturedErrorCallback(ErrorCallback callback)
     {
@@ -506,8 +476,13 @@ public sealed class Device : IDisposable
         SErrorCallbacks.Add(errorCallback);
 
         _api.DeviceSetUncapturedErrorCallback(_handle,
-                                         errorCallback,
-                                         null);
+            errorCallback,
+            null);
+    }
+
+    public unsafe void WGpuDevicePoll()
+    {
+        _wgpu.DevicePoll(_handle, true, null);
     }
 
     public unsafe void Dispose()

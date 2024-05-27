@@ -5,8 +5,11 @@ namespace GameDotNet.Graphics.WGPU.Wrappers;
 
 public sealed class Surface : IDisposable
 {
-    private readonly WebGPU _api;
+    public Size Size { get; private set; } = new();
+    
     internal unsafe Silk.NET.WebGPU.Surface* Handle { get; private set; }
+    
+    private readonly WebGPU _api;
 
     internal unsafe Surface(WebGPU api, Silk.NET.WebGPU.Surface* handle)
     {
@@ -54,11 +57,14 @@ public sealed class Surface : IDisposable
             };
             _api.SurfaceConfigure(Handle, &c);
         }
+
+        Size = config.Size;
     }
 
-    public unsafe void Unconfigure(Device device)
+    public unsafe void UnConfigure(Device device)
     {
         _api.SurfaceUnconfigure(Handle);
+        Size = new();
     }
 
     public unsafe SurfaceCapabilities GetCapabilities(Adapter adapter)

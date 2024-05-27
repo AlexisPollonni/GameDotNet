@@ -47,7 +47,8 @@ public sealed class WebGpuShader : IShader
         }
         
         token.ThrowIfCancellationRequested();
-        module.GetCompilationInfo((status, messages) =>
+        //TODO: add when compilatioh info is implemented in WGPU
+        /*module.GetCompilationInfo((status, messages) =>
         {
             token.ThrowIfCancellationRequested();
             if (status is not CompilationInfoRequestStatus.Success)
@@ -57,7 +58,8 @@ public sealed class WebGpuShader : IShader
             }
             
             tcs.SetResult();
-        });
+        });*/
+        tcs.SetResult();
         
         await tcs.Task;
         Module = module;

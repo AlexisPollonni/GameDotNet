@@ -17,9 +17,6 @@ public sealed class ComputePassEncoder : IDisposable
         Handle = handle;
     }
 
-    public unsafe void BeginPipelineStatisticsQuery(QuerySet querySet, uint queryIndex)
-        => _api.ComputePassEncoderBeginPipelineStatisticsQuery(Handle, querySet.Handle, queryIndex);
-
     public unsafe void DispatchWorkgroups(uint workgroupCountX, uint workgroupCountY, uint workgroupCountZ)
         => _api.ComputePassEncoderDispatchWorkgroups(Handle, workgroupCountX, workgroupCountY, workgroupCountZ);
 
@@ -27,8 +24,6 @@ public sealed class ComputePassEncoder : IDisposable
         => _api.ComputePassEncoderDispatchWorkgroupsIndirect(Handle, indirectBuffer.Handle, indirectOffset);
 
     public unsafe void End() => _api.ComputePassEncoderEnd(Handle);
-
-    public unsafe void EndPipelineStatisticsQuery() => _api.ComputePassEncoderEndPipelineStatisticsQuery(Handle);
 
     public unsafe void InsertDebugMarker(string markerLabel)
         => _api.ComputePassEncoderInsertDebugMarker(Handle, markerLabel);

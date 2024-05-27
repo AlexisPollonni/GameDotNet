@@ -52,7 +52,7 @@ public sealed class Adapter : IDisposable
 
     public unsafe void RequestDevice(RequestDeviceCallback callback, string label, FeatureName[] nativeFeatures,
                                      QueueDescriptor defaultQueue = default,
-                                     Limits? limits = null, RequiredLimitsExtras? limitsExtras = null,
+                                     Limits? limits = null, WgpuStructChain.NativeLimits? requiredNativeLimits = null,
                                      DeviceExtras? deviceExtras = null, DeviceLostCallback? deviceLostCallback = null)
     {
         var d = new DisposableList();
@@ -60,17 +60,17 @@ public sealed class Adapter : IDisposable
         WgpuStructChain? limitsExtrasChain = null;
         WgpuStructChain? deviceExtrasChain = null;
 
-        if (limitsExtras is not null)
+        if (requiredNativeLimits is not null)
         {
             limitsExtrasChain = new WgpuStructChain()
-                .AddRequiredLimitsExtras(limitsExtras.Value.MaxPushConstantSize);
+                .AddRequiredLimitsExtras(requiredNativeLimits.Value);
         }
 
         if (limits is not null)
         {
             requiredLimits = new()
             {
-                NextInChain = limitsExtras is null ? null : limitsExtrasChain.Ptr,
+                NextInChain = requiredNativeLimits is null ? null : limitsExtrasChain!.Ptr,
                 Limits = limits.Value
             };
         }
@@ -104,7 +104,7 @@ public sealed class Adapter : IDisposable
                                            FeatureName[] nativeFeatures,
                                            QueueDescriptor defaultQueue = default,
                                            Limits? limits = null,
-                                           RequiredLimitsExtras? limitsExtras = null,
+                                           WgpuStructChain.NativeLimits? requiredNativeLimits = null,
                                            DeviceExtras? deviceExtras = null,
                                            DeviceLostCallback? deviceLostCallback = null,
                                            CancellationToken token = default)
@@ -121,7 +121,7 @@ public sealed class Adapter : IDisposable
             }
             
             tcs.SetResult(device);
-        }, label, nativeFeatures, defaultQueue, limits, limitsExtras, deviceExtras, deviceLostCallback);
+        }, label, nativeFeatures, defaultQueue, limits, requiredNativeLimits, deviceExtras, deviceLostCallback);
 
         return tcs.Task;
     }

@@ -19,10 +19,7 @@ public sealed class RenderPassEncoder : IDisposable
 
     public unsafe void BeginOcclusionQuery(uint queryIndex)
         => _api.RenderPassEncoderBeginOcclusionQuery(_handle, queryIndex);
-
-    public unsafe void BeginPipelineStatisticsQuery(QuerySet querySet, uint queryIndex)
-        => _api.RenderPassEncoderBeginPipelineStatisticsQuery(_handle, querySet.Handle, queryIndex);
-
+    
     public unsafe void Draw(uint vertexCount, uint instanceCount, uint firstVertex, uint firstInstance)
         => _api.RenderPassEncoderDraw(_handle, vertexCount, instanceCount, firstVertex, firstInstance);
 
@@ -39,9 +36,7 @@ public sealed class RenderPassEncoder : IDisposable
     public unsafe void End() => _api.RenderPassEncoderEnd(_handle);
 
     public unsafe void EndOcclusionQuery() => _api.RenderPassEncoderEndOcclusionQuery(_handle);
-
-    public unsafe void EndPipelineStatisticsQuery() => _api.RenderPassEncoderEndPipelineStatisticsQuery(_handle);
-
+    
     public unsafe void ExecuteBundles(RenderBundle[] bundles)
     {
         Span<nint> innerBundles = stackalloc nint[bundles.Length];

@@ -140,12 +140,16 @@ public sealed class WgpuStructChain : IDisposable
 		return this;
 	}
 
-	public WgpuStructChain AddRequiredLimitsExtras(uint maxPushConstantSize = default)
+	public struct NativeLimits
+	{
+		public uint MaxPushConstantSize;
+	}
+	public WgpuStructChain AddRequiredLimitsExtras(NativeLimits limits = default)
 	{
 		AddStruct(new RequiredLimitsExtras
 		{
 			Chain = new() { SType = (SType)NativeSType.STypeRequiredLimitsExtras },
-			MaxPushConstantSize = maxPushConstantSize
+			MaxPushConstantSize = limits.MaxPushConstantSize
 		});
 
 		return this;

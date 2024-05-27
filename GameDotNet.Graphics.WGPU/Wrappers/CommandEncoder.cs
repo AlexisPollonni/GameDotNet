@@ -1,9 +1,5 @@
-﻿using CommunityToolkit.HighPerformance;
-using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Graphics.WGPU.Extensions;
-using Silk.NET.Core;
+﻿using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.Dawn;
 using unsafe CommandEncoderPtr = Silk.NET.WebGPU.CommandEncoder*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
@@ -50,7 +46,7 @@ public sealed class CommandEncoder : IDisposable
                                                     RenderPassDepthStencilAttachment? depthStencilAttachment = null
     )
     {
-        Span<DawnRenderPassColorAttachment> cAInner = stackalloc DawnRenderPassColorAttachment[colorAttachments.Length];
+        Span<Silk.NET.WebGPU.RenderPassColorAttachment> cAInner = stackalloc Silk.NET.WebGPU.RenderPassColorAttachment[colorAttachments.Length];
         Silk.NET.WebGPU.RenderPassDepthStencilAttachment? dSInner = null;
         
         for (var i = 0; i < colorAttachments.Length; i++)
@@ -63,8 +59,7 @@ public sealed class CommandEncoder : IDisposable
                 ResolveTarget = colorAttachment.ResolveTarget is null ? null : colorAttachment.ResolveTarget.Handle,
                 LoadOp = colorAttachment.LoadOp,
                 StoreOp = colorAttachment.StoreOp,
-                ClearValue = colorAttachment.ClearValue,
-                DepthSlice = 0
+                ClearValue = colorAttachment.ClearValue
             };
         }
 
@@ -93,15 +88,6 @@ public sealed class CommandEncoder : IDisposable
             DepthStencilAttachment = depthStencilAttachment is null ? null : dSInner.AsPtr()
         };
         return new(_api, _api.CommandEncoderBeginRenderPass(Handle, &desc));
-    }
-
-    public unsafe void WriteBuffer<T>(Buffer buffer, ReadOnlySpan<T> data, ulong bufferOffset = 0) where T : unmanaged
-    {
-        var dawn = _api.GetDawnExtension() ?? throw new PlatformException("Dawn is not available");
-
-        var bytes = data.AsBytes();
-        
-        dawn.CommandEncoderWriteBuffer(_handle, buffer.Handle, bufferOffset, bytes, (ulong)bytes.Length);
     }
     
     public unsafe void ClearBuffer(Buffer buffer, ulong offset, ulong size)

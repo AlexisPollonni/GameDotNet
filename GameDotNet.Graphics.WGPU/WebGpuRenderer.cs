@@ -3,7 +3,6 @@ using System.Numerics;
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Graphics.WGPU.Extensions;
 using GameDotNet.Management;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Maths;
@@ -22,8 +21,8 @@ namespace GameDotNet.Graphics.WGPU;
 public class WebGpuRenderer
 {
     public IList<MeshInstanceRender> MeshInstances => _meshInstances;
-    
-    
+
+
     private readonly WebGpuContext _context;
     private readonly ShaderCompiler _compiler;
     private readonly ILogger<WebGpuRenderer> _logger;
@@ -31,7 +30,7 @@ public class WebGpuRenderer
 
     private readonly Dictionary<Mesh, MeshRenderInfo> _meshBufferCache;
     private readonly List<MeshInstanceRender> _meshInstances;
-    private Buffer _modelUniformBuffer;
+    private DynamicUniformBuffer<Matrix4x4> _modelUniformBuffer;
     private Buffer _cameraUniformBuffer;
     private Texture? _depthTexture;
     private TextureView? _depthTextureView;
@@ -50,10 +49,10 @@ public class WebGpuRenderer
     public async ValueTask Initialize(CancellationToken token = default)
     {
         if (!_context.IsInitialized) throw new InvalidOperationException("Context not initialized");
-        
+
         var vert = await _compiler.TranslateGlsl("Assets/Mesh.vert", "Assets/", token);
         var frag = await _compiler.TranslateGlsl("Assets/Mesh.frag", "Assets/", token);
-        
+
         var vertShader = new WebGpuShader(_context, vert, _logger);
         var fragShader = new WebGpuShader(_context, frag, _logger);
 
@@ -63,40 +62,39 @@ public class WebGpuRenderer
         _meshPipeline = await CreateRenderPipeline(vertShader, fragShader, token);
 
         _cameraUniformBuffer = _context.Device.CreateBuffer("uniform-buffer-camera", false,
-                                                            (ulong)Unsafe.SizeOf<CameraRenderInfo>(),
-                                                            BufferUsage.Uniform | BufferUsage.CopyDst);
-        _modelUniformBuffer = _context.Device.CreateBuffer("uniform-buffer-models", false,
-                                                           (ulong)Unsafe.SizeOf<Matrix4x4>() * 128,
-                                                           BufferUsage.Uniform | BufferUsage.CopyDst);
+            (ulong)Unsafe.SizeOf<CameraRenderInfo>(),
+            BufferUsage.Uniform | BufferUsage.CopyDst);
+        _modelUniformBuffer = new(_context.Device);
 
         _shaderParams.UniformBuffers["Uniforms"] = _cameraUniformBuffer;
-        _shaderParams.UniformBuffers["Dynamics"] = _modelUniformBuffer;
         
         _shaderParams.BuildGroups();
     }
 
     public void WriteModelUniforms()
     {
-        var modelMatrices = new Matrix4x4[_meshInstances.Count];
-        for (var i = 0; i < _meshInstances.Count; i++)
+        _modelUniformBuffer.Items.Clear();
+        foreach (var instance in _meshInstances)
         {
-            modelMatrices[i] = _meshInstances[i].Model;
+            _modelUniformBuffer.Items.Add(instance.Model);
         }
-        
-        _context.Device!.Queue.WriteBuffer<Matrix4x4>(_modelUniformBuffer, modelMatrices);
+
+        _modelUniformBuffer.SubmitWrite();
+        _shaderParams.UniformBuffers["Dynamics"] = _modelUniformBuffer.GpuBuffer!;
+        _shaderParams.BuildGroups();
     }
 
     public void WriteCameraUniform(in Size viewSize, in Transform transform, in Camera camData)
     {
         // camera position
         var view = transform.ToMatrix();
-        
+
         var projection = Matrix4x4.CreatePerspectiveFieldOfView(Scalar.DegreesToRadians(camData.FieldOfView),
-                                                                (float)viewSize.Width / viewSize.Height,
-                                                                camData.NearPlaneDistance, camData.FarPlaneDistance);
-        
+            (float)viewSize.Width / viewSize.Height,
+            camData.NearPlaneDistance, camData.FarPlaneDistance);
+
         var renderData = new CameraRenderInfo(view, projection);
-        
+
         _context.Device!.Queue.WriteBuffer<CameraRenderInfo>(_cameraUniformBuffer, renderData.AsSpan());
     }
 
@@ -104,43 +102,38 @@ public class WebGpuRenderer
     {
         _depthTextureView?.Dispose();
         _depthTexture?.Dispose();
-        
-        _depthTexture = _context.Device!.CreateTexture("texture-depth", 
-                                                      TextureUsage.RenderAttachment, TextureDimension.Dimension2D,
-                                      size, 
-                                                      TextureFormat.Depth24Plus, 1, 1,
-                                                      new [] { TextureFormat.Depth24Plus });
+
+        _depthTexture = _context.Device!.CreateTexture("texture-depth",
+            TextureUsage.RenderAttachment, TextureDimension.Dimension2D,
+            size,
+            TextureFormat.Depth24Plus, 1, 1,
+            new[] { TextureFormat.Depth24Plus });
 
         _depthTextureView = _depthTexture.CreateTextureView("texture-view-depth", TextureFormat.Depth24Plus,
-                                        TextureViewDimension.Dimension2D,
-                                        0, 1, 0, 1, TextureAspect.DepthOnly);
+            TextureViewDimension.Dimension2D,
+            0, 1, 0, 1, TextureAspect.DepthOnly);
     }
 
     public unsafe void UploadMeshes(params Mesh[] mesh)
     {
-        using var cmd = _context.Device!.CreateCommandEncoder("mesh-upload");
         foreach (var m in mesh)
         {
-            if(_meshBufferCache.ContainsKey(m))
+            if (_meshBufferCache.ContainsKey(m))
                 continue;
-            
-            var vBuffer = _context.Device.CreateBuffer("vertex-buffer", false, 
-                                                       (ulong)(m.Vertices.Count * sizeof(Vertex)),
-                                                       BufferUsage.CopyDst | BufferUsage.Vertex);
+
+            var vBuffer = _context.Device.CreateBuffer("vertex-buffer", false,
+                (ulong)(m.Vertices.Count * sizeof(Vertex)),
+                BufferUsage.CopyDst | BufferUsage.Vertex);
 
             var iBuffer = _context.Device.CreateBuffer("index-buffer", false,
-                                                       (ulong)(m.Indices.Count * sizeof(uint)),
-                                                       BufferUsage.CopyDst | BufferUsage.Index);
+                (ulong)(m.Indices.Count * sizeof(uint)),
+                BufferUsage.CopyDst | BufferUsage.Index);
 
+            _context.Device.Queue.WriteBuffer<Vertex>(vBuffer, m.Vertices.ToArray());
+            _context.Device.Queue.WriteBuffer<uint>(iBuffer, m.Indices.ToArray());
 
-            cmd.WriteBuffer<Vertex>(vBuffer, m.Vertices.ToArray());
-            cmd.WriteBuffer<uint>(iBuffer, m.Indices.ToArray());
-            
             _meshBufferCache.Add(m, new(vBuffer, iBuffer));
         }
-
-        using var cmdBuff = cmd.Finish("mesh-upload-cmd");
-        _context.Device.Queue.Submit(cmdBuff);
     }
 
 
@@ -148,11 +141,12 @@ public class WebGpuRenderer
     {
         if (view?.Texture is null) return;
 
-        if (_depthTexture is null || view.Texture.Size.Width != _depthTexture.Size.Width || view.Texture.Size.Height != _depthTexture.Size.Height)
+        if (_depthTexture is null || view.Texture.Size.Width != _depthTexture.Size.Width ||
+            view.Texture.Size.Height != _depthTexture.Size.Height)
         {
             RecreateDepthTexture(view.Texture.Size);
         }
-        
+
         using var encoder = _context.Device!.CreateCommandEncoder("render-command-encoder");
 
         var colorAttach = new RenderPassColorAttachment
@@ -170,31 +164,34 @@ public class WebGpuRenderer
             DepthStoreOp = StoreOp.Store,
             DepthReadOnly = false,
             StencilClearValue = 0,
-            StencilLoadOp = LoadOp.Undefined, //Both undefined on Dawn implementation, clear and store on WGPU
-            StencilStoreOp = StoreOp.Undefined,
+            StencilLoadOp = LoadOp.Clear, //Both undefined on Dawn implementation, clear and store on WGPU
+            StencilStoreOp = StoreOp.Store,
             StencilReadOnly = true
         };
         using var renderPass = encoder.BeginRenderPass("render-encoder-begin", colorAttach.AsSpan(), depthAttach);
-        
+
         renderPass.SetPipeline(_meshPipeline);
-        
+
         _shaderParams.BindStaticDescriptors(renderPass);
-        
-        foreach (var instance in _meshInstances)
+
+        for (var i = 0; i < _meshInstances.Count; i++)
         {
+            var instance = _meshInstances[i];
             if (!_meshBufferCache.TryGetValue(instance.Mesh, out var meshData))
             {
                 _logger.LogWarning("mesh was not loaded");
                 continue;
             }
-        
+
             renderPass.SetVertexBuffer(0, meshData.VertexBuffer, 0, meshData.VertexBuffer.SizeInBytes);
             renderPass.SetIndexBuffer(meshData.IndexBuffer, IndexFormat.Uint32, 0, meshData.IndexBuffer.SizeInBytes);
-            
-            _shaderParams.DynamicEntryAddOffset("Dynamics", (uint)Unsafe.SizeOf<Assimp.Matrix4x4>());
+
             _shaderParams.BindDynamicDescriptors(renderPass);
-            
+
             renderPass.DrawIndexed((uint)instance.Mesh.Indices.Count, 1, 0, 0, 0);
+
+            if (i < _meshInstances.Count - 1)
+                _shaderParams.DynamicEntryAddOffset("Dynamics", _modelUniformBuffer.Stride.GetBytes());
         }
 
         _shaderParams.DynamicEntryResetOffset("Dynamics");
@@ -203,10 +200,11 @@ public class WebGpuRenderer
         _context.Device.Queue.Submit(buffer);
     }
 
-    private ValueTask<RenderPipeline> CreateRenderPipeline(WebGpuShader vert, WebGpuShader frag, CancellationToken token = default)
+    private ValueTask<RenderPipeline> CreateRenderPipeline(WebGpuShader vert, WebGpuShader frag,
+        CancellationToken token = default)
     {
-        const TextureFormat surfaceFormat = TextureFormat.Bgra8Unorm;
-        
+        var surfaceFormat = _context.Surface!.GetPreferredFormat(_context.Adapter!);
+
         var blendState = new BlendState
         {
             Color = new()
@@ -257,9 +255,9 @@ public class WebGpuRenderer
         ((UniformEntry)_shaderParams.ShaderEntries["Dynamics"]).IsDynamic = true;
 
         _shaderParams.BuildLayouts();
-        
+
         var layout = _shaderParams.CreatePipelineLayout();
-        
+
         // Defaults face state for Dawn
         var stencilFaceState = new StencilFaceState
         {
@@ -278,10 +276,12 @@ public class WebGpuRenderer
             StencilFront = stencilFaceState,
             StencilBack = stencilFaceState
         };
-        var pipeline = _context.Device.CreateRenderPipelineAsync("render-pipeline", vertexState, primState, multisampleState,
-                                                         layout, depthState, fragState, token).WaitWhilePollingAsync(_context, token);
 
-        return pipeline;
+        //TODO: change to async version when supported by wgpu
+        var pipeline = _context.Device.CreateRenderPipeline("render-pipeline", vertexState, primState, multisampleState,
+            layout, depthState, fragState); //.WaitWhilePollingAsync(_context, token);
+
+        return new(pipeline);
     }
 }
 
