@@ -9,14 +9,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AssimpNet" Version="5.0.0-beta1"/>
-        <PackageReference Include="Silk.NET.Input" Version="2.18.0" />
+        <PackageReference Include="Silk.NET.Input" Version="2.21.0" />
         <PackageReference Include="Vortice.ShaderCompiler" Version="1.7.2" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
         <ProjectReference Include="..\GameDotNet.Input\GameDotNet.Input.csproj" />
+        <ProjectReference Include="..\ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
     </ItemGroup>
 
 </Project>
