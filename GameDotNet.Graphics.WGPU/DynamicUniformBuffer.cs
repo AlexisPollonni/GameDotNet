@@ -15,7 +15,7 @@ public sealed class DynamicUniformBuffer<T> : IDisposable
     private readonly Device _device;
     public Buffer? GpuBuffer { get; private set; }
 
-    public ByteSize Size => ByteSize.FromBytes(GpuBuffer?.SizeInBytes ?? 0);
+    public ByteSize Size => ByteSize.FromBytes(GpuBuffer?.Size.GetBytes() ?? 0);
     public ByteSize Stride { get; }
     public IList<T> Items => _items;
 
@@ -49,12 +49,12 @@ public sealed class DynamicUniformBuffer<T> : IDisposable
         }
         
         var totalSize = _items.Count * Stride.GetBytes();
-        if(GpuBuffer is null || (ulong)totalSize != GpuBuffer.SizeInBytes) //Maybe use > here?
+        if(GpuBuffer is null || (ulong)totalSize != GpuBuffer.Size.GetBytes()) //Maybe use > here?
         {
             GpuBuffer?.Dispose();
             GpuBuffer = _device.CreateBuffer("dyn-uniform", true, (ulong)totalSize, BufferUsage.Uniform | BufferUsage.CopyDst);
             
-            var map = GpuBuffer.GetMappedRange<byte>(0, (nuint)GpuBuffer.SizeInBytes);
+            var map = GpuBuffer.GetMappedRange<byte>(0, (nuint)GpuBuffer.Size.GetBytes());
 
             WriteTo(map);
         

@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.WebGPU;
 using BindGroup = GameDotNet.Graphics.WGPU.Wrappers.BindGroup;
 using BindGroupEntry = GameDotNet.Graphics.WGPU.Wrappers.BindGroupEntry;
@@ -125,7 +126,7 @@ public sealed class ShaderParameters : IDisposable
 
         ref var current = ref offsets[binding].Offset;
 
-        if (current + deltaOffset >= UniformBuffers[name].SizeInBytes)
+        if (current + deltaOffset >= UniformBuffers[name].Size.GetBytes())
             throw new ArgumentOutOfRangeException(nameof(deltaOffset));
 
         current += deltaOffset;

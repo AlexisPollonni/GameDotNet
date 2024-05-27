@@ -183,8 +183,8 @@ public class WebGpuRenderer
                 continue;
             }
 
-            renderPass.SetVertexBuffer(0, meshData.VertexBuffer, 0, meshData.VertexBuffer.SizeInBytes);
-            renderPass.SetIndexBuffer(meshData.IndexBuffer, IndexFormat.Uint32, 0, meshData.IndexBuffer.SizeInBytes);
+            renderPass.SetVertexBuffer(0, meshData.VertexBuffer, 0, meshData.VertexBuffer.Size.GetBytes());
+            renderPass.SetIndexBuffer(meshData.IndexBuffer, IndexFormat.Uint32, 0, meshData.IndexBuffer.Size.GetBytes());
 
             _shaderParams.BindDynamicDescriptors(renderPass);
 

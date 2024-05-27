@@ -1,4 +1,5 @@
-﻿using Silk.NET.WebGPU;
+﻿using ByteSizeLib;
+using Silk.NET.WebGPU;
 using unsafe BufferPtr = Silk.NET.WebGPU.Buffer*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
@@ -21,17 +22,16 @@ public sealed class Buffer : IDisposable
         private set => _handle = value;
     }
 
-    public ulong SizeInBytes { get; private set; }
+    public ByteSize Size { get; private set; }
 
     internal unsafe Buffer(WebGPU api, BufferPtr handle, in BufferDescriptor descriptor)
     {
         if (handle is null)
             throw new ResourceCreationError(nameof(Buffer));
+        
         _api = api;
-
         Handle = handle;
-
-        SizeInBytes = descriptor.Size;
+        Size = ByteSize.FromBytes(descriptor.Size);
     }
 
     public unsafe ReadOnlySpan<T> GetConstMappedRange<T>(nuint offset, nuint size)
