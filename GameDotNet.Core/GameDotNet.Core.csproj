@@ -24,7 +24,7 @@
         <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0"/>
         <PackageReference Include="Serilog.Sinks.Debug" Version="2.0.0"/>
         <PackageReference Include="Serilog.Sinks.File" Version="5.0.1-dev-00947"/>
-        <PackageReference Include="Silk.NET.Core" Version="2.18.0" />
+        <PackageReference Include="Silk.NET.Core" Version="2.21.0" />
         <PackageReference Include="System.Reactive.Interfaces" Version="6.0.1-preview.1" />
         <PackageReference Include="ValueTaskSupplement" Version="1.1.0" />
     </ItemGroup>
