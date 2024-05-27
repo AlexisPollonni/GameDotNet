@@ -59,15 +59,15 @@ public sealed class ShaderParameters : IDisposable
         }
 
         _bindData ??= _entries.Values.GroupBy(entry => entry.Set)
-                              .Select(entries => KeyValuePair.Create(entries.Key,
-                                                                     new GroupData(entries
-                                                                             .Where(e => e is UniformEntry
-                                                                             {
-                                                                                 IsDynamic: true
-                                                                             })
-                                                                             .Select(e => (e.Name, 0u))
-                                                                             .ToArray()
-                                                                         ))).ToFrozenDictionary();
+            .Select(entries => KeyValuePair.Create(entries.Key,
+                new GroupData(entries
+                    .Where(e => e is UniformEntry
+                    {
+                        IsDynamic: true
+                    })
+                    .Select(e => (e.Name, 0u))
+                    .ToArray()
+                ))).ToFrozenDictionary();
 
         foreach (var (set, layout) in CreatePipelineGroupLayouts(_entries.Values))
         {
@@ -77,7 +77,9 @@ public sealed class ShaderParameters : IDisposable
 
     public void BuildGroups()
     {
-        var bindGroups = _entries.Values.GroupBy(e => e.Set).Select(group =>
+        var groups = _entries.Values.GroupBy(e => e.Set);
+
+        foreach (var group in groups)
         {
             var entries = group.Select(entry =>
             {
@@ -86,7 +88,7 @@ public sealed class ShaderParameters : IDisposable
                 if (!UniformBuffers.TryGetValue(entry.Name, out var buffer))
                 {
                     buffer = _device.CreateBuffer("create-default-buffer", false, uniformEntry.MinSize,
-                                                  BufferUsage.Uniform | BufferUsage.CopyDst);
+                        BufferUsage.Uniform | BufferUsage.CopyDst);
                     UniformBuffers[entry.Name] = buffer;
                 }
 
@@ -99,13 +101,11 @@ public sealed class ShaderParameters : IDisposable
                 };
             }).ToArray();
 
-            var bindGroup = _device.CreateBindGroup("create-bind-group", _bindData[group.Key].Layout, entries);
-            return KeyValuePair.Create(group.Key, bindGroup);
-        });
-
-        foreach (var (set, group) in bindGroups)
-        {
-            _bindData[set].Bind = group;
+            var bindData = _bindData[group.Key];
+            var bindGroup = _device.CreateBindGroup("create-bind-group", bindData.Layout, entries);
+            
+            bindData.Bind?.Dispose();
+            bindData.Bind = bindGroup;
         }
     }
 
@@ -118,7 +118,7 @@ public sealed class ShaderParameters : IDisposable
         for (var i = 0; i < offsets.Length; i++)
         {
             if (offsets[i].Name != name) continue;
-            
+
             binding = i;
             break;
         }
@@ -134,7 +134,7 @@ public sealed class ShaderParameters : IDisposable
     public PipelineLayout CreatePipelineLayout()
     {
         return _device.CreatePipelineLayout("render-pipeline-layout",
-                                            _bindData.Values.Select(data => data.Layout).ToArray());
+            _bindData.Values.Select(data => data.Layout).ToArray());
     }
 
     public void DynamicEntryResetOffset(string name)
@@ -192,27 +192,27 @@ public sealed class ShaderParameters : IDisposable
     private Dictionary<uint, BindGroupLayout> CreatePipelineGroupLayouts(IEnumerable<ShaderEntry> entries)
     {
         return entries
-               .GroupBy(entry => entry.Set)
-               .Select(group =>
-               {
-                   var groupEntries = group.Select(entry =>
-                   {
-                       return new BindGroupLayoutEntry
-                       {
-                           Binding = entry.Binding,
-                           Visibility = entry.Stage switch
-                           {
-                               Abstractions.ShaderStage.Vertex => ShaderStage.Vertex,
-                               Abstractions.ShaderStage.Fragment => ShaderStage.Fragment,
-                               Abstractions.ShaderStage.Compute => ShaderStage.Compute,
-                               _ => throw new ArgumentOutOfRangeException()
-                           },
-                           Buffer = GetBuffer(entry)
-                       };
-                   }).ToArray();
+            .GroupBy(entry => entry.Set)
+            .Select(group =>
+            {
+                var groupEntries = group.Select(entry =>
+                {
+                    return new BindGroupLayoutEntry
+                    {
+                        Binding = entry.Binding,
+                        Visibility = entry.Stage switch
+                        {
+                            Abstractions.ShaderStage.Vertex => ShaderStage.Vertex,
+                            Abstractions.ShaderStage.Fragment => ShaderStage.Fragment,
+                            Abstractions.ShaderStage.Compute => ShaderStage.Compute,
+                            _ => throw new ArgumentOutOfRangeException()
+                        },
+                        Buffer = GetBuffer(entry)
+                    };
+                }).ToArray();
 
-                   return (group.Key, _device!.CreateBindgroupLayout("bind-group-layout-create", groupEntries));
-               }).ToDictionary(tuple => tuple.Key, tuple => tuple.Item2);
+                return (group.Key, _device!.CreateBindgroupLayout("bind-group-layout-create", groupEntries));
+            }).ToDictionary(tuple => tuple.Key, tuple => tuple.Item2);
 
         BufferBindingLayout GetBuffer(ShaderEntry entry)
         {
