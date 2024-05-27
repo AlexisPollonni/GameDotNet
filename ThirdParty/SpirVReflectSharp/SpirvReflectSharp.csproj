@@ -19,8 +19,8 @@
 	<!-- TODO: Detect platform and choose right shared binaries to include in output	-->
 
 	<ItemGroup>
-	  <PackageReference Include="Silk.NET.SPIRV.Reflect" Version="2.18.0" />
-	  <PackageReference Include="Silk.NET.SPIRV.Reflect.Native" Version="2.18.0" />
+	  <PackageReference Include="Silk.NET.SPIRV.Reflect" Version="2.21.0" />
+	  <PackageReference Include="Silk.NET.SPIRV.Reflect.Native" Version="2.21.0" />
 	</ItemGroup>
 
 </Project>
