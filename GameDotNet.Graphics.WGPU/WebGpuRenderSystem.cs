@@ -109,6 +109,7 @@ public sealed class WebGpuRenderSystem : SystemBase, IDisposable
             _gpuContext.ResizeSurface(_viewManager.MainView.Size);
             surfaceSize = _viewManager.MainView.Size;
         }
+        if(surfaceSize is {IsEmpty:true}) return;
 
         {
             var surfaceTexture = _gpuContext.Surface?.GetCurrentTexture();
