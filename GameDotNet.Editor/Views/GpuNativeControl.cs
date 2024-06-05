@@ -56,7 +56,7 @@ public class GpuNativeControl : NativeControlHost
         var factory =  provider?.GetRequiredService<EventFactory>();
         var viewManager = provider?.GetRequiredService<NativeViewManager>();
         
-        var nativeView = new AvaloniaNativeView(_overlayWindow ?? throw new InvalidOperationException(), handle, factory!);
+        var nativeView = new AvaloniaNativeView((Control?)_overlayWindow ?? this, handle, factory!);
         
         viewManager!.MainView = nativeView;
 
@@ -94,7 +94,7 @@ public class GpuNativeControl : NativeControlHost
             WindowStartupLocation = WindowStartupLocation.Manual,
             ZIndex = int.MaxValue,
             Opacity = 1,
-            Focusable = true
+            Focusable = false
         };
     }
 
@@ -114,8 +114,8 @@ public class GpuNativeControl : NativeControlHost
         
         this.GetObservable(BoundsProperty).Subscribe(_ => UpdateOverlayBounds()).DisposeWith(_visualDisposables);
         
-        _overlayWindow!.Bind(ContentControl.ContentProperty, this.GetObservable(ContentProperty)).DisposeWith(_visualDisposables);
-        _overlayWindow.Bind(ContentControl.ContentTemplateProperty, this.GetObservable(ContentTemplateProperty))
+        _overlayWindow?.Bind(ContentControl.ContentProperty, this.GetObservable(ContentProperty)).DisposeWith(_visualDisposables);
+        _overlayWindow?.Bind(ContentControl.ContentTemplateProperty, this.GetObservable(ContentTemplateProperty))
                       .DisposeWith(_visualDisposables);
 
             
@@ -123,7 +123,7 @@ public class GpuNativeControl : NativeControlHost
                   .Subscribe(_ => UpdateOverlayBounds())
                   .DisposeWith(_visualDisposables);
             
-        _overlayWindow.Show((Window)e.Root);
+        _overlayWindow?.Show((Window)e.Root);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
