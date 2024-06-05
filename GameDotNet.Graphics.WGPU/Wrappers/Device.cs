@@ -374,14 +374,22 @@ public sealed class Device : IDisposable
         );
     }
 
-    public unsafe ShaderModule CreateSpirVShaderModule(string label, uint[] spirvCode)
+    public unsafe ShaderModule CreateSpirVShaderModule(string label, uint[] spirvCode, string? entryPoint = null, PipelineLayout? layout = null)
     {
         using var d = new DisposableList();
+        using var entryMem = entryPoint?.ToGlobalMemory();
+
+        var hints = new ShaderModuleCompilationHint
+        {
+            EntryPoint = entryMem is null ? null : entryMem.AsPtr<byte>(),
+            Layout = layout is null ? null : layout.Handle
+        };
+        
         return new(_api, _api.DeviceCreateShaderModule(_handle, new ShaderModuleDescriptor
             {
                 Label = label.ToPtr(d),
-                Hints = null,
-                HintCount = 0,
+                Hints = &hints,
+                HintCount = 1,
                 NextInChain = new WgpuStructChain()
                     .AddShaderModuleSPIRVDescriptor(spirvCode)
                     .DisposeWith(d)
