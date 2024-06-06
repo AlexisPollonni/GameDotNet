@@ -38,7 +38,7 @@ public partial class App : Application
 
         Engine.Builder.Services
               .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
-              .AddSingleton<EditorUiUpdateSystem>()
+              .AddSystem<EditorUiUpdateSystem>()
               .AddTransient<ViewLocator>()
               .AddTransient<WebGpuViewModel>()
               .AddView<WebGpuViewModel, WebGpuView>()

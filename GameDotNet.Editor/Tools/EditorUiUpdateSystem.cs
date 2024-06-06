@@ -1,5 +1,4 @@
 using System;
-using System.Reactive.Linq;
 using GameDotNet.Management.ECS;
 using MessagePipe;
 
@@ -14,7 +13,7 @@ public class EditorUiUpdateSystem : SystemBase
 
 
     public EditorUiUpdateSystem(EventFactory factory) :
-        base(new(int.MaxValue){UpdateThrottle = TimeSpan.FromSeconds((double)1 / 15)})
+        base(new(int.MaxValue){UpdateThrottle = TimeSpan.FromSeconds(0.5)})
     {
         (_publisher, var subscriber) = factory.CreateEvent<EditorUpdateEventArgs>();
         
