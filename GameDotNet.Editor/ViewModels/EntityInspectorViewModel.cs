@@ -50,6 +50,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                 .Subscribe().DisposeWith(d);
 
             _components.Connect()
+                .ObserveOn(AvaloniaScheduler.Instance)
                 .Bind(out var comps)
                 .Subscribe()
                 .DisposeWith(d);
