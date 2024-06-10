@@ -10,11 +10,13 @@ using System.Windows.Input;
 using Arch.Core;
 using Arch.Core.Extensions;
 using Arch.Core.Utils;
+using Avalonia.ReactiveUI;
 using Collections.Pooled;
 using DynamicData;
 using DynamicData.Binding;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Editor.Tools;
+using Microsoft.Extensions.ObjectPool;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 
@@ -29,6 +31,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
 
     private readonly SourceList<ComponentNodeViewModel> _components;
     private readonly PropertyNodeCache _propertyCache;
+    private readonly DefaultObjectPool<PropertyNodeViewModel> _nodePool;
     private EntityReference _selectedEntity;
 
 
@@ -36,6 +39,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
     {
         _components = new();
         _propertyCache = new();
+        _nodePool = new(new NodePooledObjectPolicy(_propertyCache), 10000);
         _selectedEntity = EntityReference.Null;
 
         this.WhenActivated(d =>
@@ -89,80 +93,79 @@ public sealed class EntityInspectorViewModel : ViewModelBase
         while (queue.Count > 0)
         {
             var current = queue.Dequeue();
-            
+
             foreach (var entry in current.PropertyTypeEntries)
             {
                 if (current.Value is null) continue;
-                
+
                 var value = entry.Getter?.Invoke(current.Value);
 
-                var node = new PropertyNodeViewModel(_propertyCache)
-                {
-                    Parent = current,
-                    Name = entry.Info.Name,
-                    Type = entry.Info.PropertyType,
-                    Value = value,
-                    IsDirty = false
-                };
+                var node = _nodePool.Get();
+                
+                node.Parent = current;
+                node.Name = entry.Info.Name;
+                node.Type = entry.Info.PropertyType;
+                node.Value = value;
+                node.IsDirty = false;
 
                 current.ChildPropertyNodes.Add(node);
                 queue.Enqueue(node);
             }
 
-            using var collectionChildrenItems = GetChildrenFromCollectionNode(current);
-            if (collectionChildrenItems is not null)
+            var childrenItems = TryGetChildrenFromCollectionNode(current);
+            if (childrenItems is not null)
             {
-                current.ChildItemNodes = new();
-                current.ChildItemNodes.AddRange(collectionChildrenItems);
-                foreach (var item in collectionChildrenItems) 
-                    queue.Enqueue(item);
+                current.ChildItemNodes ??= new();
+                current.ChildItemNodes.Edit(list =>
+                {
+                    foreach (var item in childrenItems)
+                    {
+                        list.Add(item); //enables unique enumeration and avoids addrange() to array allocs
+                        queue.Enqueue(item);
+                    }
+                });
             }
         }
 
         return rootNode;
     }
 
-    private PooledList<PropertyNodeViewModel>? GetChildrenFromCollectionNode(PropertyNodeViewModel node)
+    private IEnumerable<PropertyNodeViewModel>? TryGetChildrenFromCollectionNode(PropertyNodeViewModel node)
     {
         var nodeValue = node.Value;
         if (nodeValue is not IEnumerable source) return null;
 
-        PooledList<PropertyNodeViewModel> res;
-        if (nodeValue is ICollection col)
-            res = new(col.Count); //upfront allocate memory if supports Count
-        else
-            res = new();
-        
         IEnumerable<PropertyNodeViewModel> enumerable;
 
         if (node.Value is IDictionary dict)
         {
-            enumerable = from DictionaryEntry entry in dict
-                let itemType = entry.Value?.GetType() ?? typeof(object)
-                select new PropertyNodeViewModel(_propertyCache)
+            enumerable = dict.Cast<DictionaryEntry>()
+                .Select(e =>
                 {
-                    Parent = node,
-                    Name = entry.Key.ToString(),
-                    Type = itemType,
-                    Value = entry.Value
-                };
+                    var n = _nodePool.Get();
+                    n.Parent = node;
+                    n.Name = e.Key.ToString();
+                    n.Type = e.Value?.GetType() ?? typeof(object);
+                    n.Value = e.Value;
+
+                    return n;
+                });
         }
         else
         {
-            enumerable = from pair in source.Cast<object?>().WithIndex()
-                let itemType = pair.Item.GetType() ?? typeof(object)
-                select new PropertyNodeViewModel(_propertyCache)
+            enumerable = source.Cast<object?>()
+                .Select((x, i) =>
                 {
-                    Parent = node,
-                    Name = pair.Index.ToString(),
-                    Type = itemType,
-                    Value = pair.Item
-                };
+                    var n = _nodePool.Get();
+                    n.Parent = node;
+                    n.Name = i.ToString();
+                    n.Type = x?.GetType() ?? typeof(object);
+                    n.Value = x;
+                    return n;
+                });
         }
 
-        res.AddRange(enumerable);
-        return res;
-
+        return enumerable;
     }
 
     private void UpdateInspector()
@@ -193,7 +196,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
             }
 
             using var queue = list.Cast<PropertyNodeViewModel>().ToPooledQueue();
-            
+
             while (queue.Count > 0)
             {
                 var current = queue.Dequeue();
@@ -210,19 +213,19 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                     component.Value = component.ParentEntity.Get(component.ComponentType);
                 }
 
-                foreach (var child in current.ChildPropertyNodes.Items)
-                    queue.Enqueue(child);
+                queue.EnqueueRange(current.ChildPropertyNodes.Items);
 
                 if (current.ChildItemNodes is not null)
-                {
-                    using var nodeChildren = GetChildrenFromCollectionNode(current);
-                    var newItems = current.ChildItemNodes.Items.Except(nodeChildren!);
-
-                    foreach (var item in newItems) 
-                        queue.Enqueue(item);
-                    
-                    current.ChildItemNodes.EditDiff(nodeChildren!);
-                }
+                    current.ChildItemNodes.Edit(list =>
+                    {
+                        var nodeChildren = TryGetChildrenFromCollectionNode(current);
+                        
+                        //Bruteforce turns out to be faster, TODO: restrict to visible only nodes
+                        foreach (var n in list) _nodePool.Return(n);
+                        list.Clear();
+                        
+                        foreach(var n in nodeChildren) list.Add(n);
+                    });
             }
 
 
@@ -235,5 +238,27 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                 list.AddRange(newComps);
             }
         });
+    }
+
+    private static void EditDiffedPooled<T>(SourceList<T> src, IEnumerable<T> items) where T : notnull
+    {
+        src.Edit(list =>
+        {
+            using var originalItemsSet = new PooledSet<T>(list);
+            using var newItemsSet = new PooledSet<T>(items);
+
+            originalItemsSet.ExceptWith(newItemsSet);
+            newItemsSet.ExceptWith(list);
+
+            list.Remove(originalItemsSet);
+            list.AddRange(newItemsSet);
+        });
+    }
+
+    private class NodePooledObjectPolicy(PropertyNodeCache cache) : PooledObjectPolicy<PropertyNodeViewModel>
+    {
+        public override PropertyNodeViewModel Create() => new(cache);
+
+        public override bool Return(PropertyNodeViewModel obj) => obj.TryReset();
     }
 }

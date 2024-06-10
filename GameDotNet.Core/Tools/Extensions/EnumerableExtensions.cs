@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Runtime.CompilerServices;
 using Collections.Pooled;
 
@@ -34,6 +33,11 @@ public static class EnumerableExtensions
     public static unsafe ulong SizeOf<T>(this IReadOnlyList<T> list) where T : unmanaged
     {
         return (ulong)(sizeof(T) * list.Count);
+    }
+
+    public static void EnqueueRange<T>(this PooledQueue<T> queue, IEnumerable<T> range)
+    {
+        foreach (var x in range) queue.Enqueue(x);
     }
     
     public static IEnumerable<T> FlattenLevelOrder<T>(

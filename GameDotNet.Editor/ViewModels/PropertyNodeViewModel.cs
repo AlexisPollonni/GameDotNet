@@ -10,6 +10,7 @@ using Arch.Core.Extensions;
 using Arch.Core.Utils;
 using DynamicData;
 using DynamicData.Binding;
+using Microsoft.Extensions.ObjectPool;
 using ReactiveUI;
 
 namespace GameDotNet.Editor.ViewModels;
@@ -74,13 +75,13 @@ internal class PropertyNodeCache
         Action<object, object?>? Setter);
 }
 
-public class PropertyNodeViewModel : ViewModelBase, IEquatable<PropertyNodeViewModel>, IDisposable
+public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<PropertyNodeViewModel>, IDisposable
 {
-    public required PropertyNodeViewModel? Parent { get; init; }
-    public required string? Name { get; init; }
-    public required Type Type { get; set; }
+    public PropertyNodeViewModel? Parent { get; set; }
+    public string? Name { get; set; }
+    public Type Type { get; set; } = typeof(object);
 
-    public required object? Value
+    public object? Value
     {
         get => _value;
         set => this.RaiseAndSetIfChanged(ref _value, value);
@@ -127,6 +128,19 @@ public class PropertyNodeViewModel : ViewModelBase, IEquatable<PropertyNodeViewM
 
     internal IEnumerable<PropertyNodeCache.PropertyCacheEntry> PropertyTypeEntries => _cache.GetDefaultEntries(Type);
 
+
+    public bool TryReset()
+    {
+        Parent = null;
+        Name = null;
+        Type = typeof(object);
+        _value = null;
+        IsDirty = true;
+        ChildPropertyNodes.Clear();
+        ChildItemNodes?.Clear();
+
+        return true;
+    }
 
     public void SetValueWithoutNotification(object? value) => _value = value;
 
