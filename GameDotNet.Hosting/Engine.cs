@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Reactive;
 using System.Reactive.Concurrency;
@@ -14,7 +15,6 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
 using Serilog.Sinks.File.GZip;
-using ILogger = Serilog.ILogger;
 
 namespace GameDotNet.Hosting;
 
@@ -31,20 +31,39 @@ public sealed class Engine : IDisposable
     private readonly AsyncSubject<IHost> _initSubject;
     private AsyncSubject<Unit>? _update;
 
-    public Engine(ILogger logger, IScheduler? mainScheduler = null)
+    public Engine(IScheduler? mainScheduler = null)
     {
         _initSubject = new();
         MainScheduler = mainScheduler ?? new EventLoopScheduler();
-        Builder = CreateHostBuilder(logger);
+        Builder = CreateHostBuilder();
     }
 
     private async Task Initialize(CancellationToken token = default)
     {
         GlobalHost = Builder.Build();
+        var logger = GlobalHost.Services.GetRequiredService<ILogger<Engine>>();
+        
+        TaskScheduler.UnobservedTaskException += (sender, args) =>
+        {
+            var l = (Microsoft.Extensions.Logging.ILogger)GlobalHost.Services.GetRequiredService(
+                typeof(ILogger<>).MakeGenericType(sender?.GetType() ?? typeof(Engine)));
+
+            l.LogCritical(args.Exception, "Unobserved task exception triggered, is observed: {Observed}",
+                args.Observed);
+        };
+        
+        logger.LogInformation("""
+                Is 64 bit: {Is64Bit}
+                Running directory: {RunningDirectory}
+                .NET version: {NetVersion}
+                """,
+            Environment.Is64BitProcess,
+            Environment.CurrentDirectory,
+            Environment.Version);
 
         GlobalMessagePipe.SetProvider(GlobalHost.Services);
         var universe = GlobalHost.Services.GetRequiredService<Universe>();
-
+        
         await MainScheduler.StartAsync(universe.Initialize, token);
 
         if (!token.IsCancellationRequested)
@@ -61,9 +80,11 @@ public sealed class Engine : IDisposable
         if (!_initialized) await Initialize(token);
         if (token.IsCancellationRequested) return;
 
+        Debug.Assert(GlobalHost != null, nameof(GlobalHost) + " != null");
+        
         _running = true;
 
-        await GlobalHost!.StartAsync(token);
+        await GlobalHost.StartAsync(token);
 
         var universe = GlobalHost.Services.GetRequiredService<Universe>();
 
@@ -105,9 +126,7 @@ public sealed class Engine : IDisposable
         if (MainScheduler is EventLoopScheduler els) els.Dispose();
     }
 
-    public static LoggerConfiguration CreateLoggerConfig(string appName,
-                                                         LogEventLevel minConsoleLevel = LogEventLevel.Debug,
-                                                         LogEventLevel minFileLevel = LogEventLevel.Verbose)
+    internal static LoggerConfiguration CreateFileLoggerConfig(string appName, LogEventLevel minFileLevel = LogEventLevel.Verbose)
     {
         var logDirPath = Path.Combine(Constants.LogsDirectoryPath, appName);
         var logPath = Path.Combine(logDirPath, "game.gz");
@@ -130,8 +149,6 @@ public sealed class Engine : IDisposable
                                               .MinimumLevel.Verbose()
                                               .WriteTo.Async(a =>
                                                              {
-                                                                 a.Console(minConsoleLevel,
-                                                                           "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}{NewLine}{Message:lj}{NewLine}{Exception}");
                                                                  a.File(new CompactJsonFormatter(),
                                                                         logPath,
                                                                         restrictedToMinimumLevel: minFileLevel,
@@ -149,36 +166,11 @@ public sealed class Engine : IDisposable
         return config;
     }
 
-    public static ILogger CreateLogger(LoggerConfiguration configuration)
+    private HostApplicationBuilder CreateHostBuilder()
     {
-        var logger = configuration.CreateLogger();
-
-        logger.Information("Log started for GameDotNet Engine");
-        logger.Information("""
-                           Is 64 bit: {Is64Bit}
-                           Running directory: {RunningDirectory}
-                           .NET version: {NetVersion}
-                           """,
-                           Environment.Is64BitProcess,
-                           Environment.CurrentDirectory,
-                           Environment.Version);
-
-        Log.Logger = logger;
-
-        return logger;
-    }
-
-    private HostApplicationBuilder CreateHostBuilder(ILogger serilog)
-    {
-        // ReSharper disable once ContextualLoggerProblem
-        TaskScheduler.UnobservedTaskException += (sender, args) =>
-            serilog.ForContext(sender?.GetType() ?? typeof(TaskScheduler))
-                   .Fatal(args.Exception, "Unobserved task exception triggered, is observed: {Observed}", args.Observed);
-
         var builder = Host.CreateApplicationBuilder(Environment.GetCommandLineArgs());
 
-        builder.Logging.ClearProviders();
-        builder.Logging.AddSerilog(serilog, true);
+        builder.AddServiceDefaults();
 
         builder.Services
                .AddSingleton(this)

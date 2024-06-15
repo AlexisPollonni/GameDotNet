@@ -5,7 +5,10 @@ using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTelemetry.Metrics;
 using Schedulers;
+using Serilog;
+using Serilog.Events;
 
 namespace GameDotNet.Hosting;
 
@@ -35,6 +38,20 @@ public static class ServiceCollectionExtensions
                 .AddSystem<WebGpuRenderSystem>()
                 .AddSystem<CameraSystem>();
 
+        return services;
+    }
+
+    public static IServiceCollection AddEngineFileLogger(this IServiceCollection services, string appName, LogEventLevel level = LogEventLevel.Verbose)
+    {
+        var configuration = Engine.CreateFileLoggerConfig(appName, level);
+        services.AddLogging(builder => builder.AddSerilog(configuration.CreateLogger(), true));
+
+        return services;
+    }
+
+    public static IServiceCollection AddEngineInstrumentation(this IServiceCollection services)
+    {
+        services.ConfigureOpenTelemetryMeterProvider(builder => builder.AddMeter("Universe.Updates"));
         return services;
     }
 

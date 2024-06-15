@@ -25,13 +25,12 @@ public sealed class StandaloneApplication : IDisposable
             throw new ArgumentException("Application name can't be null or empty", nameof(appName));
         ApplicationName = appName;
 
-        Log.Logger = Engine.CreateLogger(Engine.CreateLoggerConfig(appName));
-
         _mainView = CreateSilkView();
         _disposal = new();
         _mainScheduler = new() { ExitIfEmpty = true };
 
-        Engine = new(Log.Logger, _mainScheduler);
+        Engine = new(_mainScheduler);
+        Engine.Builder.Services.AddEngineFileLogger(appName);
 
         Engine.OnInitialized.Subscribe(host =>
               {

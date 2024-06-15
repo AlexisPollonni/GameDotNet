@@ -14,6 +14,7 @@ using GameDotNet.Hosting;
 using GameDotNet.Management;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Application = Avalonia.Application;
 
 namespace GameDotNet.Editor;
@@ -30,30 +31,30 @@ public partial class App : Application
 
     public override async void OnFrameworkInitializationCompleted()
     {
-        var logViewerVM = new LogViewerViewModel();
-        var loggerConfig = Engine.CreateLoggerConfig(Current?.Name ?? "GameDotNet-Editor").WriteTo.LogViewSink(logViewerVM);
-        var logger = Engine.CreateLogger(loggerConfig);
-
-        Engine = new(logger);
-
+        Engine = new();
+        
         Engine.Builder.Services
-              .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
-              .AddSystem<EditorUiUpdateSystem>()
-              .AddTransient<ViewLocator>()
-              .AddTransient<WebGpuViewModel>()
-              .AddView<WebGpuViewModel, WebGpuView>()
-              .AddSingleton<EntityTreeViewModel>()
-              .AddView<EntityTreeViewModel, EntityTreeViewControl>()
-              .AddSingleton(logViewerVM)
-              .AddView<LogViewerViewModel, LogViewerControl>()
-              .AddSingleton<MainWindowViewModel>()
-              .AddView<EntityInspectorViewModel, EntityInspectorControl>()
-              .AddSingleton<EntityInspectorViewModel>();
+            .AddLogging(builder => builder.AddConsole())
+            .AddEngineFileLogger("GameDotNet-Editor")
+            .AddEngineInstrumentation()
+            .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
+            .AddSystem<EditorUiUpdateSystem>()
+            .AddTransient<ViewLocator>()
+            .AddTransient<WebGpuViewModel>()
+            .AddView<WebGpuViewModel, WebGpuView>()
+            .AddSingleton<EntityTreeViewModel>()
+            .AddView<EntityTreeViewModel, EntityTreeViewControl>()
+            .AddSingleton<LogViewerViewModel>()
+            .AddView<LogViewerViewModel, LogViewerControl>()
+            .AddSingleton<MainWindowViewModel>()
+            .AddView<EntityInspectorViewModel, EntityInspectorControl>()
+            .AddSingleton<EntityInspectorViewModel>()
+            .AddViewerLogging();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow();
-            
+
             Engine.OnInitialized
                   .ObserveOn(AvaloniaScheduler.Instance)
                   .Subscribe(host =>

@@ -1,23 +1,18 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using Avalonia.ReactiveUI;
 using DynamicData;
-using DynamicData.Alias;
-using Serilog;
-using Serilog.Configuration;
-using Serilog.Core;
-using Serilog.Events;
+using Microsoft.Extensions.Logging;
 
 namespace GameDotNet.Editor.ViewModels;
 
-public sealed class LogViewerViewModel : ViewModelBase, ILogEventSink, IDisposable
+public sealed class LogViewerViewModel : ViewModelBase, IDisposable
 {
     public ReadOnlyObservableCollection<LogEntryViewModel> LogEntries { get; set; }
     
     
-    private readonly SourceList<LogEvent> _logEventCache;
+    private readonly SourceList<LogEntryViewModel> _logEventCache;
     private readonly IDisposable _disposable;
 
 
@@ -26,8 +21,6 @@ public sealed class LogViewerViewModel : ViewModelBase, ILogEventSink, IDisposab
         _logEventCache = new();
 
         _disposable = _logEventCache.Connect()
-                      .ObserveOn(Scheduler.Default)
-                      .Select(EventLogToViewModel)
                       .ObserveOn(AvaloniaScheduler.Instance)
                       .Bind(out var collection)
                       .Subscribe();
@@ -35,9 +28,9 @@ public sealed class LogViewerViewModel : ViewModelBase, ILogEventSink, IDisposab
         LogEntries = collection;
     }
 
-    public void Emit(LogEvent logEvent)
+    public void EmitStandard(LogLevel level, string message)
     {
-        _logEventCache.Add(logEvent);
+        _logEventCache.Add(new(DateTimeOffset.Now, level, message));
     }
 
     public void Dispose()
@@ -45,24 +38,11 @@ public sealed class LogViewerViewModel : ViewModelBase, ILogEventSink, IDisposab
         _disposable.Dispose();
         _logEventCache.Dispose();
     }
-    
-    private static LogEntryViewModel EventLogToViewModel(LogEvent e)
-    {
-        return new(e.Timestamp, e.Level, e.RenderMessage());
-    }
 }
 
-public sealed record LogEntryViewModel(DateTimeOffset TimeStamp, LogEventLevel Level, string Message)
+public sealed record LogEntryViewModel(DateTimeOffset TimeStamp, LogLevel Level, string Message)
 {
     public DateTimeOffset TimeStamp { get; } = TimeStamp;
-    public LogEventLevel Level { get; } = Level;
+    public LogLevel Level { get; } = Level;
     public string Message { get; } = Message;
-}
-
-public static class SinkExtensions
-{
-    public static LoggerConfiguration LogViewSink(this LoggerSinkConfiguration configuration, LogViewerViewModel vm)
-    {
-        return configuration.Sink(vm);
-    }
 }
