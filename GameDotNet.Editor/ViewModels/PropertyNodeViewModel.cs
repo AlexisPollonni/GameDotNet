@@ -1,73 +1,92 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
-using Arch.Core;
-using Arch.Core.Extensions;
-using Arch.Core.Utils;
 using DynamicData;
 using DynamicData.Binding;
 using Microsoft.Extensions.ObjectPool;
 using ReactiveUI;
+using ReactiveUI.Fody.Helpers;
 
 namespace GameDotNet.Editor.ViewModels;
 
 internal class PropertyNodeCache
 {
     private readonly ConcurrentDictionary<Type, PropertyCacheEntry[]> _typeToPropertyCache = [];
+    private readonly ConcurrentDictionary<PropertyInfo, PropertyCacheEntry> _infoToCache = [];
 
-    public IEnumerable<PropertyInfo> GetDefaultPropertyInfos(Type type) => GetDefaultEntries(type).Select(e => e.Info);
+    public PropertyCacheEntry GetEntryFromInfo(PropertyInfo info)
+    {
+        if (_infoToCache.TryGetValue(info, out var entry)) return entry;
+        
+        Debug.Assert(info.DeclaringType != null, "info.DeclaringType != null");
+        
+        var entries = GetOrCreatePropertyEntry(info.DeclaringType);
+        entry = entries.First(e => e.Info == info);
+        
+        return entry;
+    }
 
-    public IEnumerable<Func<object, object?>?> GetDefaultPropertyGetters(Type type) =>
-        GetDefaultEntries(type).Select(e => e.Getter);
+    internal IEnumerable<PropertyCacheEntry> GetDefaultEntries(Type type) =>
+        GetOrCreatePropertyEntry(type)
+            .Where(entry => entry.Info.GetIndexParameters().Length == 0
+                            && entry.Getter is not null
+                            && entry.Info.GetMethod!.IsPublic && !entry.Info.IsStatic());
 
-    public IEnumerable<Action<object, object?>?> GetDefaultPropertySetters(Type type) =>
-        GetDefaultEntries(type).Select(e => e.Setter);
+    private PropertyCacheEntry[] GetOrCreatePropertyEntry(Type type)
+    {
+        return _typeToPropertyCache.GetOrAdd(type, CacheEntryFactory);
+    }
 
+    private PropertyCacheEntry[] CacheEntryFactory(Type t)
+    {
+        return t.GetProperties(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance |
+                                      BindingFlags.Static)
+            .Select(info =>
+            {
+                if (info.IsStatic() || !info.CanRead || info.GetIndexParameters().Length > 0)
+                    return new(info, null, null);
 
-    internal IEnumerable<PropertyCacheEntry> GetDefaultEntries(Type type) => GetOrCreatePropertyEntry(type)
-        .Where(entry => entry.Info.GetIndexParameters().Length == 0
-                        && entry.Getter is not null
-                        && entry.Info.GetMethod!.IsPublic && !entry.Info.IsStatic());
+                CreateCompiledGetterSetter(info, out var getter, out var setter, info.CanWrite);
 
-    private PropertyCacheEntry[] GetOrCreatePropertyEntry(Type type) =>
-        _typeToPropertyCache.GetOrAdd(type, static t =>
+                var e = new PropertyCacheEntry(info, getter, setter);
+                _infoToCache[info] = e;
+                return e;
+            })
+            .ToArray();
+    }
+
+    private static void CreateCompiledGetterSetter(PropertyInfo info, out Func<object, object?> getter, out Action<object, object?>? setter, bool createSetter = false)
+    {
+        // Define our instance parameter, which will be the input of the Func
+        var objParameterExpr = Expression.Parameter(typeof(object), "instance");
+        // 1. Cast the instance to the correct type
+        var instanceExpr = Expression.Convert(objParameterExpr, info.DeclaringType!);
+        // 2. Call the getter and retrieve the value of the property
+        var propertyExpr = Expression.Property(instanceExpr, info);
+        // 3. Convert the property's value to object
+        var propertyObjExpr = Expression.Convert(propertyExpr, typeof(object));
+        // Create a lambda expression of the latest call & compile it
+        getter = Expression.Lambda<Func<object, object?>>(propertyObjExpr, objParameterExpr)
+            .Compile();
+
+        if (!createSetter)
         {
-            return t.GetProperties(BindingFlags.Public | BindingFlags.NonPublic |
-                                   BindingFlags.Instance | BindingFlags.Static)
-                .Select(info =>
-                {
-                    if (info.IsStatic() || !info.CanRead || info.GetIndexParameters().Length > 0)
-                        return new(info, null, null);
+            setter = null;
+            return;
+        }
+        
+        var objValueParameterExpr = Expression.Parameter(typeof(object), "value");
+        var typedParameterExpr = Expression.Convert(objValueParameterExpr, info.PropertyType);
+        var assignExpr = Expression.Assign(propertyExpr, typedParameterExpr);
+        setter = Expression
+            .Lambda<Action<object, object?>>(assignExpr, objParameterExpr, objValueParameterExpr)
+            .Compile();
+    }
 
-                    // Define our instance parameter, which will be the input of the Func
-                    var objParameterExpr = Expression.Parameter(typeof(object), "instance");
-                    // 1. Cast the instance to the correct type
-                    var instanceExpr = Expression.Convert(objParameterExpr, info.DeclaringType!);
-                    // 2. Call the getter and retrieve the value of the property
-                    var propertyExpr = Expression.Property(instanceExpr, info);
-                    // 3. Convert the property's value to object
-                    var propertyObjExpr = Expression.Convert(propertyExpr, typeof(object));
-                    // Create a lambda expression of the latest call & compile it
-                    var getter = Expression.Lambda<Func<object, object?>>(propertyObjExpr, objParameterExpr)
-                        .Compile();
-
-                    if (!info.CanWrite) return new(info, getter, null);
-
-                    var objValueParameterExpr = Expression.Parameter(typeof(object), "value");
-                    var typedParameterExpr = Expression.Convert(objValueParameterExpr, info.PropertyType);
-                    var assignExpr = Expression.Assign(propertyExpr, typedParameterExpr);
-                    var setter = Expression
-                        .Lambda<Action<object, object?>>(assignExpr, objParameterExpr,
-                            objValueParameterExpr)
-                        .Compile();
-
-                    return new PropertyCacheEntry(info, getter, setter);
-                }).ToArray();
-        });
 
     internal record PropertyCacheEntry(
         PropertyInfo Info,
@@ -87,6 +106,11 @@ public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<Prop
         set => this.RaiseAndSetIfChanged(ref _value, value);
     }
 
+    [Reactive] public bool IsExpanded { get; set; }
+    public bool IsVisible => Parent?.IsExpanded ?? true;
+
+    [Reactive]
+    public bool IsReadonly { get; set; }
     public bool IsDirty { get; set; } = true;
     public ObservableCollectionExtended<PropertyNodeViewModel> Children { get; } = [];
     public SourceList<PropertyNodeViewModel> ChildPropertyNodes { get; }
@@ -135,6 +159,7 @@ public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<Prop
         Name = null;
         Type = typeof(object);
         _value = null;
+        IsReadonly = false;
         IsDirty = true;
         ChildPropertyNodes.Clear();
         ChildItemNodes?.Clear();
@@ -163,8 +188,8 @@ public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<Prop
     {
         if (ReferenceEquals(null, other)) return false;
         if (ReferenceEquals(this, other)) return true;
-        return Equals(Parent, other.Parent) && 
-               Name == other.Name && 
+        return Equals(Parent, other.Parent) &&
+               Name == other.Name &&
                Type == other.Type &&
                Equals(_value, other._value);
     }
@@ -176,27 +201,4 @@ public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<Prop
         if (obj.GetType() != this.GetType()) return false;
         return Equals((PropertyNodeViewModel)obj);
     }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(_value, Parent, Name, Type);
-    }
-}
-
-public sealed class ComponentNodeViewModel : PropertyNodeViewModel
-{
-    [SetsRequiredMembers]
-    internal ComponentNodeViewModel(PropertyNodeCache cache, Entity entity, ComponentType type) : base(cache)
-    {
-        Parent = null;
-        Name = type.Type.Name;
-        Type = type;
-        Value = entity.Get(type);
-
-        ParentEntity = entity;
-        ComponentType = type;
-    }
-
-    public Entity ParentEntity { get; }
-    public ComponentType ComponentType { get; }
 }

@@ -59,7 +59,12 @@
     <ScrollViewer>
       <TreeView ItemsSource="{CompiledBinding Components}"
                 Padding="0, 10, 0, 10">
-        <TreeView.ItemTemplate>
+	      <TreeView.ItemContainerTheme>
+		      <ControlTheme TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+			      <Setter Property="IsExpanded" Value="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsExpanded, Mode=OneWayToSource}"/>
+		      </ControlTheme>
+	      </TreeView.ItemContainerTheme>
+	      <TreeView.ItemTemplate>
           <TreeDataTemplate ItemsSource="{CompiledBinding Children}">
             <StackPanel Orientation="Horizontal">
               <TextBlock Text="{CompiledBinding Type.Name}"

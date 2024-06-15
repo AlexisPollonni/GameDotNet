@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reflection;
 using System.Windows.Input;
 using Arch.Core;
 using Arch.Core.Extensions;
@@ -27,9 +28,9 @@ public sealed class EntityInspectorViewModel : ViewModelBase
     public ICommand RefreshCommand { get; }
 
 
-    [Reactive] public ReadOnlyObservableCollection<ComponentNodeViewModel>? Components { get; set; }
+    [Reactive] public ReadOnlyObservableCollection<PropertyNodeViewModel>? Components { get; set; }
 
-    private readonly SourceList<ComponentNodeViewModel> _components;
+    private readonly SourceList<PropertyNodeViewModel> _components;
     private readonly PropertyNodeCache _propertyCache;
     private readonly DefaultObjectPool<PropertyNodeViewModel> _nodePool;
     private EntityReference _selectedEntity;
@@ -42,13 +43,17 @@ public sealed class EntityInspectorViewModel : ViewModelBase
         _nodePool = new(new NodePooledObjectPolicy(_propertyCache), 10000);
         _selectedEntity = EntityReference.Null;
 
+        var sync = new object();
         this.WhenActivated(d =>
         {
             treeView.SelectedItems.ToObservableChangeSet()
                 .ObserveOn(Scheduler.Default)
                 .SubscribeMany(node =>
                 {
-                    UpdateComponents(node.Key);
+                    lock (sync)
+                    {
+                        UpdateComponents(node.Key);   
+                    }
                     return Disposable.Empty;
                 })
                 .Subscribe().DisposeWith(d);
@@ -60,10 +65,24 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                 .DisposeWith(d);
             Components = comps;
 
-            uiUpdateSystem.SampledUpdate.Subscribe(args => UpdateInspector()).DisposeWith(d);
+            uiUpdateSystem.SampledUpdate
+                .Subscribe(_ =>
+                {
+                    lock (sync)
+                    {
+                        UpdateInspector();
+                    }
+                })
+                .DisposeWith(d);
         });
 
-        RefreshCommand = ReactiveCommand.Create(UpdateInspector);
+        RefreshCommand = ReactiveCommand.Create(() =>
+        {
+            lock (sync)
+            {
+                UpdateInspector();
+            }
+        });
     }
 
 
@@ -82,11 +101,11 @@ public sealed class EntityInspectorViewModel : ViewModelBase
         });
     }
 
-    private ComponentNodeViewModel ComputeNodesFromComponent(Entity entity, ComponentType type)
+    private PropertyNodeViewModel ComputeNodesFromComponent(Entity entity, ComponentType type)
     {
         using var queue = new PooledQueue<PropertyNodeViewModel>();
 
-        var rootNode = new ComponentNodeViewModel(_propertyCache, entity, type);
+        var rootNode = CreateNode(entity, type);
 
         queue.Enqueue(rootNode);
 
@@ -97,16 +116,8 @@ public sealed class EntityInspectorViewModel : ViewModelBase
             foreach (var entry in current.PropertyTypeEntries)
             {
                 if (current.Value is null) continue;
-
-                var value = entry.Getter?.Invoke(current.Value);
-
-                var node = _nodePool.Get();
                 
-                node.Parent = current;
-                node.Name = entry.Info.Name;
-                node.Type = entry.Info.PropertyType;
-                node.Value = value;
-                node.IsDirty = false;
+                var node = CreateNode(current, entry.Info);
 
                 current.ChildPropertyNodes.Add(node);
                 queue.Enqueue(node);
@@ -140,29 +151,12 @@ public sealed class EntityInspectorViewModel : ViewModelBase
         if (node.Value is IDictionary dict)
         {
             enumerable = dict.Cast<DictionaryEntry>()
-                .Select(e =>
-                {
-                    var n = _nodePool.Get();
-                    n.Parent = node;
-                    n.Name = e.Key.ToString();
-                    n.Type = e.Value?.GetType() ?? typeof(object);
-                    n.Value = e.Value;
-
-                    return n;
-                });
+                .Select(e => CreateNode(node, e.Key.ToString(), e.Value, true));
         }
         else
         {
             enumerable = source.Cast<object?>()
-                .Select((x, i) =>
-                {
-                    var n = _nodePool.Get();
-                    n.Parent = node;
-                    n.Name = i.ToString();
-                    n.Type = x?.GetType() ?? typeof(object);
-                    n.Value = x;
-                    return n;
-                });
+                .Select((x, i) => CreateNode(node, i.ToString(), x, true));
         }
 
         return enumerable;
@@ -180,7 +174,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
             var entity = _selectedEntity.Entity;
 
             var newCompTypes = entity.GetComponentTypes();
-            var oldCompTypes = list.Select(x => x.ComponentType);
+            var oldCompTypes = list.Select(x => (ComponentType)x.Type);
 
             var areCompChanged = !oldCompTypes.SequenceEqual(newCompTypes);
 
@@ -195,7 +189,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                 }
             }
 
-            using var queue = list.Cast<PropertyNodeViewModel>().ToPooledQueue();
+            using var queue = list.ToPooledQueue();
 
             while (queue.Count > 0)
             {
@@ -207,25 +201,65 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                     current.Value = entry.Getter!.Invoke(current.Parent.Value!);
                 }
                 else
+                    current.Value = _selectedEntity.Entity.Get(current.Type);
+
+                queue.EnqueueRange(current.ChildPropertyNodes.Items
+                    .SkipWhile(n => !n.IsVisible)
+                    .TakeWhile(n => n.IsVisible));
+
+
+                // COLLECTION UPDATE
+                current.ChildItemNodes?.Edit(list =>
                 {
-                    var component = (ComponentNodeViewModel)current;
-
-                    component.Value = component.ParentEntity.Get(component.ComponentType);
-                }
-
-                queue.EnqueueRange(current.ChildPropertyNodes.Items);
-
-                if (current.ChildItemNodes is not null)
-                    current.ChildItemNodes.Edit(list =>
+                    var curCount = list.Count;
+                    //Short path for collection removals
+                    if (current.Value is ICollection col)
                     {
-                        var nodeChildren = TryGetChildrenFromCollectionNode(current);
-                        
-                        //Bruteforce turns out to be faster, TODO: restrict to visible only nodes
-                        foreach (var n in list) _nodePool.Return(n);
-                        list.Clear();
-                        
-                        foreach(var n in nodeChildren) list.Add(n);
-                    });
+                        var newCount = col.Count;
+                        if (newCount < curCount)
+                        {
+                            foreach (var n in list.Skip(newCount))
+                                _nodePool.Return(n);
+                            list.RemoveRange(newCount, curCount - newCount);
+                            return;
+                        }
+                    }
+
+                    var c1 = list.TakeWhile(n => !n.IsVisible).Count();
+                    if (c1 == curCount) return;
+
+                    var c2 = list.Skip(c1).TakeWhile(n => n.IsVisible).Count();
+
+                    var nodeChildren = TryGetChildrenFromCollectionNode(current)!;
+
+                    var truncatedChildren = nodeChildren
+                        .Skip(c1);
+
+                    using var e = truncatedChildren.GetEnumerator();
+
+                    var i = c1;
+                    for (; i < c1 + c2; i++)
+                    {
+                        if (e.MoveNext())
+                        {
+                            // In the visible window so we swap w new value
+                            _nodePool.Return(list[i]);
+                            list[i] = e.Current;
+                        }
+                        else
+                            break; // no more new values so exit loop
+                    }
+
+                    if (i >= curCount)
+                        while (e.MoveNext())
+                            list.Add(e.Current); // appends new missing nodes to end of list
+                    else if (!e.MoveNext())
+                    {
+                        for (var j = i; j < curCount; j++)
+                            _nodePool.Return(list[j]);
+                        list.RemoveRange(i, curCount); // Truncates excess nodes no longer present in list
+                    }
+                });
             }
 
 
@@ -238,6 +272,39 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                 list.AddRange(newComps);
             }
         });
+    }
+
+    private PropertyNodeViewModel CreateNode(PropertyNodeViewModel? parent, string? name, Type type, object? value, bool isReadonly = false)
+    {
+        var n = _nodePool.Get();
+
+        n.Parent = parent;
+        n.Name = name;
+        n.Type = type;
+        n.Value = value;
+        n.IsDirty = false;
+        n.IsReadonly = isReadonly;
+
+        return n;
+    }
+
+    private PropertyNodeViewModel CreateNode(PropertyNodeViewModel? parent, string? name, object? value, bool isReadonly = false) =>
+        CreateNode(parent, name, value?.GetType() ?? typeof(object), value, isReadonly);
+
+    private PropertyNodeViewModel CreateNode(PropertyNodeViewModel parent, PropertyInfo info)
+    {
+        var entry = _propertyCache.GetEntryFromInfo(info);
+
+        var value = entry.Getter?.Invoke(parent.Value);
+        var node = CreateNode(parent, info.Name, info.PropertyType, value);
+
+        node.IsReadonly = !info.CanWrite;
+        return node;
+    }
+
+    private PropertyNodeViewModel CreateNode(Entity entity, ComponentType type)
+    {
+        return CreateNode(null, type.Type.Name, type, entity.Get(type));
     }
 
     private static void EditDiffedPooled<T>(SourceList<T> src, IEnumerable<T> items) where T : notnull
