@@ -20,7 +20,7 @@ internal struct SystemEntry
 
         var typeName = system.GetType().Name;
 
-        var updateMeasure = meter.CreateHistogram<double>($"{typeName}.Update", unit: "millisecond");
+        var updateMeasure = meter.CreateHistogram<double>($"{typeName}.Update", unit: "ms");
 
         UpdateJob = new UpdateExecute(system, new(), UpdateWatch, updateMeasure);
 

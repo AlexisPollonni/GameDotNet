@@ -51,7 +51,20 @@ public static class ServiceCollectionExtensions
 
     public static IServiceCollection AddEngineInstrumentation(this IServiceCollection services)
     {
-        services.ConfigureOpenTelemetryMeterProvider(builder => builder.AddMeter("Universe.Updates"));
+        const string universeMeterName ="Universe.Updates";
+        var boundaries = Enumerable.Range(0, 10000).Select(i => i / 100D).ToArray();
+        
+        services.ConfigureOpenTelemetryMeterProvider(builder =>
+        {
+            builder.AddMeter(universeMeterName)
+                //Change to exponential histogram view when https://github.com/dotnet/aspire/issues/4381 is fixed
+                .AddView(instrument => instrument.Meter.Name == universeMeterName ? new ExplicitBucketHistogramConfiguration
+                {
+                    Boundaries = boundaries
+                } : null);
+        });
+        
+        
         return services;
     }
 
