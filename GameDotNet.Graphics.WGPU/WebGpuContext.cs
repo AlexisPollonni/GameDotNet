@@ -13,7 +13,7 @@ using Surface = GameDotNet.Graphics.WGPU.Wrappers.Surface;
 
 namespace GameDotNet.Graphics.WGPU;
 
-public sealed class WebGpuContext : IDisposable
+public sealed partial class WebGpuContext : IDisposable
 {
     [MemberNotNullWhen(true, nameof(Surface), nameof(Adapter), nameof(Device))]
     public bool IsInitialized { get; private set; }
@@ -58,37 +58,31 @@ public sealed class WebGpuContext : IDisposable
 
         device.SetUncapturedErrorCallback((type, message) =>
         {
-            _logger.LogError("[WebGPU][{ErrorType}: {Message}]", type, message.ReplaceLineEndings());
+            WebGpuUncapturedError(type, message.ReplaceLineEndings());
         });
 
         device.SetLoggingCallback((type, message) =>
         {
             var fmtMessage = message.ReplaceLineEndings();
-            switch (type)
-            {
-                case LogLevel.Trace:
-                    _logger.LogTrace("[WebGPU] {Msg}", fmtMessage);
-                    break;
-                case LogLevel.Debug:
-                    _logger.LogDebug("[WebGPU] {Msg}", fmtMessage);
-                    break;
-                case LogLevel.Info:
-                    _logger.LogInformation("[WebGPU] {Msg}", fmtMessage);
-                    break;
-                case LogLevel.Warn:
-                    _logger.LogWarning("[WebGPU] {Msg}", fmtMessage);
-                    break;
-                case LogLevel.Error:
-                    _logger.LogError("[WebGPU] {Msg}", fmtMessage);
-                    break;
-                case LogLevel.Force32:
-                case LogLevel.Off:
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type), type, null);
-            }
-        });
 
-        device.Queue.OnSubmittedWorkDone(status => _logger.LogTrace("[WebGPU] Queue submit {Status}", status));
+            var lvl = type switch
+            {
+                LogLevel.Off => Microsoft.Extensions.Logging.LogLevel.None,
+                LogLevel.Error => Microsoft.Extensions.Logging.LogLevel.Error,
+                LogLevel.Warn => Microsoft.Extensions.Logging.LogLevel.Warning,
+                LogLevel.Info => Microsoft.Extensions.Logging.LogLevel.Information,
+                LogLevel.Debug => Microsoft.Extensions.Logging.LogLevel.Debug,
+                LogLevel.Trace => Microsoft.Extensions.Logging.LogLevel.Trace,
+                LogLevel.Force32 => Microsoft.Extensions.Logging.LogLevel.None,
+                _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+            };
+            
+            WebGpuLogCallback(lvl, fmtMessage);
+        });
+        
+        device.SetLogLevel(LogLevel.Trace);
+
+        device.Queue.OnSubmittedWorkDone(WebGpuSubmittedWorkDone);
 
         Surface = surface;
         Adapter = adapter;
@@ -150,4 +144,15 @@ public sealed class WebGpuContext : IDisposable
 
         return surface;
     }
+
+    [LoggerMessage(Microsoft.Extensions.Logging.LogLevel.Error,
+        Message = "[WebGPU][{ErrorType}: {Message}]")]
+    private partial void WebGpuUncapturedError(ErrorType errorType, string message);
+    
+    [LoggerMessage(Message = "[WebGPU] {Msg}")]
+    private partial void WebGpuLogCallback(Microsoft.Extensions.Logging.LogLevel lvl, string msg);
+
+    [LoggerMessage(Microsoft.Extensions.Logging.LogLevel.Trace,
+        Message = "[WebGPU] Queue submit {Status}")]
+    private partial void WebGpuSubmittedWorkDone(QueueWorkDoneStatus status);
 }

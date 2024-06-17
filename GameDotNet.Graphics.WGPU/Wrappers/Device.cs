@@ -74,6 +74,8 @@ public sealed class Device : IDisposable
         return new(_api, bd);
     }
 
+    public void SetLogLevel(LogLevel level) => _api.GetWgpuExtension()?.SetLogLevel(level);
+    
     public unsafe void SetLoggingCallback(LoggingCallback proc)
     {
         _api.GetWgpuExtension()?.SetLogCallback(new((lvl, msgB, _) => proc(lvl, SilkMarshal.PtrToString((IntPtr)msgB)!)), null);

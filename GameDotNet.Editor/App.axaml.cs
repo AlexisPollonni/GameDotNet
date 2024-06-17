@@ -14,7 +14,6 @@ using GameDotNet.Hosting;
 using GameDotNet.Management;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Application = Avalonia.Application;
 
 namespace GameDotNet.Editor;
@@ -34,7 +33,6 @@ public partial class App : Application
         Engine = new();
         
         Engine.Builder.Services
-            .AddLogging(builder => builder.AddConsole())
             .AddEngineFileLogger("GameDotNet-Editor")
             .AddEngineInstrumentation()
             .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)

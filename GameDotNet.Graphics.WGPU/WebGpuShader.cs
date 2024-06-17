@@ -38,7 +38,7 @@ public sealed class WebGpuShader : IShader
         ShaderModule module;
         try
         {
-            module = _ctx.Device.CreateSpirVShaderModule($"create-shader-module-spirv:{Source.Description.Stage}/{Source.Description.Name}", Source.Code);
+            module = _ctx.Device.CreateSpirVShaderModule($"create-shader-module-spirv:{Source.Description.Stage}/{Source.Description.Name}", Source.Code, Source.Description.EntryPoint);
         }
         catch (SEHException e)
         {

@@ -5,7 +5,7 @@ using Vortice.ShaderCompiler;
 
 namespace GameDotNet.Graphics;
 
-public class ShaderCompiler(ILogger<ShaderCompiler> logger)
+public partial class ShaderCompiler(ILogger<ShaderCompiler> logger)
 {
     public async Task<SpirVShader?> TranslateGlsl(string path, string includePath = ".",
                                                   CancellationToken token = default)
@@ -33,13 +33,11 @@ public class ShaderCompiler(ILogger<ShaderCompiler> logger)
 
             if (res.Status != CompilationStatus.Success)
             {
-                logger.LogError("Compilation FAIL: {ShaderName}, Status = {Status}, {ErrNber} errors, Msg = {ErrMsg}",
-                                 Path.GetFileName(path), res.Status, res.ErrorsCount, res.ErrorMessage);
+                FailedShaderCompilation(logger, Path.GetFileName(path), res.Status, res.ErrorsCount, res.ErrorMessage);
                 return null;
             }
-
-            logger.LogInformation("Compilation SUCCESS: {ShaderName}, {WarnNber} warnings", Path.GetFileName(path),
-                                   res.WarningsCount);
+            
+            SucceededShaderCompilation(logger, Path.GetFileName(path), res.WarningsCount);
             
             return new SpirVShader(res.GetBytecode().Cast<byte, uint>(), new()
             {
@@ -65,4 +63,12 @@ public class ShaderCompiler(ILogger<ShaderCompiler> logger)
         ShaderStage.Compute => ShaderKind.ComputeShader,
         _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
     };
+
+    [LoggerMessage(LogLevel.Error,
+        Message = "Compilation FAIL: {ShaderName}, Status = {Status}, {ErrNber} errors, Msg = {ErrMsg}")]
+    private partial void FailedShaderCompilation(ILogger l, string shaderName, CompilationStatus status, uint errNber, string? errMsg);
+
+    [LoggerMessage(LogLevel.Information,
+        Message = "Compilation SUCCESS: {ShaderName}, {WarnNber} warnings")]
+    private partial void SucceededShaderCompilation(ILogger l, string shaderName, uint warnNber);
 }
