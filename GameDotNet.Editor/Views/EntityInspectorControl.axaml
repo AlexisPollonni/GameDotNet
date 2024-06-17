@@ -4,12 +4,12 @@
 			 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 			 xmlns:tools="clr-namespace:GameDotNet.Editor.Tools"
 			 xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
-			 xmlns:viewModels="clr-namespace:GameDotNet.Editor.ViewModels"
+			 xmlns:vm="clr-namespace:GameDotNet.Editor.ViewModels"
 			 mc:Ignorable="d"
 			 d:DesignWidth="800"
 			 d:DesignHeight="450"
 			 x:Class="GameDotNet.Editor.Views.EntityInspectorControl"
-			 x:DataType="viewModels:EntityInspectorViewModel">
+			 x:DataType="vm:EntityInspectorViewModel">
 
 	<UserControl.Resources>
 		<tools:ImplementationDataTemplate x:Key="InspectorValueDataTemplate">
@@ -46,7 +46,7 @@
 	<UserControl.DataTemplates>
 
 
-		<DataTemplate DataType="viewModels:PropertyNodeViewModel" />
+		<DataTemplate DataType="vm:PropertyNodeViewModel" />
 	</UserControl.DataTemplates>
 
   <StackPanel Orientation="Vertical">
