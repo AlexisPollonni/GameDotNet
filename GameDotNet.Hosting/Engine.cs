@@ -176,6 +176,8 @@ public sealed class Engine : IDisposable
                .AddSingleton(this)
                .AddCoreSystemServices();
 
+        builder.Logging.SetMinimumLevel(LogLevel.Trace);
+        
         return builder;
     }
 }
