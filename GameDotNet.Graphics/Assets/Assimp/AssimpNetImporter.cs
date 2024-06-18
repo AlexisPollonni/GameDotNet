@@ -1,24 +1,20 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using Assimp;
+using Assimp.Unmanaged;
 using CommunityToolkit.HighPerformance;
-using Matrix4x4 = Assimp.Matrix4x4;
-using Quaternion = Assimp.Quaternion;
+using Silk.NET.Assimp;
+using Metadata = Assimp.Metadata;
+using Node = Assimp.Node;
+using PostProcessPreset = Assimp.PostProcessPreset;
 
 namespace GameDotNet.Graphics.Assets.Assimp;
 
 public sealed class AssimpNetImporter : IDisposable
 {
-    private readonly AssimpContext _lib;
-    private readonly SerilogLogStream _logStream;
-
-    public AssimpNetImporter()
-    {
-        _lib = new();
-        _logStream = new();
-    }
+    private readonly AssimpContext _lib = new();
+    private readonly SerilogLogStream _logStream = new();
 
     public bool LoadSceneFromFile(string path, out Scene? scene)
     {
@@ -42,8 +38,8 @@ public sealed class AssimpNetImporter : IDisposable
 
     private static Mesh LoadMesh(global::Assimp.Mesh mesh)
     {
-        var vertPositions = mesh.Vertices.AsSpan().Cast<Vector3D, Vector3>();
-        var normals = mesh.Normals.AsSpan().Cast<Vector3D, Vector3>();
+        var vertPositions = mesh.Vertices.AsSpan();
+        var normals = mesh.Normals.AsSpan();
         
         //Choose first color channel
         var colors = ReadOnlySpan<Vector4>.Empty;
@@ -105,9 +101,11 @@ public sealed class AssimpNetImporter : IDisposable
     private static SceneObject CreateObjectFromNode(Node node, in Matrix4x4 transform, IReadOnlyList<Mesh> loadedMeshes)
     {
         var metadata = GetMetadata(node.Metadata);
-        transform.Decompose(out var scale, out var rot, out var pos);
+        
+        // We use assimp's function and not the system ones because assimp matrixes are different
+        AssimpLibrary.Instance.DecomposeMatrix(transform, out var scale, out var rot, out var pos);
 
-        return new(node.Name, new(pos.AsVector3(), rot.ToQuaternion(), scale.AsVector3()),
+        return new(node.Name, new(pos, rot, scale),
                    GetMeshesFromNode(node, loadedMeshes), metadata);
     }
 
@@ -128,13 +126,13 @@ public sealed class AssimpNetImporter : IDisposable
         {
             MetadataProperty prop = entry.DataType switch
             {
-                MetaDataType.Bool => new((bool)entry.Data),
-                MetaDataType.Int32 => new((int)entry.Data),
-                MetaDataType.UInt64 => new((ulong)entry.Data),
-                MetaDataType.Float => new((float)entry.Data),
-                MetaDataType.Double => new((double)entry.Data),
-                MetaDataType.String => new((string)entry.Data),
-                MetaDataType.Vector3D => new(((Vector3D)entry.Data).AsVector3()),
+                MetadataType.Bool => new((bool)entry.Data),
+                MetadataType.Int32 => new((int)entry.Data),
+                MetadataType.Uint64 => new((ulong)entry.Data),
+                MetadataType.Float => new((float)entry.Data),
+                MetadataType.Double => new((double)entry.Data),
+                MetadataType.Aistring => new((string)entry.Data),
+                MetadataType.Aivector3D => new((Vector3)entry.Data),
                 _ => throw new ArgumentOutOfRangeException(nameof(entry.DataType),
                                                            "Metadata entry type is out of range")
             };
@@ -148,18 +146,4 @@ public sealed class AssimpNetImporter : IDisposable
 
 internal static class AssimpEx
 {
-    public static ref readonly Vector3 AsVector3(this in Vector3D vec)
-    {
-        return ref Unsafe.As<Vector3D, Vector3>(ref Unsafe.AsRef(vec));
-    }
-
-    public static ref readonly System.Numerics.Matrix4x4 AsMatrix4X4(this scoped in Matrix4x4 mat)
-    {
-        return ref Unsafe.As<Matrix4x4, System.Numerics.Matrix4x4>(ref Unsafe.AsRef(mat));
-    }
-
-    public static System.Numerics.Quaternion ToQuaternion(this in Quaternion quaternion)
-    {
-        return new(quaternion.X, quaternion.Y, quaternion.Z, quaternion.W);
-    }
 }
