@@ -20,9 +20,10 @@ internal struct SystemEntry
 
         var typeName = system.GetType().Name;
 
-        var updateMeasure = meter.CreateHistogram<double>($"{typeName}.Update", unit: "ms");
+        var updateExecMeasure = meter.CreateHistogram<float>($"{typeName}.UpdateExec", unit: "microseconds");
+        var updateDeltaMeasure = meter.CreateHistogram<float>($"{typeName}.UpdateDelta", unit: "ms");
 
-        UpdateJob = new UpdateExecute(system, new(), UpdateWatch, updateMeasure);
+        UpdateJob = new UpdateExecute(system, UpdateWatch, updateExecMeasure, updateDeltaMeasure);
 
         IsRunning = false;
     }
@@ -32,15 +33,21 @@ internal struct SystemEntry
     public IJob UpdateJob { get; }
     public bool IsRunning { get; internal set; }
 
-    private class UpdateExecute(SystemBase system, Stopwatch executeSw, Stopwatch deltaUpdateSw, Histogram<double> measure)
+    private class UpdateExecute(SystemBase system, Stopwatch deltaUpdateSw, Histogram<float> measureExec, Histogram<float> measureDelta)
         : IJob
     {
+        private readonly Stopwatch _executeSw = new();
+
         public void Execute()
         {
-            executeSw.Restart();
-            system.Update(deltaUpdateSw.Elapsed);
+            var deltaElapsed = deltaUpdateSw.Elapsed;
+            
+            _executeSw.Restart();
+            system.Update(deltaElapsed);
+            measureExec.Record((float)_executeSw.Elapsed.TotalMicroseconds);
+            
+            measureDelta.Record((float)deltaElapsed.TotalMilliseconds);
             deltaUpdateSw.Restart();
-            measure.Record(executeSw.Elapsed.TotalMilliseconds);
         }
     }
 }
