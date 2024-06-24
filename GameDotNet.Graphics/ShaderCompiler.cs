@@ -25,7 +25,8 @@ public partial class ShaderCompiler(ILogger<ShaderCompiler> logger)
 
             opt.SetargetSpirv(SpirVVersion.Version_1_0);
             opt.SetSourceLanguage(SourceLanguage.GLSL);
-            opt.SetGenerateDebugInfo();
+            
+            // opt.SetGenerateDebugInfo(); Makes WGPU compilation PANIC, TODO re-add when https://github.com/gfx-rs/wgpu/issues/4532 is fixed
 
             compiler.Includer = new Includer(includePath);
 
