@@ -40,9 +40,17 @@ public sealed class Adapter : IDisposable
 
     public unsafe void GetProperties(out AdapterProperties properties)
     {
-        properties = new();
-            
-        _api.AdapterGetProperties(Handle, ref properties);
+        var sProp = new SAdapterProperties();
+        _api.AdapterGetProperties(Handle, ref sProp);
+
+        properties = new(sProp.VendorID,
+            SilkMarshal.PtrToString((nint)sProp.VendorName) ?? "",
+            SilkMarshal.PtrToString((nint)sProp.Architecture) ?? "",
+            sProp.DeviceID,
+            SilkMarshal.PtrToString((nint)sProp.Name) ?? "",
+            SilkMarshal.PtrToString((nint)sProp.DriverDescription) ?? "",
+            sProp.AdapterType,
+            sProp.BackendType);
     }
 
     public unsafe bool HasFeature(FeatureName feature) => _api.AdapterHasFeature(Handle, feature);

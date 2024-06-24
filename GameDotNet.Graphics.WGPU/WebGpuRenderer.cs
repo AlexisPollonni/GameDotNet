@@ -56,8 +56,8 @@ public class WebGpuRenderer
         var vertShader = new WebGpuShader(_context, vert, _logger);
         var fragShader = new WebGpuShader(_context, frag, _logger);
 
-        await vertShader.Compile(token);
-        await fragShader.Compile(token);
+        if(await vertShader.Compile(token) is null) return;
+        if(await fragShader.Compile(token) is null) return;
 
         _meshPipeline = await CreateRenderPipeline(vertShader, fragShader, token);
 

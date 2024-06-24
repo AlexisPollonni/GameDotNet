@@ -4,8 +4,11 @@ using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Contexts;
+using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
+using static Microsoft.Extensions.Logging.LogLevel;
 using Adapter = GameDotNet.Graphics.WGPU.Wrappers.Adapter;
+using AdapterProperties = GameDotNet.Graphics.WGPU.Wrappers.AdapterProperties;
 using Device = GameDotNet.Graphics.WGPU.Wrappers.Device;
 using Instance = GameDotNet.Graphics.WGPU.Wrappers.Instance;
 using LogLevel = Silk.NET.WebGPU.Extensions.WGPU.LogLevel;
@@ -28,27 +31,57 @@ public sealed partial class WebGpuContext : IDisposable
     private readonly ILogger<WebGpuContext> _logger;
 
 
-    public WebGpuContext(ILogger<WebGpuContext> logger)
+    public WebGpuContext(ILogger<WebGpuContext> logger, ILoggerFactory loggerFactory)
     {
         _logger = logger;
 
         Api = WebGPU.GetApi();
 
-        Instance = new(Api);
+        Instance = new(Api, loggerFactory.CreateLogger<Instance>());
     }
 
     [MemberNotNullWhen(true, nameof(Surface), nameof(Adapter), nameof(Device))]
     public async ValueTask<bool> Initialize(INativeView view, CancellationToken token = default)
     {
         if (IsInitialized) return true;
+        
+        Instance.SetLoggingCallback((type, message) =>
+        {
+            var fmtMessage = message.ReplaceLineEndings();
+
+            var lvl = type switch
+            {
+                LogLevel.Off => None,
+                LogLevel.Error => Error,
+                LogLevel.Warn => Warning,
+                LogLevel.Info => Information,
+                LogLevel.Debug => Debug,
+                LogLevel.Trace => Trace,
+                LogLevel.Force32 => None,
+                _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
+            };
+            
+            WebGpuLogCallback(lvl, fmtMessage);
+        });
+        
+        Instance.SetLogLevel(LogLevel.Trace);
+
+        foreach (var a in Instance.EnumerateAdapters())
+        {
+            a.GetProperties(out var p);
+                
+            WebGpuAdapterFound(p);
+        }
+        
 
         var surface = CreateSurfaceFromView(Instance, view);
 
-        var adapter =
-            await Instance.RequestAdapterAsync(surface, PowerPreference.HighPerformance, false, BackendType.Vulkan,
+        var adapter = await Instance.RequestAdapterAsync(surface, PowerPreference.HighPerformance, false, BackendType.Undefined,
                 token).WaitWhilePollingAsync(Instance, token);
 
         adapter.GetProperties(out var properties);
+        WebGpuAdapterSelected(properties);
+        
         adapter.GetLimits(out var limits);
 
         var device = await adapter.RequestDeviceAsync(limits: limits.Limits, label: "Device", nativeFeatures:
@@ -60,27 +93,6 @@ public sealed partial class WebGpuContext : IDisposable
         {
             WebGpuUncapturedError(type, message.ReplaceLineEndings());
         });
-
-        device.SetLoggingCallback((type, message) =>
-        {
-            var fmtMessage = message.ReplaceLineEndings();
-
-            var lvl = type switch
-            {
-                LogLevel.Off => Microsoft.Extensions.Logging.LogLevel.None,
-                LogLevel.Error => Microsoft.Extensions.Logging.LogLevel.Error,
-                LogLevel.Warn => Microsoft.Extensions.Logging.LogLevel.Warning,
-                LogLevel.Info => Microsoft.Extensions.Logging.LogLevel.Information,
-                LogLevel.Debug => Microsoft.Extensions.Logging.LogLevel.Debug,
-                LogLevel.Trace => Microsoft.Extensions.Logging.LogLevel.Trace,
-                LogLevel.Force32 => Microsoft.Extensions.Logging.LogLevel.None,
-                _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
-            };
-            
-            WebGpuLogCallback(lvl, fmtMessage);
-        });
-        
-        device.SetLogLevel(LogLevel.Trace);
 
         device.Queue.OnSubmittedWorkDone(WebGpuSubmittedWorkDone);
 
@@ -145,14 +157,18 @@ public sealed partial class WebGpuContext : IDisposable
         return surface;
     }
 
-    [LoggerMessage(Microsoft.Extensions.Logging.LogLevel.Error,
-        Message = "[WebGPU][{ErrorType}: {Message}]")]
+    [LoggerMessage(Error, Message = "[WebGPU][{ErrorType}: {Message}]")]
     private partial void WebGpuUncapturedError(ErrorType errorType, string message);
+
+    [LoggerMessage(Information, Message = "[WebGPU] Found adapter {AdapterProperties}")]
+    private partial void WebGpuAdapterFound(AdapterProperties adapterProperties);
+
+    [LoggerMessage(Information, "[WebGpu] Selected adapter {AdapterProperties}")]
+    private partial void WebGpuAdapterSelected(AdapterProperties adapterProperties);
     
     [LoggerMessage(Message = "[WebGPU] {Msg}")]
     private partial void WebGpuLogCallback(Microsoft.Extensions.Logging.LogLevel lvl, string msg);
 
-    [LoggerMessage(Microsoft.Extensions.Logging.LogLevel.Trace,
-        Message = "[WebGPU] Queue submit {Status}")]
+    [LoggerMessage(Trace, Message = "[WebGPU] Queue submit {Status}")]
     private partial void WebGpuSubmittedWorkDone(QueueWorkDoneStatus status);
 }

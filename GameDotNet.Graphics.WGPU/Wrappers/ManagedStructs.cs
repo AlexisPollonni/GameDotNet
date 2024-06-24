@@ -20,6 +20,16 @@ public delegate void CompilationInfoCallback(CompilationInfoRequestStatus status
 
 public delegate void QueueWorkDoneCallback(QueueWorkDoneStatus status);
 
+public readonly record struct AdapterProperties(
+    uint VendorId = 0,
+    string VendorName = "",
+    string Architecture = "",
+    uint DeviceId = 0,
+    string Name = "",
+    string DriverDescription = "",
+    AdapterType AdapterType = AdapterType.Unknown,
+    BackendType BackendType = BackendType.Undefined);
+
 public struct RequiredLimits
 {
     public Limits Limits;
