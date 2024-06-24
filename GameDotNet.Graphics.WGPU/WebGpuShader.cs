@@ -5,13 +5,14 @@ using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.WebGPU;
 using SpirvReflectSharp;
+using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using ShaderModule = GameDotNet.Graphics.WGPU.Wrappers.ShaderModule;
 using VertexBufferLayout = GameDotNet.Graphics.WGPU.Wrappers.VertexBufferLayout;
 using VertexState = GameDotNet.Graphics.WGPU.Wrappers.VertexState;
 
 namespace GameDotNet.Graphics.WGPU;
 
-public sealed class WebGpuShader : IShader
+public sealed partial class WebGpuShader : IShader
 {
     public ShaderDescription Description => Source.Description;
     public ShaderModule? Module { get; private set; }
@@ -42,23 +43,24 @@ public sealed class WebGpuShader : IShader
         }
         catch (SEHException e)
         {
-            _logger.LogError("Shader module {Name} compilation failed, check uncaptured output for more details", Source.Description.Name);
+            WebGpuCompileFailed(e, Source.Description.Name);
             return null;
         }
         
         token.ThrowIfCancellationRequested();
-        //TODO: add when compilatioh info is implemented in WGPU
-        /*module.GetCompilationInfo((status, messages) =>
-        {
-            token.ThrowIfCancellationRequested();
-            if (status is not CompilationInfoRequestStatus.Success)
-            {
-                _logger.LogError("Shader module {Name} compilation failed : {Message}", Source.Description.Name,string.Join(Environment.NewLine, messages.ToArray()));
-                return;
-            }
-            
-            tcs.SetResult();
-        });*/
+
+        //TODO: Add when compilation info is implemented in WGPU (maybe 2.22 silk.net)
+        // module.GetCompilationInfo((status, messages) =>
+        // {
+        //     token.ThrowIfCancellationRequested();
+        //     if (status is not CompilationInfoRequestStatus.Success)
+        //     {
+        //         _logger.LogError("Shader module {Name} compilation failed : {Message}", Source.Description.Name,string.Join(Environment.NewLine, messages.ToArray()));
+        //         return;
+        //     }
+        //     
+        //     tcs.SetResult();
+        // });
         tcs.SetResult();
         
         await tcs.Task;
@@ -95,7 +97,7 @@ public sealed class WebGpuShader : IShader
                      throw new
                          InvalidOperationException("Cannot create vertex state when shader module is null. Was it compiled?"),
             EntryPoint = entryPoint.Name,
-            BufferLayouts = new[] { vertBufferLayout }
+            BufferLayouts = [vertBufferLayout]
         };
     }
     
@@ -104,4 +106,8 @@ public sealed class WebGpuShader : IShader
         Module?.Dispose();
         _reflectModule.Dispose();
     }
+
+    [LoggerMessage(LogLevel.Error,
+        Message = "Shader module {Name} compilation failed, check un-captured output for more details")]
+    private partial void WebGpuCompileFailed(Exception ex, string name);
 }
