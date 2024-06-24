@@ -1,4 +1,3 @@
-using Silk.NET.WebGPU;
 using unsafe SamplerPtr = Silk.NET.WebGPU.Sampler*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

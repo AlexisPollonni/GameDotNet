@@ -1,4 +1,3 @@
-using Silk.NET.WebGPU;
 using unsafe PipelineLayoutPtr = Silk.NET.WebGPU.PipelineLayout*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

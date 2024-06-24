@@ -1,6 +1,4 @@
 using Silk.NET.SPIRV.Reflect;
-using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.WGPU;
 
 namespace GameDotNet.Graphics.WGPU.Extensions;
 

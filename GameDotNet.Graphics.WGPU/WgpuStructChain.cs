@@ -1,8 +1,5 @@
 ﻿using GameDotNet.Core.Tools.Containers;
-using GameDotNet.Core.Tools.Extensions;
 using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.WGPU;
 
 namespace GameDotNet.Graphics.WGPU;
 

@@ -1,4 +1,3 @@
-using Silk.NET.WebGPU;
 using unsafe CommandBufferPtr = Silk.NET.WebGPU.CommandBuffer*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

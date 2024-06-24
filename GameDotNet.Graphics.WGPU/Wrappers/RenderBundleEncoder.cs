@@ -1,6 +1,4 @@
-﻿using GameDotNet.Core.Tools.Extensions;
-using Silk.NET.WebGPU;
-using unsafe RenderBundleEncoderPtr = Silk.NET.WebGPU.RenderBundleEncoder*;
+﻿using unsafe RenderBundleEncoderPtr = Silk.NET.WebGPU.RenderBundleEncoder*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 

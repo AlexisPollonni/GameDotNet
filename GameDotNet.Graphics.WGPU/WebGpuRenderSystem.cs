@@ -5,7 +5,6 @@ using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Tools.Containers;
-using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
@@ -13,7 +12,6 @@ using GameDotNet.Management.ECS.Components;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
 using Serilog;
-using Silk.NET.WebGPU;
 
 namespace GameDotNet.Graphics.WGPU;
 

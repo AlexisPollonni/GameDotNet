@@ -1,6 +1,3 @@
-using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Extensions.WGPU;
-
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 
 public delegate void RequestAdapterCallback(RequestAdapterStatus status, Adapter adapter, string message);

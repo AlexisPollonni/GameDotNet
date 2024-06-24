@@ -1,5 +1,4 @@
 ﻿using System.Collections.Concurrent;
-using Silk.NET.WebGPU;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 

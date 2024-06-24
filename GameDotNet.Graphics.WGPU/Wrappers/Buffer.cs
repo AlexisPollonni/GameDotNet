@@ -1,5 +1,4 @@
 ﻿using ByteSizeLib;
-using Silk.NET.WebGPU;
 using unsafe BufferPtr = Silk.NET.WebGPU.Buffer*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

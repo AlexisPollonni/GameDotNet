@@ -1,4 +1,3 @@
-using Silk.NET.WebGPU;
 using unsafe RenderBundlePtr = Silk.NET.WebGPU.RenderBundle*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

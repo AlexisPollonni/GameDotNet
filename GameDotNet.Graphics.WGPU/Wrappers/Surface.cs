@@ -1,5 +1,4 @@
 ﻿using System.Drawing;
-using Silk.NET.WebGPU;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 

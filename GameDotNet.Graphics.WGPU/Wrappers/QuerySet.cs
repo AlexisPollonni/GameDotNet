@@ -1,4 +1,3 @@
-using Silk.NET.WebGPU;
 using unsafe QuerySetPtr = Silk.NET.WebGPU.QuerySet*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

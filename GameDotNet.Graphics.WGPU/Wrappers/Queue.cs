@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-using Silk.NET.WebGPU;
 using unsafe QueuePtr = Silk.NET.WebGPU.Queue*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

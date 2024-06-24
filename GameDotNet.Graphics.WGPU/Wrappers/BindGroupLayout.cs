@@ -1,6 +1,4 @@
-﻿using Silk.NET.WebGPU;
-
-namespace GameDotNet.Graphics.WGPU.Wrappers;
+﻿namespace GameDotNet.Graphics.WGPU.Wrappers;
 
 using unsafe BindGroupLayoutPtr = Silk.NET.WebGPU.BindGroupLayout*;
 

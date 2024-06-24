@@ -1,5 +1,4 @@
-﻿using Silk.NET.WebGPU;
-using unsafe ComputePassEncoderPtr = Silk.NET.WebGPU.ComputePassEncoder*;
+﻿using unsafe ComputePassEncoderPtr = Silk.NET.WebGPU.ComputePassEncoder*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 

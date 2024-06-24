@@ -2,8 +2,6 @@ using System.Runtime.InteropServices;
 using ByteSizeLib;
 using Collections.Pooled;
 using CommunityToolkit.HighPerformance;
-using GameDotNet.Core.Tools.Extensions;
-using Silk.NET.WebGPU;
 using Buffer = GameDotNet.Graphics.WGPU.Wrappers.Buffer;
 using Device = GameDotNet.Graphics.WGPU.Wrappers.Device;
 

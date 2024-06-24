@@ -1,6 +1,4 @@
-﻿using GameDotNet.Core.Tools.Extensions;
-using Silk.NET.WebGPU;
-using unsafe CommandEncoderPtr = Silk.NET.WebGPU.CommandEncoder*;
+﻿using unsafe CommandEncoderPtr = Silk.NET.WebGPU.CommandEncoder*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;
 

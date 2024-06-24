@@ -1,6 +1,4 @@
 using System.Collections.Frozen;
-using GameDotNet.Core.Tools.Extensions;
-using Silk.NET.WebGPU;
 using BindGroup = GameDotNet.Graphics.WGPU.Wrappers.BindGroup;
 using BindGroupEntry = GameDotNet.Graphics.WGPU.Wrappers.BindGroupEntry;
 using BindGroupLayout = GameDotNet.Graphics.WGPU.Wrappers.BindGroupLayout;
