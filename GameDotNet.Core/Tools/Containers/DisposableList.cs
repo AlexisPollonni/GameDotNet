@@ -26,7 +26,7 @@ namespace GameDotNet.Core.Tools.Containers
         /// An empty enumerator for the <see cref="GetEnumerator"/>
         /// method to avoid allocation on disposed or empty composites.
         /// </summary>
-        private static readonly CompositeEnumerator EmptyEnumerator = new(Array.Empty<IDisposable?>());
+        private static readonly CompositeEnumerator EmptyEnumerator = new([]);
 
         private readonly object _gate = new();
         private int _count;

@@ -43,7 +43,7 @@ public class WebGpuRenderer
         _logger = logger;
 
         _meshBufferCache = new();
-        _meshInstances = new();
+        _meshInstances = [];
     }
 
     public async ValueTask Initialize(CancellationToken token = default)
@@ -107,7 +107,7 @@ public class WebGpuRenderer
             TextureUsage.RenderAttachment, TextureDimension.Dimension2D,
             size,
             TextureFormat.Depth24Plus, 1, 1,
-            new[] { TextureFormat.Depth24Plus });
+            [TextureFormat.Depth24Plus]);
 
         _depthTextureView = _depthTexture.CreateTextureView("texture-view-depth", TextureFormat.Depth24Plus,
             TextureViewDimension.Dimension2D,
@@ -225,15 +225,15 @@ public class WebGpuRenderer
         {
             Module = frag.Module!,
             EntryPoint = "main",
-            ColorTargets = new[]
-            {
+            ColorTargets =
+            [
                 new ColorTargetState
                 {
                     BlendState = blendState,
                     Format = surfaceFormat,
                     WriteMask = ColorWriteMask.All
                 }
-            }
+            ]
         };
 
         var primState = new PrimitiveState

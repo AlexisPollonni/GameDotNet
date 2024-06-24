@@ -5,7 +5,7 @@ namespace GameDotNet.Graphics.WGPU;
 
 public sealed class WgpuStructChain : IDisposable
 {
-	private readonly List<GlobalMemory> _pointers = new();
+	private readonly List<GlobalMemory> _pointers = [];
 	private readonly DisposableList _trackedAllocatedData = new();
 
 	public unsafe ChainedStruct* Ptr { get; private set; } = null;

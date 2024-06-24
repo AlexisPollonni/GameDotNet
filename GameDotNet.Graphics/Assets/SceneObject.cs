@@ -22,7 +22,7 @@ public class SceneObject
         Transform = transform;
         Meshes = meshes;
         Metadata = metadata;
-        _children = new();
+        _children = [];
     }
 
     public SceneObject(string name = "")

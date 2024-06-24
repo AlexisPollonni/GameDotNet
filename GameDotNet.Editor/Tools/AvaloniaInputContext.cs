@@ -41,8 +41,8 @@ internal sealed class AvaloniaInputContext : IInputContext, IDisposable
     public AvaloniaInputContext(IInputElement element, EventFactory eventFactory)
     {
         _element = element;
-        _keysPressed = new();
-        _buttonPressed = new();
+        _keysPressed = [];
+        _buttonPressed = [];
         
         (_keyDown, KeyDown) = eventFactory.CreateEvent<KeyEvent>();
         (_keyUp, KeyUp) = eventFactory.CreateEvent<KeyEvent>();

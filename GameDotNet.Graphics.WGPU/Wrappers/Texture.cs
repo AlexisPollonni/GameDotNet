@@ -39,7 +39,7 @@ public sealed class Texture : IDisposable
         _handle = handle;
         _api = api;
 
-        _createdViews = new();
+        _createdViews = [];
 
         Label = SilkMarshal.PtrToString((nint)descriptor.Label);
         Usage = descriptor.Usage;
@@ -57,7 +57,7 @@ public sealed class Texture : IDisposable
         _handle = handle;
         _api = api;
 
-        _createdViews = new();
+        _createdViews = [];
 
         Usage = _api.TextureGetUsage(handle);
         Dimension = _api.TextureGetDimension(_handle);

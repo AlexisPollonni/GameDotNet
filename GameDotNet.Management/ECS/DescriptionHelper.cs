@@ -28,10 +28,10 @@ public class DescriptionBuilder
 
     public DescriptionBuilder()
     {
-        _all = new();
-        _any = new();
-        _none = new();
-        _exclusive = new();
+        _all = [];
+        _any = [];
+        _none = [];
+        _exclusive = [];
     }
 
     public static implicit operator QueryDescription(DescriptionBuilder b) => b.Build();

@@ -467,7 +467,7 @@ public sealed class Device : IDisposable
     }
 
     private static readonly List<Silk.NET.WebGPU.ErrorCallback> SErrorCallbacks =
-        new();
+        [];
 
     private readonly Wgpu? _wgpu;
 

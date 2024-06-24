@@ -28,7 +28,7 @@ public sealed class EntityTreeViewModel : ViewModelBase
     public EntityTreeViewModel(SceneManager sceneManager)
     {
         var cache = new SourceList<Entity>();
-        SelectedItems = new();
+        SelectedItems = [];
 
         this.WhenActivated(d =>
         {
