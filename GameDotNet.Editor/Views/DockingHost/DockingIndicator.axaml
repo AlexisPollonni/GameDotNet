@@ -1,0 +1,16 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:GameDotNet.Editor.Views.DockingHost">
+    <Design.PreviewWith>
+        <controls:DockingIndicator />
+    </Design.PreviewWith>
+
+    <Style Selector="controls|DockingIndicator">
+        <!-- Set Defaults -->
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Rectangle />
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>
