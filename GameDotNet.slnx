@@ -1,0 +1,30 @@
+﻿<Solution>
+  <Folder Name="/Generators/">
+    <Project Path="GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" />
+    <Project Path="GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.shproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path="global.json" />
+    <File Path="NuGet.Config" />
+    <File Path="README.md" />
+    <File Path=".gitmodules" />
+  </Folder>
+  <Folder Name="/ThirdParty/">
+    <Project Path="ThirdParty\Arch\src\Arch.SourceGen\Arch.SourceGen.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Arch\src\Arch\Arch.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
+  </Folder>
+  <Project Path="GameDotNet.Benchmarks\GameDotNet.Benchmarks.csproj" />
+  <Project Path="GameDotNet.Core\GameDotNet.Core.csproj" />
+  <Project Path="GameDotNet.Editor.AppHost\GameDotNet.Editor.AppHost.csproj" Type="Classic C#" />
+  <Project Path="GameDotNet.Editor\GameDotNet.Editor.csproj" />
+  <Project Path="GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" Type="Classic C#" />
+  <Project Path="GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
+  <Project Path="GameDotNet.Hosting\GameDotNet.Hosting.csproj" />
+  <Project Path="GameDotNet.Input\GameDotNet.Input.csproj" Type="Classic C#" />
+  <Project Path="GameDotNet.Management\GameDotNet.Management.csproj" />
+  <Project Path="GameDotNet.SampleGame\GameDotNet.SampleGame.csproj" />
+  <Project Path="GameDotNet.Tests\GameDotNet.Tests.csproj" />
+  <Project Path="ThirdParty\Aspire.ServiceDefaults\Aspire.ServiceDefaults.csproj" Type="Classic C#" />
+</Solution>
