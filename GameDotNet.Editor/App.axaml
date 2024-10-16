@@ -4,5 +4,6 @@
              x:Class="GameDotNet.Editor.App">
     <Application.Styles>
 		<styling:FluentAvaloniaTheme />
+		<StyleInclude Source="Views/DockingHost/DockingIndicator.axaml" />
     </Application.Styles>
 </Application>

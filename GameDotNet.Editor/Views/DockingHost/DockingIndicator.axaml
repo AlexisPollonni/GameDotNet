@@ -1,15 +1,79 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:controls="using:GameDotNet.Editor.Views.DockingHost">
+        xmlns:ctrls="using:GameDotNet.Editor.Views.DockingHost">
     <Design.PreviewWith>
-        <controls:DockingIndicator />
+        <ctrls:DockingIndicator />
     </Design.PreviewWith>
 
-    <Style Selector="controls|DockingIndicator">
+    <Style Selector="ctrls|DockingIndicator /template/ Border:pointerover">
+        <Setter Property="BorderThickness" Value="5"/>
+    </Style>
+
+    
+    <Style Selector="ctrls|DockingIndicator">
+        <Style.Resources>
+            <SolidColorBrush x:Key="IndicatorFillBrush"
+                             Opacity="0.7"
+                             Color="CornflowerBlue" />
+            <SolidColorBrush x:Key="IndicatorBorderBrush"
+                             Opacity="0.9"
+                             Color="CornflowerBlue" />
+        </Style.Resources>
+
+
         <!-- Set Defaults -->
         <Setter Property="Template">
             <ControlTemplate>
-                <Rectangle />
+                <Grid ColumnDefinitions="*,*,*" RowDefinitions="*,*,*"
+                      Width="150" Height="150">
+                    
+                    <!--Center-->
+                    <Border Grid.Row="1" Grid.Column="1" Margin="3"
+                            BorderThickness="2" CornerRadius="5"
+                            BorderBrush="{StaticResource IndicatorBorderBrush}"
+                            Background="{StaticResource IndicatorFillBrush}" />
+
+                    <!--Left-->
+                    <Border Grid.Row="1" Grid.Column="0" Margin="3"
+                            BorderThickness="2" CornerRadius="5"
+                            BorderBrush="{StaticResource IndicatorBorderBrush}">
+                        <Grid ColumnDefinitions="*,*">
+                            <Rectangle Fill="{StaticResource IndicatorFillBrush}" Grid.Column="0" />
+                            <Rectangle Grid.Column="1" Fill="Transparent"/>
+                        </Grid>
+                    </Border>
+
+                    <!--Top-->
+                    <Border Grid.Row="0" Grid.Column="1" Margin="3"
+                            BorderThickness="2" CornerRadius="5"
+                            BorderBrush="{StaticResource IndicatorBorderBrush}">
+                        <Grid RowDefinitions="*,*">
+                            <Rectangle Fill="{StaticResource IndicatorFillBrush}" Grid.Row="0" />
+                            <Rectangle Grid.Row="1" Fill="Transparent"/>
+                        </Grid>
+                    </Border>
+
+                    <!--Right-->
+                    <Border Grid.Row="1" Grid.Column="2" Margin="3"
+                            BorderThickness="2" CornerRadius="5"
+                            BorderBrush="{StaticResource IndicatorBorderBrush}">
+                        <Grid ColumnDefinitions="*,*">
+                            <Rectangle Fill="{StaticResource IndicatorFillBrush}" Grid.Column="1" />
+                            <Rectangle Grid.Column="0" Fill="Transparent"/>
+                        </Grid>
+                    </Border>
+
+                    <!--Bottom-->
+                    <Border Grid.Row="2" Grid.Column="1" Margin="3"
+                            BorderThickness="2" CornerRadius="5"
+                            BorderBrush="{StaticResource IndicatorBorderBrush}">
+                        <Grid RowDefinitions="*,*">
+                            <Rectangle Fill="{StaticResource IndicatorFillBrush}" Grid.Row="1" />
+                            <Rectangle Grid.Row="0" Fill="Transparent"/>
+                        </Grid>
+                    </Border>
+                </Grid>
+
             </ControlTemplate>
         </Setter>
     </Style>

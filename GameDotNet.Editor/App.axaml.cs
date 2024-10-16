@@ -9,6 +9,7 @@ using Avalonia.ReactiveUI;
 using GameDotNet.Editor.Tools;
 using GameDotNet.Editor.ViewModels;
 using GameDotNet.Editor.Views;
+using GameDotNet.Editor.Views.DockingHost;
 using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Hosting;
 using GameDotNet.Management;
@@ -60,7 +61,9 @@ public partial class App : Application
                 var s = host.Services;
                 Logger.Sink = s.GetRequiredService<ILogSink>();
                 DataTemplates.Add(s.GetRequiredService<ViewLocator>());
-                desktop.MainWindow.DataContext = s.GetRequiredService<MainWindowViewModel>();
+                //desktop.MainWindow.DataContext = s.GetRequiredService<MainWindowViewModel>();
+                
+                desktop.MainWindow.Content = new DockingIndicator();
                 
                 //TODO: Remove when asset manager and scene loading Ui is done
                 s.GetRequiredService<AssimpNetImporter>().LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
