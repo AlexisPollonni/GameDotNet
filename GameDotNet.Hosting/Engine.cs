@@ -15,6 +15,7 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
 using Serilog.Sinks.File.GZip;
+using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace GameDotNet.Hosting;
 
@@ -45,7 +46,7 @@ public sealed class Engine : IDisposable
         
         TaskScheduler.UnobservedTaskException += (sender, args) =>
         {
-            var l = (Microsoft.Extensions.Logging.ILogger)GlobalHost.Services.GetRequiredService(
+            var l = (ILogger)GlobalHost.Services.GetRequiredService(
                 typeof(ILogger<>).MakeGenericType(sender?.GetType() ?? typeof(Engine)));
 
             l.LogCritical(args.Exception, "Unobserved task exception triggered, is observed: {Observed}",
@@ -176,7 +177,7 @@ public sealed class Engine : IDisposable
                .AddSingleton(this)
                .AddCoreSystemServices();
 
-        builder.Logging.SetMinimumLevel(LogLevel.Trace);
+        builder.Logging.SetMinimumLevel(LogLevel.Information); //TODO: Configurable?
         
         return builder;
     }
