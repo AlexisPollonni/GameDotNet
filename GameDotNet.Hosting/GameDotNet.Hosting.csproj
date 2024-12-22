@@ -10,7 +10,7 @@
         <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.0" />
         <PackageReference Include="Serilog.Sinks.Async" Version="2.1.0" />
         <PackageReference Include="Serilog.Sinks.File.GZip" Version="1.0.2"/>
-        <PackageReference Include="Silk.NET.Windowing.Extensions" Version="2.21.0" />
+        <PackageReference Include="Silk.NET.Windowing.Extensions" Version="2.22.0" />
     </ItemGroup>
 
 </Project>
