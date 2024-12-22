@@ -3,7 +3,6 @@ using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
-using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry.Metrics;
 using Schedulers;
@@ -22,7 +21,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddCoreSystemServices(this IServiceCollection services)
     {
         services.AddMetrics()
-                .AddMessagePipe()
+                .AddMessagePipe().Services
                 .AddSingleton<JobScheduler>(_ => new(new()
                 {
                     MaxExpectedConcurrentJobs = 100,
