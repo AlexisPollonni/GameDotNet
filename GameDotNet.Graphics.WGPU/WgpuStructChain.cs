@@ -143,10 +143,11 @@ public sealed class WgpuStructChain : IDisposable
 	}
 	public WgpuStructChain AddRequiredLimitsExtras(NativeLimits limits = default)
 	{
+		var sLimits = new Silk.NET.WebGPU.Extensions.WGPU.NativeLimits(limits.MaxPushConstantSize);
 		AddStruct(new RequiredLimitsExtras
 		{
 			Chain = new() { SType = (SType)NativeSType.STypeRequiredLimitsExtras },
-			MaxPushConstantSize = limits.MaxPushConstantSize
+			Limits = sLimits
 		});
 
 		return this;
