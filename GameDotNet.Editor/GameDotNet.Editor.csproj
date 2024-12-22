@@ -27,8 +27,8 @@
         <PackageReference Include="Avalonia.ReactiveUI" Version="11.2.3" />
         <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
         <PackageReference Include="FluentAvaloniaUI" Version="2.2.0" />
-        <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="8.0.6" />
-        <PackageReference Include="ReactiveUI.Fody" Version="19.5.1" />
+        <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="9.0.0" />
+        <PackageReference Include="ReactiveUI.Fody" Version="19.5.41" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />

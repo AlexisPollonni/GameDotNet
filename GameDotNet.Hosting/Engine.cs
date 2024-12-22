@@ -158,8 +158,8 @@ public sealed class Engine : IDisposable
                                                                         rollOnFileSizeLimit: true,
                                                                         buffered: true);
                                                              },
-                                                             monitor,
-                                                             100000);
+                                                             monitor: monitor,
+                                                             bufferSize: 100000);
 
         //TODO: Separate monitor logger maybe?
         monitor.SelfLogFactory = () => Log.Logger;
