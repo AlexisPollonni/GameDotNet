@@ -1,6 +1,3 @@
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Avalonia.Logging;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,56 +7,53 @@ namespace GameDotNet.Editor.Tools;
 
 [SuppressMessage("ReSharper", "TemplateIsNotCompileTimeConstantProblem")]
 [SuppressMessage("Usage", "CA2254:Template should be a static expression")]
-public class MicrosoftLogSink : ILogSink
+public class MicrosoftLogSink(ILoggerFactory factory, LogEventLevel minimumLevel, IList<string>? areas = null)
+    : ILogSink
 {
-    private readonly ConcurrentDictionary<Type, ILogger> _loggerCache;
-    private readonly ILoggerFactory _factory;
-    private readonly ILogger _defaultLogger;
-    private readonly LogEventLevel _minimumLevel;
-    private readonly IList<string>? _areas;
-
-    public MicrosoftLogSink(ILoggerFactory factory, LogEventLevel minimumLevel, IList<string>? areas = null)
-    {
-        _factory = factory;
-        _minimumLevel = minimumLevel;
-
-        _loggerCache = new();
-        _defaultLogger = factory.CreateLogger("Avalonia");
-        _areas = areas?.Count > 0 ? areas : null;
-    }
+    private readonly ILogger _logger = factory.CreateLogger("Avalonia");
+    private readonly string[]? _areas = areas?.Count > 0 ? areas.ToArray() : null;
+    private readonly Lock _lock = new();
 
     public bool IsEnabled(LogEventLevel level, string area)
     {
-        return level >= _minimumLevel && (_areas?.Contains(area) ?? true);
+        return level >= minimumLevel && (_areas?.Contains(area) ?? true);
     }
 
     public void Log(LogEventLevel level, string area, object? source, string messageTemplate)
     {
-        if (IsEnabled(level, area))
+        if (!IsEnabled(level, area)) return;
+        
+        var l = LogEventLevelToMicrosoft(level);
+        
+        using var a = _logger.BeginScope(area);
+        if (source is null)
         {
-            // TODO: There might be a more efficient way to add the area string, to investigate
-            GetLoggerOrCreateFromType(source?.GetType()).Log(LogEventLevelToMicrosoft(level), $"[{{Area}}] {messageTemplate}", area);
+            _logger.Log(l, messageTemplate);
+            return;
         }
+            
+        using var s = _logger.BeginScope(source.GetType());
+            
+        _logger.Log(l, messageTemplate);
     }
+    
 
     public void Log(LogEventLevel level, string area, object? source, string messageTemplate, params object?[] propertyValues)
     {
-        if (IsEnabled(level, area))
-        {
-            GetLoggerOrCreateFromType(source?.GetType()).Log(LogEventLevelToMicrosoft(level), $"[{{Area}}] {messageTemplate}", area, propertyValues);
-        }
-    }
-
-    private ILogger GetLoggerOrCreateFromType(Type? type)
-    {
-        if (type is null) return _defaultLogger;
-        if(_loggerCache.TryGetValue(type, out var logger))
-            return logger;
+        if (!IsEnabled(level, area)) return;
+        var l = LogEventLevelToMicrosoft(level);
         
-        logger = _factory.CreateLogger(type);
-
-        _loggerCache[type] = logger;
-        return logger;
+        using var a = _logger.BeginScope(area);
+        
+        if (source is null)
+        {
+            _logger.Log(l, messageTemplate, propertyValues);
+            return;
+        }
+            
+        using var s = _logger.BeginScope(source.GetType());
+            
+        _logger.Log(l, messageTemplate, propertyValues);
     }
 
     private static LogLevel LogEventLevelToMicrosoft(LogEventLevel lvl) =>

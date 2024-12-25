@@ -1,4 +1,3 @@
-using System;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -36,7 +35,7 @@ public partial class App : Application
         Engine.Builder.Services
             .AddEngineFileLogger("GameDotNet-Editor")
             .AddEngineInstrumentation()
-            .AddAvaloniaLogger(LogEventLevel.Debug, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
+            .AddAvaloniaLogger(LogEventLevel.Warning, LogArea.Property, LogArea.Control, LogArea.Visual, LogArea.Layout, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
             .AddSystem<EditorUiUpdateSystem>()
             .AddTransient<ViewLocator>()
             .AddTransient<WebGpuViewModel>()
