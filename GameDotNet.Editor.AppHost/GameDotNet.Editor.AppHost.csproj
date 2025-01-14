@@ -15,6 +15,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\GameDotNet.Editor\GameDotNet.Editor.csproj" />
+      <ProjectReference Include="..\GameDotNet.SampleGame\GameDotNet.SampleGame.csproj" />
     </ItemGroup>
 
 </Project>

@@ -11,10 +11,19 @@
     <File Path="Directory.Packages.props" />
   </Folder>
   <Folder Name="/ThirdParty/">
-    <Project Path="ThirdParty\Arch\src\Arch.SourceGen\Arch.SourceGen.csproj" Type="Classic C#" />
-    <Project Path="ThirdParty\Arch\src\Arch\Arch.csproj" Type="Classic C#" />
     <Project Path="ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" Type="Classic C#" />
     <Project Path="ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
+  </Folder>
+  <Folder Name="/ThirdParty/Arch/">
+    <Project Path="ThirdParty\Arch\src\Arch.SourceGen\Arch.SourceGen.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Arch\src\Arch\Arch.csproj" Type="Classic C#" />
+  </Folder>
+  <Folder Name="/ThirdParty/Slang.Net/">
+    <Project Path="ThirdParty\Slang.Net\SlangNet.Bindings\SlangNet.Bindings.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Slang.Net\SlangNet.Native\SlangNet.Native.linux-x64\SlangNet.Native.linux-x64.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Slang.Net\SlangNet.Native\SlangNet.Native.win-x64\SlangNet.Native.win-x64.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Slang.Net\SlangNet.Pretty.SourceGenerator\SlangNet.Pretty.SourceGenerator.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Slang.Net\SlangNet.Pretty\SlangNet.Pretty.csproj" Type="Classic C#" />
   </Folder>
   <Project Path="GameDotNet.Benchmarks\GameDotNet.Benchmarks.csproj" />
   <Project Path="GameDotNet.Core\GameDotNet.Core.csproj" />

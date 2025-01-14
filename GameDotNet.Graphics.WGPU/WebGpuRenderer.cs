@@ -2,11 +2,9 @@ using System.Drawing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Physics.Components;
-using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Management;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Maths;
-using Silk.NET.WebGPU;
 using Buffer = GameDotNet.Graphics.WGPU.Wrappers.Buffer;
 using ColorTargetState = GameDotNet.Graphics.WGPU.Wrappers.ColorTargetState;
 using FragmentState = GameDotNet.Graphics.WGPU.Wrappers.FragmentState;
@@ -24,7 +22,7 @@ public class WebGpuRenderer
 
 
     private readonly WebGpuContext _context;
-    private readonly ShaderCompiler _compiler;
+    private readonly SlangShaderCompiler _compiler;
     private readonly ILogger<WebGpuRenderer> _logger;
     private RenderPipeline _meshPipeline;
 
@@ -36,7 +34,7 @@ public class WebGpuRenderer
     private TextureView? _depthTextureView;
     private ShaderParameters? _shaderParams;
 
-    public WebGpuRenderer(WebGpuContext context, ShaderCompiler compiler, ILogger<WebGpuRenderer> logger)
+    public WebGpuRenderer(WebGpuContext context, SlangShaderCompiler compiler, ILogger<WebGpuRenderer> logger)
     {
         _context = context;
         _compiler = compiler;

@@ -6,13 +6,15 @@
 
     <ItemGroup>
         <PackageReference Include="Silk.NET.Input" Version="2.22.0" />
-        <PackageReference Include="Vortice.ShaderCompiler" Version="1.7.2" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
         <ProjectReference Include="..\GameDotNet.Input\GameDotNet.Input.csproj" />
         <ProjectReference Include="..\ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
+        <ProjectReference Include="..\ThirdParty\Slang.Net\SlangNet.Pretty\SlangNet.Pretty.csproj" />
     </ItemGroup>
+
+    <Import Project="../ThirdParty/Slang.Net/SlangNet.Native/HackyRuntimeCopy.targets"/>
 
 </Project>

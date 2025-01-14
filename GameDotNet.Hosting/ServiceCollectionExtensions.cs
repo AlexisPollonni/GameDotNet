@@ -30,7 +30,7 @@ public static class ServiceCollectionExtensions
                 .AddSingleton<Universe>()
                 .AddSingleton<SceneManager>()
                 .AddTransient<AssimpNetImporter>()
-                .AddSingleton<ShaderCompiler>()
+                .AddSingleton<SlangShaderCompiler>()
                 .AddSingleton<WebGpuContext>()
                 .AddSingleton<NativeViewManager>()
                 .AddSingleton<WebGpuRenderer>()
