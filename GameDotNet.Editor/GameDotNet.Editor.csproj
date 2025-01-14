@@ -30,6 +30,7 @@
         <PackageReference Include="Microsoft.Extensions.ObjectPool" Version="9.0.0" />
         <PackageReference Include="ReactiveUI.Fody" Version="19.5.41" />
         <PackageReference Include="Silk.NET.Windowing.Sdl" Version="2.22.0" />
+
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />
