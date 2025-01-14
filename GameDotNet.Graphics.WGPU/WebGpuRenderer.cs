@@ -11,6 +11,7 @@ using FragmentState = GameDotNet.Graphics.WGPU.Wrappers.FragmentState;
 using RenderPassColorAttachment = GameDotNet.Graphics.WGPU.Wrappers.RenderPassColorAttachment;
 using RenderPassDepthStencilAttachment = GameDotNet.Graphics.WGPU.Wrappers.RenderPassDepthStencilAttachment;
 using RenderPipeline = GameDotNet.Graphics.WGPU.Wrappers.RenderPipeline;
+using ShaderStage = GameDotNet.Graphics.Abstractions.ShaderStage;
 using Texture = GameDotNet.Graphics.WGPU.Wrappers.Texture;
 using TextureView = GameDotNet.Graphics.WGPU.Wrappers.TextureView;
 
@@ -48,8 +49,12 @@ public class WebGpuRenderer
     {
         if (!_context.IsInitialized) throw new InvalidOperationException("Context not initialized");
 
-        var vert = await _compiler.TranslateGlsl("Assets/Mesh.vert", "Assets/", token);
-        var frag = await _compiler.TranslateGlsl("Assets/Mesh.frag", "Assets/", token);
+        _compiler.LoadModule("Mesh");
+
+        var shaders = _compiler.CompileAndGetShaderCode("Mesh");
+        
+        var vert = shaders.First(s => s.Description.Stage is ShaderStage.Vertex);
+        var frag = shaders.First(s => s.Description.Stage is ShaderStage.Fragment);
 
         var vertShader = new WebGpuShader(_context, vert, _logger);
         var fragShader = new WebGpuShader(_context, frag, _logger);
