@@ -4,6 +4,7 @@ using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
 using Schedulers;
 using Serilog;
@@ -30,7 +31,7 @@ public static class ServiceCollectionExtensions
                 .AddSingleton<Universe>()
                 .AddSingleton<SceneManager>()
                 .AddTransient<AssimpNetImporter>()
-                .AddSingleton<SlangShaderCompiler>()
+                .AddSingleton<SlangShaderCompiler>(p => new(p.GetRequiredService<ILogger<SlangShaderCompiler>>(), ["Assets/"]))
                 .AddSingleton<WebGpuContext>()
                 .AddSingleton<NativeViewManager>()
                 .AddSingleton<WebGpuRenderer>()
