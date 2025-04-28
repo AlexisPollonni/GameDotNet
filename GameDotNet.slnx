@@ -20,6 +20,7 @@
   </Folder>
   <Folder Name="/ThirdParty/Slang.Net/">
     <Project Path="ThirdParty\Slang.Net\SlangNet.Bindings\SlangNet.Bindings.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Slang.Net\SlangNet.ComWrappers\SlangNet.ComWrappers.csproj" Type="Classic C#" />
     <Project Path="ThirdParty\Slang.Net\SlangNet.Native\SlangNet.Native.linux-x64\SlangNet.Native.linux-x64.csproj" Type="Classic C#" />
     <Project Path="ThirdParty\Slang.Net\SlangNet.Native\SlangNet.Native.win-x64\SlangNet.Native.win-x64.csproj" Type="Classic C#" />
     <Project Path="ThirdParty\Slang.Net\SlangNet.Pretty.SourceGenerator\SlangNet.Pretty.SourceGenerator.csproj" Type="Classic C#" />
