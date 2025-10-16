@@ -1,4 +1,4 @@
-﻿<Solution>
+<Solution>
   <Folder Name="/Generators/">
     <Project Path="GameDotNet.Generators.Shader\GameDotNet.Generators.Shader.csproj" />
     <Project Path="GameDotNet.Generators.Shared\GameDotNet.Generators.Shared.shproj" />
@@ -8,34 +8,26 @@
     <File Path="NuGet.Config" />
     <File Path="README.md" />
     <File Path=".gitmodules" />
-    <File Path="Directory.Packages.props" />
+    <File Path=".github\dependabot.yml" />
   </Folder>
   <Folder Name="/ThirdParty/">
-    <Project Path="ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
     <Project Path="ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
   </Folder>
   <Folder Name="/ThirdParty/Arch/">
-    <Project Path="ThirdParty\Arch\src\Arch.SourceGen\Arch.SourceGen.csproj" Type="Classic C#" />
-    <Project Path="ThirdParty\Arch\src\Arch\Arch.csproj" Type="Classic C#" />
-  </Folder>
-  <Folder Name="/ThirdParty/Slang.Net/">
-    <Project Path="ThirdParty\Slang.Net\SlangNet.Bindings\SlangNet.Bindings.csproj" Type="Classic C#" />
-    <Project Path="ThirdParty\Slang.Net\SlangNet.ComWrappers\SlangNet.ComWrappers.csproj" Type="Classic C#" />
-    <Project Path="ThirdParty\Slang.Net\SlangNet.Native\SlangNet.Native.linux-x64\SlangNet.Native.linux-x64.csproj" Type="Classic C#" />
-    <Project Path="ThirdParty\Slang.Net\SlangNet.Native\SlangNet.Native.win-x64\SlangNet.Native.win-x64.csproj" Type="Classic C#" />
-    <Project Path="ThirdParty\Slang.Net\SlangNet.Pretty.SourceGenerator\SlangNet.Pretty.SourceGenerator.csproj" Type="Classic C#" />
-    <Project Path="ThirdParty\Slang.Net\SlangNet.Pretty\SlangNet.Pretty.csproj" Type="Classic C#" />
+    <Project Path="ThirdParty\Arch\src\Arch.SourceGen\Arch.SourceGen.csproj" />
+    <Project Path="ThirdParty\Arch\src\Arch\Arch.csproj" />
   </Folder>
   <Project Path="GameDotNet.Benchmarks\GameDotNet.Benchmarks.csproj" />
   <Project Path="GameDotNet.Core\GameDotNet.Core.csproj" />
-  <Project Path="GameDotNet.Editor.AppHost\GameDotNet.Editor.AppHost.csproj" Type="Classic C#" />
+  <Project Path="GameDotNet.Editor.AppHost\GameDotNet.Editor.AppHost.csproj" />
   <Project Path="GameDotNet.Editor\GameDotNet.Editor.csproj" />
-  <Project Path="GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" Type="Classic C#" />
+  <Project Path="GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />
   <Project Path="GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
   <Project Path="GameDotNet.Hosting\GameDotNet.Hosting.csproj" />
-  <Project Path="GameDotNet.Input\GameDotNet.Input.csproj" Type="Classic C#" />
+  <Project Path="GameDotNet.Input\GameDotNet.Input.csproj" />
   <Project Path="GameDotNet.Management\GameDotNet.Management.csproj" />
   <Project Path="GameDotNet.SampleGame\GameDotNet.SampleGame.csproj" />
   <Project Path="GameDotNet.Tests\GameDotNet.Tests.csproj" />
-  <Project Path="ThirdParty\Aspire.ServiceDefaults\Aspire.ServiceDefaults.csproj" Type="Classic C#" />
+  <Project Path="ThirdParty\Aspire.ServiceDefaults\Aspire.ServiceDefaults.csproj" />
 </Solution>

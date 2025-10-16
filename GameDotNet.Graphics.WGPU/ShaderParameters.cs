@@ -6,6 +6,7 @@ using Buffer = GameDotNet.Graphics.WGPU.Wrappers.Buffer;
 using Device = GameDotNet.Graphics.WGPU.Wrappers.Device;
 using PipelineLayout = GameDotNet.Graphics.WGPU.Wrappers.PipelineLayout;
 using RenderPassEncoder = GameDotNet.Graphics.WGPU.Wrappers.RenderPassEncoder;
+using ShaderStage = GameDotNet.Graphics.Abstractions.ShaderStage;
 
 namespace GameDotNet.Graphics.WGPU;
 
@@ -199,11 +200,11 @@ public sealed class ShaderParameters : IDisposable
                     return new BindGroupLayoutEntry
                     {
                         Binding = entry.Binding,
-                        Visibility = entry.Stage switch
+                        Visibility = entry.Stage.Value switch
                         {
-                            Abstractions.ShaderStage.Vertex => ShaderStage.Vertex,
-                            Abstractions.ShaderStage.Fragment => ShaderStage.Fragment,
-                            Abstractions.ShaderStage.Compute => ShaderStage.Compute,
+                            ShaderStage.VertexValue => Silk.NET.WebGPU.ShaderStage.Vertex,
+                            ShaderStage.FragmentValue => Silk.NET.WebGPU.ShaderStage.Fragment,
+                            ShaderStage.ComputeValue => Silk.NET.WebGPU.ShaderStage.Compute,
                             _ => throw new ArgumentOutOfRangeException()
                         },
                         Buffer = GetBuffer(entry)
