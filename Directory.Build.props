@@ -4,5 +4,10 @@
         <LangVersion>preview</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        
+        <UseArtifactsOutput>true</UseArtifactsOutput>
+    </PropertyGroup>
+    <PropertyGroup Condition="$(ArtifactsPath) == ''">
+        <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
     </PropertyGroup>
 </Project>
