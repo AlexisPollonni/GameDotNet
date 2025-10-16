@@ -1,18 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Intellenum" Version="1.0.6" />
-        <PackageReference Include="ShaderSlang.Net" Version="0.1.0-305" />
-        <PackageReference Include="Silk.NET.Input" Version="2.22.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
-        <ProjectReference Include="..\GameDotNet.Input\GameDotNet.Input.csproj" />
-        <ProjectReference Include="..\ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
-    </ItemGroup>
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Intellenum" />
+    <PackageReference Include="ShaderSlang.Net" />
+    <PackageReference Include="Silk.NET.Input" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
+    <ProjectReference Include="..\GameDotNet.Input\GameDotNet.Input.csproj" />
+    <ProjectReference Include="..\ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
+  </ItemGroup>
 </Project>

@@ -1,16 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
-      <ProjectReference Include="..\GameDotNet.Management\GameDotNet.Management.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.22.0" />
-      <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.22.0" />
-    </ItemGroup>
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
+    <ProjectReference Include="..\GameDotNet.Management\GameDotNet.Management.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
+    <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" />
+  </ItemGroup>
 </Project>

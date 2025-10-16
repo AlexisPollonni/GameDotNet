@@ -1,12 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    
-    <ItemGroup>
-        <PackageReference Include="MessagePipe" Version="1.8.1" />
-        <PackageReference Include="Silk.NET.Input.Common" Version="2.22.0" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
-    </ItemGroup>
-
+  <ItemGroup>
+    <PackageReference Include="MessagePipe" />
+    <PackageReference Include="Silk.NET.Input.Common" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
+  </ItemGroup>
 </Project>

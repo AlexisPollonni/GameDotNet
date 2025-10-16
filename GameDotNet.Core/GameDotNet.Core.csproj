@@ -1,34 +1,29 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-
-    <PropertyGroup>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="Arch-Events" Version="2.1.0" />
-        <PackageReference Include="ByteSize" Version="2.1.2" />
-        <PackageReference Include="dotVariant" Version="0.5.3"/>
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.4" />
-        <PackageReference Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2"/>
-        <PackageReference Include="Serilog.Extensions.Logging" Version="9.0.1" />
-        <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0" />
-        <PackageReference Include="Serilog" Version="4.2.0" />
-        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
-        <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
-        <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
-        <PackageReference Include="Silk.NET.Core" Version="2.22.0" />
-        <PackageReference Include="System.Reactive.Interfaces" Version="6.0.1" />
-        <PackageReference Include="ValueTaskSupplement" Version="1.1.0" />
-        <PackageReference Include="Vogen" Version="7.0.3" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Folder Include="Physics\" />
-        <Folder Include="Tools\Io\" />
-    </ItemGroup>
-
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Arch-Events" />
+    <PackageReference Include="ByteSize" />
+    <PackageReference Include="dotVariant" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Toolkit.HighPerformance" />
+    <PackageReference Include="Serilog.Extensions.Logging" />
+    <PackageReference Include="Serilog.Formatting.Compact" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.Debug" />
+    <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Silk.NET.Core" />
+    <PackageReference Include="System.Reactive.Interfaces" />
+    <PackageReference Include="ValueTaskSupplement" />
+    <PackageReference Include="Vogen" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Physics\" />
+    <Folder Include="Tools\Io\" />
+  </ItemGroup>
 </Project>
