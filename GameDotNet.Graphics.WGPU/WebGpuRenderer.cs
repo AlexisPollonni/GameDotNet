@@ -23,7 +23,7 @@ public class WebGpuRenderer
 
 
     private readonly WebGpuContext _context;
-    private readonly SlangShaderCompiler _compiler;
+    private readonly SlangContext _compiler;
     private readonly ILogger<WebGpuRenderer> _logger;
     private RenderPipeline _meshPipeline;
 
@@ -35,7 +35,7 @@ public class WebGpuRenderer
     private TextureView? _depthTextureView;
     private ShaderParameters? _shaderParams;
 
-    public WebGpuRenderer(WebGpuContext context, SlangShaderCompiler compiler, ILogger<WebGpuRenderer> logger)
+    public WebGpuRenderer(WebGpuContext context, SlangContext compiler, ILogger<WebGpuRenderer> logger)
     {
         _context = context;
         _compiler = compiler;
@@ -53,8 +53,8 @@ public class WebGpuRenderer
 
         var shaders = _compiler.CompileAndGetShaderCode("Mesh");
         
-        var vert = shaders.First(s => s.Description.Stage is ShaderStage.Vertex);
-        var frag = shaders.First(s => s.Description.Stage is ShaderStage.Fragment);
+        var vert = shaders.First(s => s.Description.Stage == ShaderStage.Vertex);
+        var frag = shaders.First(s => s.Description.Stage == ShaderStage.Fragment);
 
         var vertShader = new WebGpuShader(_context, vert, _logger);
         var fragShader = new WebGpuShader(_context, frag, _logger);

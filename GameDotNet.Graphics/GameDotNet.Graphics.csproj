@@ -5,16 +5,14 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Intellenum" Version="1.0.6" />
+        <PackageReference Include="ShaderSlang.Net" Version="0.1.0-305" />
         <PackageReference Include="Silk.NET.Input" Version="2.22.0" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
+        <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
         <ProjectReference Include="..\GameDotNet.Input\GameDotNet.Input.csproj" />
         <ProjectReference Include="..\ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
-        <ProjectReference Include="..\ThirdParty\Slang.Net\SlangNet.Pretty\SlangNet.Pretty.csproj" />
     </ItemGroup>
-
-    <Import Project="../ThirdParty/Slang.Net/SlangNet.Native/HackyRuntimeCopy.targets"/>
-
 </Project>

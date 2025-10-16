@@ -23,10 +23,12 @@
         <PackageReference Include="Silk.NET.Core" Version="2.22.0" />
         <PackageReference Include="System.Reactive.Interfaces" Version="6.0.1" />
         <PackageReference Include="ValueTaskSupplement" Version="1.1.0" />
+        <PackageReference Include="Vogen" Version="7.0.3" />
     </ItemGroup>
 
     <ItemGroup>
         <Folder Include="Physics\" />
+        <Folder Include="Tools\Io\" />
     </ItemGroup>
 
 </Project>
