@@ -5,6 +5,3 @@
 [submodule "ThirdParty/Assimp.Net"]
 	path = ThirdParty/Assimp.Net
 	url = https://github.com/AlexisPollonni/Assimp.Net.git
-[submodule "ThirdParty/Slang.Net"]
-	path = ThirdParty/Slang.Net
-	url = https://github.com/AlexisPollonni/Slang.Net.git
