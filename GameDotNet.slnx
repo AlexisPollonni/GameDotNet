@@ -15,10 +15,6 @@
     <Project Path="ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
     <Project Path="ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
   </Folder>
-  <Folder Name="/ThirdParty/Arch/">
-    <Project Path="ThirdParty\Arch\src\Arch.SourceGen\Arch.SourceGen.csproj" />
-    <Project Path="ThirdParty\Arch\src\Arch\Arch.csproj" />
-  </Folder>
   <Project Path="GameDotNet.Benchmarks\GameDotNet.Benchmarks.csproj" />
   <Project Path="GameDotNet.Core\GameDotNet.Core.csproj" />
   <Project Path="GameDotNet.Editor.AppHost\GameDotNet.Editor.AppHost.csproj" />
