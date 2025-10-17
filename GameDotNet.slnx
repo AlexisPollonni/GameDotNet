@@ -11,10 +11,7 @@
     <File Path=".github\dependabot.yml" />
     <File Path="Directory.Build.props" />
   </Folder>
-  <Folder Name="/ThirdParty/">
-    <Project Path="ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
-    <Project Path="ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
-  </Folder>
+  <Folder Name="/ThirdParty/" />
   <Project Path="GameDotNet.Benchmarks\GameDotNet.Benchmarks.csproj" />
   <Project Path="GameDotNet.Core\GameDotNet.Core.csproj" />
   <Project Path="GameDotNet.Editor.AppHost\GameDotNet.Editor.AppHost.csproj" />

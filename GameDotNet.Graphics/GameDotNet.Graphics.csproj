@@ -3,6 +3,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="AssimpNetter" />
     <PackageReference Include="Intellenum" />
     <PackageReference Include="ShaderSlang.Net" />
     <PackageReference Include="Silk.NET.Input" />
@@ -10,6 +11,5 @@
   <ItemGroup>
     <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
     <ProjectReference Include="..\GameDotNet.Input\GameDotNet.Input.csproj" />
-    <ProjectReference Include="..\ThirdParty\Assimp.Net\AssimpNet\AssimpNet.csproj" />
   </ItemGroup>
 </Project>

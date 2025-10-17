@@ -2,9 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Numerics;
 using Assimp;
-using Assimp.Unmanaged;
 using CommunityToolkit.HighPerformance;
-using Silk.NET.Assimp;
+using dotVariant;
 using Metadata = Assimp.Metadata;
 using Node = Assimp.Node;
 using PostProcessPreset = Assimp.PostProcessPreset;
@@ -40,7 +39,7 @@ public sealed class AssimpNetImporter : IDisposable
     {
         var vertPositions = mesh.Vertices.AsSpan();
         var normals = mesh.Normals.AsSpan();
-        
+
         //Choose first color channel
         var colors = ReadOnlySpan<Vector4>.Empty;
         if (mesh.VertexColorChannelCount is not 0)
@@ -50,7 +49,7 @@ public sealed class AssimpNetImporter : IDisposable
                 if (!mesh.HasVertexColors(i)) continue;
 
                 //TODO: Colors might be wrong layout to render, here its RGBA
-                var colorSet = mesh.VertexColorChannels[i].AsSpan().Cast<Color4D, Vector4>();
+                var colorSet = mesh.VertexColorChannels[i].AsSpan();
 
                 colors = colorSet;
                 break;
@@ -65,10 +64,12 @@ public sealed class AssimpNetImporter : IDisposable
             for (var i = 0; i < vertPositions.Length; i++)
                 vertices[i] = new(vertPositions[i], normals[i], colors[i]);
 
-        return new(vertices, mesh.GetUnsignedIndices());
+        return new(vertices, mesh.GetUnsignedIndices().ToArray());
     }
 
-    private static void CopyNodesWithMeshes(Node node, SceneObject targetParent, in Matrix4x4? accTransform,
+    private static void CopyNodesWithMeshes(Node node,
+                                            SceneObject targetParent,
+                                            in Matrix4x4? accTransform,
                                             IReadOnlyList<Mesh> loadedMeshes)
     {
         SceneObject parent;
@@ -97,16 +98,14 @@ public sealed class AssimpNetImporter : IDisposable
         }
     }
 
-    [SuppressMessage("ReSharper", "PossiblyImpureMethodCallOnReadonlyVariable")]
     private static SceneObject CreateObjectFromNode(Node node, in Matrix4x4 transform, IReadOnlyList<Mesh> loadedMeshes)
     {
         var metadata = GetMetadata(node.Metadata);
-        
-        // We use assimp's function and not the system ones because assimp matrixes are different
-        AssimpLibrary.Instance.DecomposeMatrix(transform, out var scale, out var rot, out var pos);
 
-        return new(node.Name, new(pos, rot, scale),
-                   GetMeshesFromNode(node, loadedMeshes), metadata);
+
+        Matrix4x4.Decompose(transform, out var scale, out var rot, out var pos);
+
+        return new(node.Name, new(pos, rot, scale), GetMeshesFromNode(node, loadedMeshes), metadata);
     }
 
     private static IReadOnlyList<Mesh> GetMeshesFromNode(Node node, IReadOnlyList<Mesh> loadedMeshes)
@@ -126,15 +125,16 @@ public sealed class AssimpNetImporter : IDisposable
         {
             MetadataProperty prop = entry.DataType switch
             {
-                MetadataType.Bool => new((bool)entry.Data),
-                MetadataType.Int32 => new((int)entry.Data),
-                MetadataType.Uint64 => new((ulong)entry.Data),
-                MetadataType.Float => new((float)entry.Data),
-                MetadataType.Double => new((double)entry.Data),
-                MetadataType.Aistring => new((string)entry.Data),
-                MetadataType.Aivector3D => new((Vector3)entry.Data),
-                _ => throw new ArgumentOutOfRangeException(nameof(entry.DataType),
-                                                           "Metadata entry type is out of range")
+                MetaDataType.Bool => new(entry.DataAs<bool>().GetValueOrDefault()),
+                MetaDataType.Int32 => new(entry.DataAs<int>().GetValueOrDefault()),
+                MetaDataType.Int64 => new(entry.DataAs<long>().GetValueOrDefault()),
+                MetaDataType.UInt32 => new(entry.DataAs<uint>().GetValueOrDefault()),
+                MetaDataType.UInt64 => new(entry.DataAs<ulong>().GetValueOrDefault()),
+                MetaDataType.Float => new(entry.DataAs<float>().GetValueOrDefault()),
+                MetaDataType.Double => new(entry.DataAs<double>().GetValueOrDefault()),
+                MetaDataType.String => new(entry.Data as string ?? string.Empty),
+                MetaDataType.Vector3 => new(entry.DataAs<Vector3>().GetValueOrDefault()),
+                _ => throw new ArgumentOutOfRangeException(nameof(entry.DataType), "Metadata entry type is out of range")
             };
 
             result.Add(key, prop);
@@ -144,6 +144,18 @@ public sealed class AssimpNetImporter : IDisposable
     }
 }
 
-internal static class AssimpEx
+[Variant]
+[SuppressMessage("ReSharper", "PartialMethodWithSinglePart")]
+public partial class MetadataProperty
 {
+    static partial void VariantOf(bool a,
+                                  int b,
+                                  long c,
+                                  uint d,
+                                  ulong e,
+                                  float f,
+                                  double g,
+                                  string h,
+                                  Vector3 i,
+                                  Dictionary<string, MetadataProperty> j);
 }
