@@ -3,10 +3,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ThirdParty\SpirVReflectSharp\SpirvReflectSharp.csproj" />
-  </ItemGroup>
-  <ItemGroup>
     <PackageReference Include="Arch-Events" />
+    <PackageReference Include="Arch.Relationships" />
     <PackageReference Include="ByteSize" />
     <PackageReference Include="dotVariant" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
@@ -17,6 +15,7 @@
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.Debug" />
     <PackageReference Include="Serilog.Sinks.File" />
+    <PackageReference Include="Shouldly" />
     <PackageReference Include="Silk.NET.Core" />
     <PackageReference Include="System.Reactive.Interfaces" />
     <PackageReference Include="ValueTaskSupplement" />
