@@ -30,6 +30,7 @@
     <PackageReference Include="Microsoft.Extensions.ObjectPool" />
     <PackageReference Include="ReactiveUI.Fody" />
     <PackageReference Include="Silk.NET.Windowing.Sdl" />
+    <PackageReference Include="Simple.Avalonia.Hosting" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />

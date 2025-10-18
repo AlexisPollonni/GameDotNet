@@ -1,9 +1,5 @@
-using System.Diagnostics;
 using System.IO.Compression;
-using System.Reactive;
 using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using GameDotNet.Core;
 using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Management.ECS;
@@ -15,119 +11,55 @@ using Serilog;
 using Serilog.Events;
 using Serilog.Formatting.Compact;
 using Serilog.Sinks.File.GZip;
-using ILogger = Microsoft.Extensions.Logging.ILogger;
 
 namespace GameDotNet.Hosting;
 
-public sealed class Engine : IDisposable
+public sealed class Engine
 {
-    public IScheduler MainScheduler { get; }
-    public HostApplicationBuilder Builder { get; }
-    public IHost? GlobalHost { get; private set; }
+    public string ApplicationName { get; }
 
-    public IObservable<IHost> OnInitialized => _initSubject.ObserveOn(MainScheduler);
-
-    private bool _initialized;
-    private bool _running;
-    private readonly AsyncSubject<IHost> _initSubject;
-    private AsyncSubject<Unit>? _update;
-
-    public Engine(IScheduler? mainScheduler = null)
+    public static HostApplicationBuilder CreateBuilder(string[] args, string appName)
     {
-        _initSubject = new();
-        MainScheduler = mainScheduler ?? new EventLoopScheduler();
-        Builder = CreateHostBuilder();
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            Args = Environment.GetCommandLineArgs(),
+#if Debug
+            EnvironmentName = Environments.Development
+#endif
+            ApplicationName = appName
+        });
+
+        builder.AddServiceDefaults();
+
+        builder.Services.AddSingleton<Engine>().AddCoreSystemServices();
+
+        return builder;
     }
 
-    private async Task Initialize(CancellationToken token = default)
+    public Engine(IHostEnvironment hostEnvironment, ILogger<Engine> logger, IServiceProvider provider)
     {
-        GlobalHost = Builder.Build();
-        var logger = GlobalHost.Services.GetRequiredService<ILogger<Engine>>();
-        
+        ApplicationName = hostEnvironment.ApplicationName;
+
         TaskScheduler.UnobservedTaskException += (sender, args) =>
         {
-            var l = (ILogger)GlobalHost.Services.GetRequiredService(
-                typeof(ILogger<>).MakeGenericType(sender?.GetType() ?? typeof(Engine)));
-
-            l.LogCritical(args.Exception, "Unobserved task exception triggered, is observed: {Observed}",
-                args.Observed);
+            logger.LogCritical(args.Exception, "From type [{SenderType}] Unobserved task exception triggered, is observed: {Observed}", sender?.GetType(), args.Observed);
         };
-        
+
         logger.LogInformation("""
-                Is 64 bit: {Is64Bit}
-                Running directory: {RunningDirectory}
-                .NET version: {NetVersion}
-                """,
-            Environment.Is64BitProcess,
-            Environment.CurrentDirectory,
-            Environment.Version);
+                              Is 64 bit: {Is64Bit}
+                              Running directory: {RunningDirectory}
+                              .NET version: {NetVersion}
+                              """,
+                              Environment.Is64BitProcess,
+                              Environment.CurrentDirectory,
+                              Environment.Version);
 
-        GlobalMessagePipe.SetProvider(GlobalHost.Services);
-        var universe = GlobalHost.Services.GetRequiredService<Universe>();
-        
-        await MainScheduler.StartAsync(universe.Initialize, token);
-
-        if (!token.IsCancellationRequested)
-        {
-            _initialized = true;
-            _initSubject.OnNext(GlobalHost);
-            _initSubject.OnCompleted();
-        }
+        GlobalMessagePipe.SetProvider(provider);
     }
 
-    public async Task Start(CancellationToken token = default)
-    {
-        if (_running) return;
-        if (!_initialized) await Initialize(token);
-        if (token.IsCancellationRequested) return;
-
-        Debug.Assert(GlobalHost != null, nameof(GlobalHost) + " != null");
-        
-        _running = true;
-
-        await GlobalHost.StartAsync(token);
-
-        var universe = GlobalHost.Services.GetRequiredService<Universe>();
-
-        _update = Observable.Repeat((universe, this), MainScheduler)
-                  .TakeUntil(tuple => !tuple.Item2._running)
-                  .Select(tuple =>
-                  {
-                      tuple.universe.Update();
-                      return Unit.Default;
-                  })
-                  .RunAsync(token);
-
-        if (token.IsCancellationRequested) _running = false;
-    }
-
-    public async Task Stop(CancellationToken token = default)
-    {
-        if (!_running) return;
-        _running = false;
-
-        if (GlobalHost is not null)
-        {
-            await MainScheduler.StartAsync(() =>
-            {
-                var u = GlobalHost.Services.GetRequiredService<Universe>();
-                u.Dispose(); //Dispose the Universe safely on the main thread before the GlobalHost attempts to
-            }, token);
-            
-            await GlobalHost.StopAsync(token);
-        }
-    }
-
-    public void Dispose()
-    {
-        GlobalHost?.Dispose();
-        _update?.Dispose();
-        _initSubject.Dispose();
-
-        if (MainScheduler is EventLoopScheduler els) els.Dispose();
-    }
-
-    internal static LoggerConfiguration CreateFileLoggerConfig(string appName, LogEventLevel minFileLevel = LogEventLevel.Verbose)
+    //TODO: migrate from serilog to ms logging abstractions
+    internal static LoggerConfiguration CreateFileLoggerConfig(string appName,
+                                                               LogEventLevel minFileLevel = LogEventLevel.Verbose)
     {
         var logDirPath = Path.Combine(Constants.LogsDirectoryPath, appName);
         var logPath = Path.Combine(logDirPath, "game.gz");
@@ -166,19 +98,35 @@ public sealed class Engine : IDisposable
 
         return config;
     }
+}
 
-    private HostApplicationBuilder CreateHostBuilder()
+public record struct EngineStartedEvent;
+public record struct EngineStoppingEvent;
+
+internal sealed class EngineStartupHostedService(
+    IServiceProvider serviceProvider,
+    Universe universe,
+    IAsyncPublisher<EngineStartedEvent> engineStart,
+    IAsyncPublisher<EngineStoppingEvent> engineStop) : BackgroundService
+{
+    protected override async Task ExecuteAsync(CancellationToken token)
     {
-        var builder = Host.CreateApplicationBuilder(Environment.GetCommandLineArgs());
-
-        builder.AddServiceDefaults();
-
-        builder.Services
-               .AddSingleton(this)
-               .AddCoreSystemServices();
-
-        builder.Logging.SetMinimumLevel(LogLevel.Information); //TODO: Configurable?
+        var scheduler = serviceProvider.GetRequiredService<IScheduler>();
         
-        return builder;
+        await engineStart.PublishAsync(new(), AsyncPublishStrategy.Sequential, token);
+        
+        await scheduler.StartAsync(universe.Initialize, token);
+
+        //TODO: Remove scheduler when Universe stops requiring main thread updates / When migrating to R3
+        while (!token.IsCancellationRequested) await scheduler.StartAsync(universe.Update, token).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        
+        //TODO: migrate most services to IAsyncDisposable to remove this
+        await scheduler.StartAsync(universe.Dispose, token: token);
+    }
+
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await engineStop.PublishAsync(new(), AsyncPublishStrategy.Sequential, cancellationToken);
+        await base.StopAsync(cancellationToken);
     }
 }

@@ -4,6 +4,7 @@ using GameDotNet.Graphics.WGPU;
 using GameDotNet.Management;
 using GameDotNet.Management.ECS;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
 using Schedulers;
@@ -14,6 +15,14 @@ namespace GameDotNet.Hosting;
 
 public static class ServiceCollectionExtensions
 {
+    public static IHostApplicationBuilder AddEngineFileLogger(this IHostApplicationBuilder builder, LogEventLevel level = LogEventLevel.Verbose)
+    {
+        var configuration = Engine.CreateFileLoggerConfig(builder.Environment.ApplicationName, level);
+        builder.Logging.AddSerilog(configuration.CreateLogger(), true);
+
+        return builder;
+    }
+
     /// <summary>
     /// Registers all necessary services to run the core
     /// </summary>
@@ -36,17 +45,12 @@ public static class ServiceCollectionExtensions
                 .AddSingleton<WebGpuRenderer>()
                 .AddSystem<WebGpuRenderSystem>()
                 .AddSystem<CameraSystem>();
-
+        
         return services;
     }
 
-    public static IServiceCollection AddEngineFileLogger(this IServiceCollection services, string appName, LogEventLevel level = LogEventLevel.Verbose)
-    {
-        var configuration = Engine.CreateFileLoggerConfig(appName, level);
-        services.AddLogging(builder => builder.AddSerilog(configuration.CreateLogger(), true));
-
-        return services;
-    }
+    public static IServiceCollection AddEngineHostedService(this IServiceCollection services) =>
+        services.AddHostedService<EngineStartupHostedService>();
 
     public static IServiceCollection AddEngineInstrumentation(this IServiceCollection services)
     {
