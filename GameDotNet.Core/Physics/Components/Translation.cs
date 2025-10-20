@@ -1,35 +1,13 @@
 using System.Numerics;
+using Vogen;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public record struct Translation(Vector3 Value)
+[ValueObject<Vector3>(fromPrimitiveCasting: CastOperator.Implicit,
+                      toPrimitiveCasting: CastOperator.Implicit,
+                      primitiveEqualityGeneration: PrimitiveEqualityGeneration.GenerateOperatorsAndMethods)]
+public readonly partial record struct Translation
 {
-    private Vector3 _value = Value;
-
-    public Vector3 Value
-    {
-        readonly get => _value;
-        set => _value = value;
-    }
-
-    public float X
-    {
-        readonly get => Value.X;
-        set => _value.X = value;
-    }
-
-    public float Y
-    {
-        readonly get => Value.Y;
-        set => _value.Y = value;
-    }
-
-    public float Z
-    {
-        readonly get => Value.Z;
-        set => _value.Z = value;
-    }
-    
-    public static implicit operator Vector3(in Translation t) => t.Value;
-    public static implicit operator Translation(in Vector3 v) => new(v);
+    public static readonly Translation Zero = new(Vector3.Zero);
+    public static readonly Translation One = new(Vector3.One);
 }

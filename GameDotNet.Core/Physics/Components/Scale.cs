@@ -1,39 +1,14 @@
 using System.Numerics;
+using Vogen;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public record struct Scale(Vector3 Value)
+[ValueObject<Vector3>(fromPrimitiveCasting: CastOperator.Implicit,
+                      toPrimitiveCasting: CastOperator.Implicit,
+                      primitiveEqualityGeneration: PrimitiveEqualityGeneration.GenerateOperatorsAndMethods)]
+public readonly partial record struct Scale
 {
-    private Vector3 _value = Value;
+    public static readonly Scale One = new(Vector3.One);
 
-    public Vector3 Value
-    {
-        readonly get => _value;
-        set => _value = value;
-    }
-
-    public float X
-    {
-        readonly get => Value.X;
-        set => _value.X = value;
-    }
-
-    public float Y
-    {
-        readonly get => Value.Y;
-        set => _value.Y = value;
-    }
-
-    public float Z
-    {
-        readonly get => Value.Z;
-        set => _value.Z = value;
-    }
-
-    public Scale() : this(Vector3.One)
-    { }
-
-
-    public static implicit operator Scale(in Vector3 v) => new(v);
-    public static implicit operator Vector3(in Scale s) => s.Value;
+    public static readonly Scale Zero = new(Vector3.Zero);
 }

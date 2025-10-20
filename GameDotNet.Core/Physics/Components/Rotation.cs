@@ -1,44 +1,12 @@
 using System.Numerics;
+using Vogen;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public record struct Rotation(Quaternion Value)
+[ValueObject<Quaternion>(fromPrimitiveCasting: CastOperator.Implicit,
+                         toPrimitiveCasting: CastOperator.Implicit,
+                         primitiveEqualityGeneration: PrimitiveEqualityGeneration.GenerateOperatorsAndMethods)]
+public readonly partial record struct Rotation
 {
-    private Quaternion _value = Value;
-
-    public Quaternion Value
-    {
-        readonly get => _value;
-        set => _value = value;
-    }
-
-    public float X
-    {
-        readonly get => _value.X;
-        set => _value.X = value;
-    }
-
-    public float Y
-    {
-        readonly get => _value.Y;
-        set => _value.Y = value;
-    }
-
-    public float Z
-    {
-        readonly get => _value.Z;
-        set => _value.Z = value;
-    }
-
-    public float W
-    {
-        readonly get => _value.W;
-        set => _value.W = value;
-    }
-
-    public Rotation() : this(Quaternion.Identity)
-    { }
-
-    public static implicit operator Quaternion(in Rotation r) => r.Value;
-    public static implicit operator Rotation(in Quaternion q) => new(q);
+    public static readonly Rotation Identity = new(Quaternion.Identity);
 }

@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using Arch.Core;
 using Arch.Core.Extensions;
 using Serilog;
@@ -8,7 +7,7 @@ namespace GameDotNet.Core.Physics.Components;
 
 public record struct Transform
 {
-    public Transform() : this(Vector3.Zero, Quaternion.Identity, Vector3.One)
+    public Transform() : this(Translation.Zero, Rotation.Identity, Scale.One)
     { }
 
     public Transform(in Translation translation, in  Rotation rotation, in Scale scale)
@@ -27,9 +26,9 @@ public record struct Transform
     public Rotation Rotation { get; set; }
     public Scale Scale { get; set; }
 
-    public static implicit operator Scale(in Transform t) => new(t.Scale);
-    public static implicit operator Rotation(in Transform t) => new(t.Rotation);
-    public static implicit operator Translation(in Transform t) => new(t.Translation);
+    public static implicit operator Scale(in Transform t) => t.Scale;
+    public static implicit operator Rotation(in Transform t) => t.Rotation;
+    public static implicit operator Translation(in Transform t) => t.Translation;
 
     public static Transform operator *(in Transform a, in Transform b)
     {
@@ -60,16 +59,13 @@ public record struct Transform
 
     public static Transform? FromEntity(Entity entity)
     {
-        ref readonly var t = ref entity.TryGetRef<Translation>(out _);
-        ref readonly var r = ref entity.TryGetRef<Rotation>(out _);
-        ref readonly var s = ref entity.TryGetRef<Scale>(out _);
+        ref readonly var t = ref entity.TryGetRef<Translation>(out var traExists);
+        ref readonly var r = ref entity.TryGetRef<Rotation>(out var rotExists);
+        ref readonly var s = ref entity.TryGetRef<Scale>(out var scaExists);
 
-        if (Unsafe.IsNullRef(in t) && Unsafe.IsNullRef(in r) && Unsafe.IsNullRef(in s))
-            return null;
-
-        return new(Unsafe.IsNullRef(in t) ? new() : t,
-                   Unsafe.IsNullRef(in r) ? new() : r,
-                   Unsafe.IsNullRef(in s) ? new() : s
+        return new(traExists ? t : Translation.Zero,
+                   rotExists ? r : Rotation.Identity,
+                   scaExists ? s : Scale.One
                   );
     }
 }

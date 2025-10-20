@@ -1,11 +1,13 @@
 using System.Numerics;
+using Vogen;
 
 namespace GameDotNet.Core.Physics.Components;
 
-public struct LocalToWorld
+[ValueObject<Matrix4x4>(fromPrimitiveCasting: CastOperator.Implicit,
+                        toPrimitiveCasting: CastOperator.Implicit,
+                        primitiveEqualityGeneration: PrimitiveEqualityGeneration.GenerateOperatorsAndMethods)]
+public readonly partial struct LocalToWorld
 {
-    public Matrix4x4 Value;
-
     public Vector3 Right => new(Value.M11, Value.M12, Value.M13);
     public Vector3 Up => new(Value.M21, Value.M22, Value.M23);
     public Vector3 Forward => new(Value.M31, Value.M32, Value.M33);
