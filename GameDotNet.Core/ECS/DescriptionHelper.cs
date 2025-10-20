@@ -1,7 +1,6 @@
 using Arch.Core;
-using Arch.Core.Utils;
 
-namespace GameDotNet.Management.ECS;
+namespace GameDotNet.Core.ECS;
 
 public static class Query
 {
@@ -24,24 +23,13 @@ public static class Query
 
 public class DescriptionBuilder
 {
-    private readonly List<Type> _all, _any, _none, _exclusive;
-
-    public DescriptionBuilder()
-    {
-        _all = new();
-        _any = new();
-        _none = new();
-        _exclusive = new();
-    }
+    private readonly List<Type> _all = [], _any = [], _none = [], _exclusive = [];
 
     public static implicit operator QueryDescription(DescriptionBuilder b) => b.Build();
 
     public QueryDescription Build()
     {
-        return new()
-        {
-            All = Convert(_all), Any = Convert(_any), Exclusive = Convert(_exclusive), None = Convert(_none)
-        };
+        return new(Convert(_all) , Convert(_any), Convert(_none), Convert(_exclusive));
     }
 
     public DescriptionBuilder All(params Type[] types)
@@ -92,5 +80,5 @@ public class DescriptionBuilder
         return this;
     }
 
-    private ComponentType[] Convert(List<Type> types) => types.Distinct().Select(Component.GetComponentType).ToArray();
+    private static Signature Convert(List<Type> types) => types.Distinct().Select(Component.GetComponentType).ToArray();
 }
