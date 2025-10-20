@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace GameDotNet.Core.Tools;
+namespace GameDotNet.Core.Tooling;
 
 //Idea from https://stackoverflow.com/a/53029501
 public static class AddressHelper

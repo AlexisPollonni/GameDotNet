@@ -4,9 +4,9 @@
 
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 
-namespace GameDotNet.Core.Tools.Containers
+namespace GameDotNet.Core.Tooling.Collections
 {
     /// <summary>
     /// Represents a list of disposable resources that are disposed together.

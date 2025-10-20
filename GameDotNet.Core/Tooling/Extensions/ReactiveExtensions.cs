@@ -1,7 +1,7 @@
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 
-namespace GameDotNet.Core.Tools.Extensions;
+namespace GameDotNet.Core.Tooling.Extensions;
 
 public static class ReactiveExtensions
 {

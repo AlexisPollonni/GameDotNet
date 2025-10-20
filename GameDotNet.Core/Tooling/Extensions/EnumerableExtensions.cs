@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using Collections.Pooled;
 
-namespace GameDotNet.Core.Tools.Extensions;
+namespace GameDotNet.Core.Tooling.Extensions;
 
 public static class EnumerableExtensions
 {

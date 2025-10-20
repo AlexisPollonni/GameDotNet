@@ -7,6 +7,7 @@
     <PackageReference Include="Arch.Relationships" />
     <PackageReference Include="ByteSize" />
     <PackageReference Include="dotVariant" />
+    <PackageReference Include="MessagePipe" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Toolkit.HighPerformance" />
     <PackageReference Include="Serilog.Extensions.Logging" />
@@ -20,9 +21,9 @@
     <PackageReference Include="System.Reactive.Interfaces" />
     <PackageReference Include="ValueTaskSupplement" />
     <PackageReference Include="Vogen" />
+    <PackageReference Include="ZLinq" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Physics\" />
-    <Folder Include="Tools\Io\" />
   </ItemGroup>
 </Project>

@@ -1,7 +1,7 @@
 using System.Drawing;
 using System.Numerics;
 
-namespace GameDotNet.Core.Tools.Extensions;
+namespace GameDotNet.Core.Tooling.Extensions;
 
 public static class ColorExtensions
 {

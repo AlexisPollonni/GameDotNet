@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace GameDotNet.Core.Tools;
+namespace GameDotNet.Core.Tooling;
 
 public static class BlittableHelper
 {

@@ -1,6 +1,6 @@
 ﻿using System.Diagnostics;
 
-namespace GameDotNet.Core.Tools.Containers;
+namespace GameDotNet.Core.Tooling.Collections;
 
 public struct RefStructList<T> where T : struct
 {

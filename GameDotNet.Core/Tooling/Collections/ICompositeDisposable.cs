@@ -1,4 +1,4 @@
-namespace GameDotNet.Core.Tools.Containers;
+namespace GameDotNet.Core.Tooling.Collections;
 
 public interface ICompositeDisposable : ICollection<IDisposable>, IDisposable
 { }

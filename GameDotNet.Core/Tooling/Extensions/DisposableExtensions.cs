@@ -3,9 +3,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using GameDotNet.Core.Tools.Containers;
+using GameDotNet.Core.Tooling.Collections;
 
-namespace GameDotNet.Core.Tools.Extensions;
+namespace GameDotNet.Core.Tooling.Extensions;
 
 /// <summary>
 /// Extension methods associated with the IDisposable interface.

@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace GameDotNet.Core.Tools;
+namespace GameDotNet.Core.Tooling;
 
 public class Pinned<T> : IDisposable where T : unmanaged
 {

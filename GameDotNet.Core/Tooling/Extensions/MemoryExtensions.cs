@@ -1,12 +1,12 @@
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using GameDotNet.Core.Tools.Containers;
+using GameDotNet.Core.Tooling.Collections;
 using Microsoft.Toolkit.HighPerformance;
 using Microsoft.Toolkit.HighPerformance.Extensions;
 using Silk.NET.Core.Native;
 
-namespace GameDotNet.Core.Tools.Extensions;
+namespace GameDotNet.Core.Tooling.Extensions;
 
 public static class MemoryExtensions
 {

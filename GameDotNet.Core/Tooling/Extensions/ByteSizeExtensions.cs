@@ -1,6 +1,6 @@
 using ByteSizeLib;
 
-namespace GameDotNet.Core.Tools.Extensions;
+namespace GameDotNet.Core.Tooling.Extensions;
 
 public static class ByteSizeExtensions
 {
