@@ -1,24 +1,12 @@
 using Arch.Core;
 using Arch.Core.Extensions;
+using GameDotNet.Core.Components;
 using GameDotNet.Core.ECS;
 using ZLinq;
 using ZLinq.Linq;
 using ZLinq.Traversables;
 
 namespace GameDotNet.Core.Tooling.Extensions;
-
-
-/// <summary>
-/// Provides a simple component to label entities.
-/// </summary>
-/// <param name="Name"></param>
-public readonly record struct Label(string Name);
-
-/// <summary>
-/// For entities that can be identified uniquely. Useful when persisting entities.
-/// </summary>
-/// <param name="Id"></param>
-public readonly record struct Identifiable(Guid Id);
 
 /// <summary>
 /// Tag relationship component indicating that an entity is a parent of another entity.
@@ -86,12 +74,12 @@ public static class ArchEntityCommonExtensions
         /// <summary>
         /// Retrieves the label of this entity, if it has one.
         /// </summary>
-        public string? Label => thisEntity.TryGet(out Label label) ? label.Name : null;
+        public string? Label => thisEntity.TryGet(out Label label) ? label.Value : null;
         
         /// <summary>
         /// Retrieves the ID of this entity, if it has one.
         /// </summary>
-        public Guid? Id => thisEntity.TryGet(out Identifiable identifiable) ? identifiable.Id : null;
+        public Guid? Id => thisEntity.TryGet(out Identifiable identifiable) ? identifiable.Value : null;
 
         /// <summary>
         /// Gets the sibling index of this entity (position among siblings, 0-based).

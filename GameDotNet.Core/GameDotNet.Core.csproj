@@ -8,8 +8,10 @@
     <PackageReference Include="ByteSize" />
     <PackageReference Include="dotVariant" />
     <PackageReference Include="MessagePipe" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.AutoActivation" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Toolkit.HighPerformance" />
+    <PackageReference Include="QuikGraph" />
     <PackageReference Include="Serilog.Extensions.Logging" />
     <PackageReference Include="Serilog.Formatting.Compact" />
     <PackageReference Include="Serilog" />
@@ -22,8 +24,5 @@
     <PackageReference Include="ValueTaskSupplement" />
     <PackageReference Include="Vogen" />
     <PackageReference Include="ZLinq" />
-  </ItemGroup>
-  <ItemGroup>
-    <Folder Include="Physics\" />
   </ItemGroup>
 </Project>
