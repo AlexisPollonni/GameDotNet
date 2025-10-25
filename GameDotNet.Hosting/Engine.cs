@@ -1,8 +1,7 @@
 using System.IO.Compression;
-using System.Reactive.Concurrency;
 using GameDotNet.Core;
-using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Management.ECS;
+using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Services;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -100,28 +99,18 @@ public sealed class Engine
     }
 }
 
-public record struct EngineStartedEvent;
-public record struct EngineStoppingEvent;
-
 internal sealed class EngineStartupHostedService(
-    IServiceProvider serviceProvider,
-    Universe universe,
+    JobManager jobManager,
     IAsyncPublisher<EngineStartedEvent> engineStart,
     IAsyncPublisher<EngineStoppingEvent> engineStop) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken token)
     {
-        var scheduler = serviceProvider.GetRequiredService<IScheduler>();
-        
         await engineStart.PublishAsync(new(), AsyncPublishStrategy.Sequential, token);
         
-        await scheduler.StartAsync(universe.Initialize, token);
-
-        //TODO: Remove scheduler when Universe stops requiring main thread updates / When migrating to R3
-        while (!token.IsCancellationRequested) await scheduler.StartAsync(universe.Update, token).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        while (!token.IsCancellationRequested) await jobManager.Update(token);
         
-        //TODO: migrate most services to IAsyncDisposable to remove this
-        await scheduler.StartAsync(universe.Dispose, token: token);
+        await jobManager.DisposeAsync();
     }
 
     public override async Task StopAsync(CancellationToken cancellationToken)
