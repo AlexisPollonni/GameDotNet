@@ -1,8 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
-    <ItemGroup>
-        <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
-        <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj"/>
-    </ItemGroup>
-
-</Project>
