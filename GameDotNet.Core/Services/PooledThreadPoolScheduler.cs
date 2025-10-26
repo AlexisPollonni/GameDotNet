@@ -1,0 +1,86 @@
+using System.Runtime.CompilerServices;
+using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Tooling;
+using Microsoft.Extensions.ObjectPool;
+using Shouldly;
+
+namespace GameDotNet.Core.Services;
+
+internal sealed class ResettableWorkItem<TUserState> : IThreadPoolWorkItem, IResettable 
+    where TUserState : struct
+{
+    private readonly record struct JobItem(
+        Func<TUserState, CancellationToken, ValueTask> Work,
+        TUserState UserState,
+        PooledValueTaskSource Source,
+        CancellationToken Token);
+
+    public JobItem? WorkValue { get; set; }
+
+    public void Execute()
+    {
+        WorkValue.ShouldNotBeNull("WorkValue was not set before execution.");
+        
+        var item = WorkValue.Value;
+        
+        try
+        {
+            if (item.Token.IsCancellationRequested)
+            {
+                item.Source.SetException(new OperationCanceledException(item.Token));
+                return;
+            }
+
+#pragma warning disable CA2252
+#pragma warning disable SYSLIB5007
+            AsyncHelpers.Await(item.Work(item.UserState, item.Token));
+#pragma warning restore SYSLIB5007
+#pragma warning restore CA2252
+
+            item.Source.SetResult();
+        }
+        catch (Exception ex)
+        {
+            item.Source.SetException(ex);
+        }
+    }
+
+    public bool TryReset()
+    {
+        WorkValue = null;
+        return true;
+    }
+}
+
+internal sealed class PooledThreadPoolScheduler<TUserState>(
+    ObjectPool<PooledValueTaskSource> valueTaskSourcePool,
+    ObjectPool<ResettableWorkItem<TUserState>> workItemPool) : IZeroAllocThreadPoolScheduler<TUserState>
+    where TUserState : struct
+{
+
+    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
+    public async ValueTask EnqueueWork(Func<TUserState, CancellationToken, ValueTask> work,
+                                       TUserState userState,
+                                       CancellationToken token = default)
+    {
+        work.ShouldNotBeNull();
+
+        var valueTaskSource = valueTaskSourcePool.Get();
+        var workItem = workItemPool.Get();
+        
+        workItem.WorkValue = new(work, userState, valueTaskSource, token);
+        
+        ThreadPool.UnsafeQueueUserWorkItem(workItem, preferLocal: false);
+        
+        try
+        {
+            await valueTaskSource.AsValueTask().ConfigureAwait(false);
+        }
+        finally
+        {
+            workItemPool.Return(workItem);
+            valueTaskSourcePool.Return(valueTaskSource);
+        }
+    }
+}
+

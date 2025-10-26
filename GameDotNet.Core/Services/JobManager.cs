@@ -2,15 +2,14 @@ using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
 using Arch.Core;
-using Collections.Pooled;
 using CommunityToolkit.HighPerformance.Buffers;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
 using MessagePipe;
-using Microsoft.Extensions.ObjectPool;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Shouldly;
+using ValueTaskSupplement;
 using ZLinq;
 
 namespace GameDotNet.Core.Services;
@@ -23,10 +22,11 @@ public sealed class JobManager : IAsyncDisposable
     private bool _initialized;
     private bool _disposed;
 
-    private readonly ThreadPoolJobScheduler<WorkerItem> _scheduler;
+    private readonly IZeroAllocThreadPoolScheduler<WorkerItem> _scheduler;
 
     private readonly ConcurrentDictionary<IUpdateJob, JobData> _allJobs = [];
     private readonly BidirectionalGraph<IUpdateJob, SEdge<IUpdateJob>> _runningDependencyGraph = new(false);
+    private readonly ConcurrentDictionary<IUpdateJob, ValueTask> _runningJobTasks = [];
 
     private readonly ConcurrentQueue<IUpdateJob> _jobsToAdd = [];
     private readonly ConcurrentQueue<IUpdateJob> _jobsToRemove = [];
@@ -36,26 +36,27 @@ public sealed class JobManager : IAsyncDisposable
     private readonly IDisposable _stoppingSubscription;
     private readonly TimeProvider _timeProvider;
     private readonly IJobDependencyGraph _jobDependencyGraph;
-    public JobManager(IMeterFactory meterFactory,
-                      TimeProvider timeProvider,
-                      IAsyncSubscriber<EngineStartedEvent> engineStart,
-                      IAsyncSubscriber<EngineStoppingEvent> engineStopping,
-                      IEnumerable<IUpdateJob> registeredJobs,
-                      ObjectPool<PooledValueTaskSource> valueTaskSourcePool,
-                      IJobDependencyGraph jobDependencyGraph,
-                      SceneManager sceneManager)
+
+    internal JobManager(IMeterFactory meterFactory,
+                        TimeProvider timeProvider,
+                        IAsyncSubscriber<EngineStartedEvent> engineStart,
+                        IAsyncSubscriber<EngineStoppingEvent> engineStopping,
+                        IEnumerable<IUpdateJob> registeredJobs,
+                        IZeroAllocThreadPoolScheduler<WorkerItem> scheduler,
+                        IJobDependencyGraph jobDependencyGraph,
+                        SceneManager sceneManager)
     {
         _timeProvider = timeProvider;
         _registeredJobs = registeredJobs;
         _jobDependencyGraph = jobDependencyGraph;
         _sceneManager = sceneManager;
         _meter = meterFactory.Create(new($"{typeof(JobManager).FullName}.Updates"));
-        _scheduler = new(valueTaskSourcePool);
+        _scheduler = scheduler;
         _startupSubscription = engineStart.Subscribe(OnStartup);
         _stoppingSubscription = engineStopping.Subscribe(OnStopping);
     }
 
-    private readonly record struct WorkerItem(IUpdateJob Job, WorkerItem.ItemType Type, JobManager SrcManager, JobData Data)
+    internal readonly record struct WorkerItem(IUpdateJob Job, WorkerItem.ItemType Type, JobManager SrcManager, JobData Data)
     {
         internal enum ItemType
         {
@@ -65,22 +66,19 @@ public sealed class JobManager : IAsyncDisposable
         }
     }
 
-    private readonly record struct JobData(
-        ValueStopwatch ExecuteWatch,
-        ValueStopwatch DeltaUpdateWatch,
-        Histogram<double> Measure);
+    internal record JobData(ValueStopwatch ExecuteWatch, ValueStopwatch DeltaUpdateWatch, Histogram<double> Measure);
 
     public void AddJob(IUpdateJob job)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
+
         _jobsToAdd.Enqueue(job);
     }
 
     public void RemoveJob(IUpdateJob job)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        
+
         _jobsToRemove.Enqueue(job);
     }
 
@@ -88,6 +86,8 @@ public sealed class JobManager : IAsyncDisposable
     public async ValueTask Update(CancellationToken token)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _initialized.ShouldBeTrue("JobManager is not initialized yet. Make sure to start the engine before calling Update.");
+
         if (!_initialized) return;
 
         if (ProcessJobChanges())
@@ -95,18 +95,19 @@ public sealed class JobManager : IAsyncDisposable
             RebuildRunningJobGraph();
         }
 
-        await RunJobGraph(WorkerItem.ItemType.Update, token);
+        await RunJobGraph(WorkerItem.ItemType.Update, token).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
-        
+
         _startupSubscription.Dispose();
         _stoppingSubscription.Dispose();
 
-        await _scheduler.DisposeAsync();
+        await ValueTaskEx.WhenAll(_runningJobTasks.Values);
+
         _meter.Dispose();
     }
 
@@ -126,21 +127,19 @@ public sealed class JobManager : IAsyncDisposable
                     job.IsStarted = true;
                 }
             }
-            
+
             RebuildRunningJobGraph();
         }
 
-        _scheduler.StartWorkers();
+        await RunJobGraph(WorkerItem.ItemType.Startup, token).ConfigureAwait(false);
 
-        await RunJobGraph(WorkerItem.ItemType.Startup, token);
-        
         _initialized = true;
     }
 
     private async ValueTask OnStopping(EngineStoppingEvent _, CancellationToken token)
     {
-        await RunJobGraph(WorkerItem.ItemType.Stopping, token);
-        
+        await RunJobGraph(WorkerItem.ItemType.Stopping, token).ConfigureAwait(false);
+
         foreach (var job in _allJobs.Keys)
         {
             job.IsStarted = false;
@@ -149,25 +148,26 @@ public sealed class JobManager : IAsyncDisposable
 
     private bool ProcessJobChanges()
     {
-        if (_jobsToAdd.IsEmpty && _jobsToRemove.IsEmpty)
-        {
-            return false;
-        }
-        
+        var hasChanges = false;
+
         while (_jobsToAdd.TryDequeue(out var jobToAdd))
         {
-            _allJobs.TryAdd(jobToAdd, new(
-                new(_timeProvider),
-                new(_timeProvider),
-                _meter.CreateHistogram<double>($"{jobToAdd.GetType().FullName}.ExecuteTime", "ms", "Execution time of the job in milliseconds")));
+            _allJobs.TryAdd(jobToAdd,
+                            new(new(_timeProvider),
+                                new(_timeProvider),
+                                _meter.CreateHistogram<double>($"{jobToAdd.GetType().FullName}.ExecuteTime",
+                                                               "ms",
+                                                               "Execution time of the job in milliseconds")));
+            hasChanges = true;
         }
 
         while (_jobsToRemove.TryDequeue(out var jobToRemove))
         {
             _allJobs.TryRemove(jobToRemove, out _);
+            hasChanges = true;
         }
 
-        return true;
+        return hasChanges;
     }
 
     private void RebuildRunningJobGraph()
@@ -178,15 +178,15 @@ public sealed class JobManager : IAsyncDisposable
                                        .SelectMany(job =>
                                        {
                                            return _jobDependencyGraph.GetDependencies(job.GetType())
-                                                                    .AsValueEnumerable()
-                                                                    .Select(GetJobByType)
-                                                                    .Where(depJob => depJob.IsStarted)
-                                                                    .Select(jobDep => new SEdge<IUpdateJob>(
-                                                                                job,
-                                                                                jobDep));
+                                                                     .AsValueEnumerable()
+                                                                     .Select(GetJobByType)
+                                                                     .Where(depJob => depJob.IsStarted)
+                                                                     .Select(jobDep => new SEdge<IUpdateJob>(
+                                                                                 job,
+                                                                                 jobDep));
                                        })
                                        .ToArrayPool();
-        
+
         _runningDependencyGraph.AddVerticesAndEdgeRange(graphEdges.Array);
 
         var stoppedJobs = _allJobs.Keys.AsValueEnumerable().Where(job => !job.IsStarted);
@@ -210,38 +210,41 @@ public sealed class JobManager : IAsyncDisposable
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
     private async ValueTask RunJobGraph(WorkerItem.ItemType updateType, CancellationToken token)
     {
-        using var runningTasks = new PooledDictionary<IUpdateJob, ValueTask>();
-    
+        _runningJobTasks.IsEmpty.ShouldBeTrue("There are still running jobs from previous execution");
+
         foreach (var currentJob in _runningDependencyGraph.SourceFirstTopologicalSort())
         {
             // Wait for all dependencies to complete before starting this job
             //TODO: implement prioritized scheduling to speedup uncorrelated jobs
             foreach (var depEdge in _runningDependencyGraph.InEdges(currentJob))
             {
-                if (!runningTasks.TryGetValue(depEdge.Source, out var depTask)) continue;
-                
-                await depTask;
-                runningTasks.Remove(depEdge.Source); // Remove completed dependency task since we know it executed
+                if (_runningJobTasks.TryRemove(depEdge.Source, out var depTask))
+                {
+                    await depTask.ConfigureAwait(false);
+                }
             }
-        
+
             // Start the current job and track its task
             var jobTask = EnqueueWorkJob(currentJob, updateType, token);
-            runningTasks[currentJob] = jobTask;
+
+            _runningJobTasks.TryAdd(currentJob, jobTask);
         }
-    
+
         // Wait for all jobs to complete
-        if (runningTasks.Count > 0)
+        while (!_runningJobTasks.IsEmpty)
         {
-            await PooledValueTaskSource.WhenAll(runningTasks.Values);
+            if (_runningJobTasks.TryRemove(_runningJobTasks.First().Key, out var remainingTask))
+            {
+                await remainingTask.ConfigureAwait(false);
+            }
         }
     }
-
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
     private async ValueTask EnqueueWorkJob(IUpdateJob job, WorkerItem.ItemType type, CancellationToken token)
     {
         var workItem = new WorkerItem(job, type, this, _allJobs[job]);
-        await _scheduler.EnqueueWork(WorkerLoop, workItem, token);
+        await _scheduler.EnqueueWork(WorkerLoop, workItem, token).ConfigureAwait(false);
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
@@ -258,18 +261,23 @@ public sealed class JobManager : IAsyncDisposable
                 break;
             case WorkerItem.ItemType.Update:
                 var jobData = workItem.Data;
-                
-                jobData.ExecuteWatch.Restart();
-                
-                await job.OnUpdate(jobData.DeltaUpdateWatch.Elapsed, token);
+
+                var execWatch = jobData.ExecuteWatch;
+                var deltaWatch = jobData.DeltaUpdateWatch;
+
+                execWatch.Restart();
+
+                await job.OnUpdate(deltaWatch.Elapsed, token);
                 if (workItem.Job is IQueryUpdateJob queryUpdateJob)
                 {
                     var query = queryUpdateJob.Query;
                     // TODO: For now we just get the world from the scene manager, later we might want to support multiple worlds/scenes
                     using var matchingEntities = GetMatchingEntities(workItem.SrcManager._sceneManager.World, in query);
+
+                    queryUpdateJob.OnUpdateQueryEntities(deltaWatch.Elapsed, matchingEntities.Span);
                 }
 
-                jobData.DeltaUpdateWatch.Restart();
+                deltaWatch.Restart();
                 jobData.Measure.Record(jobData.ExecuteWatch.Elapsed.TotalMilliseconds);
 
                 break;

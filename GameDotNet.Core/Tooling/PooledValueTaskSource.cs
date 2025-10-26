@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks.Sources;
 using Microsoft.Extensions.ObjectPool;
@@ -27,7 +26,7 @@ public sealed class PooledValueTaskSource : IValueTaskSource, IResettable
         _core.OnCompleted(continuation, state, token, flags);
     }
 
-    public ValueTask AsTask()
+    public ValueTask AsValueTask()
     {
         return new(this, _core.Version);
     }
@@ -53,15 +52,6 @@ public sealed class PooledValueTaskSource : IValueTaskSource, IResettable
     public void SetException(Exception exception)
     {
         _core.SetException(exception);
-    }
-
-    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
-    public static async ValueTask WhenAll(IEnumerable<ValueTask> tasks)
-    {
-        foreach (var valueTask in tasks)
-        {
-            await valueTask;
-        }
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 1)]
