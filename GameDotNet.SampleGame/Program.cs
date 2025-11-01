@@ -2,8 +2,6 @@
 
 using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Hosting;
-using GameDotNet.Management;
-using Microsoft.Extensions.DependencyInjection;
 
 Console.WriteLine("Hello, World!");
 

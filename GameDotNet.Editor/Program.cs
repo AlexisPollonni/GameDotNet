@@ -9,7 +9,6 @@ using GameDotNet.Editor.ViewModels;
 using GameDotNet.Editor.Views;
 using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Hosting;
-using GameDotNet.Management;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Shouldly;

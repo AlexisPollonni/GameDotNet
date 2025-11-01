@@ -1,6 +1,6 @@
 using System.Drawing;
 using System.Numerics;
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 
 namespace GameDotNet.Graphics;
 

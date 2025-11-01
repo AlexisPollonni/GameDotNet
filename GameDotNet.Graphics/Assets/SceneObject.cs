@@ -1,4 +1,4 @@
-using GameDotNet.Core.Physics.Components;
+using GameDotNet.Core.Components;
 
 namespace GameDotNet.Graphics.Assets;
 
