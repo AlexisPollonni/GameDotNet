@@ -23,25 +23,25 @@ public interface IQueryUpdateJob : IUpdateJob
     /// Arch query description for the system
     /// </summary>
     QueryDescription Query { get; }
-    
+
     /// <summary>
     /// Entity that matches the system query was found
     /// </summary>
     /// <param name="entity"></param>
-    void OnEntityAdded(Entity entity);
-    
+    void OnEntityAdded(Entity entity) { }
+
     /// <summary>
     /// Entity that matches the system query was removed
     /// </summary>
     /// <param name="entity"></param>
-    void OnEntityRemoved(Entity entity);
-    
+    void OnEntityRemoved(Entity entity) { }
+
     /// <summary>
     /// Component in tracked entities was set
     /// </summary>
     /// <param name="entity"></param>
     /// <param name="type"></param>
-    void OnComponentSet(Entity entity, ComponentType type);
+    void OnComponentSet(Entity entity, ComponentType type) { }
 
     /// <summary>
     /// 
@@ -49,7 +49,7 @@ public interface IQueryUpdateJob : IUpdateJob
     /// <param name="deltaTime"></param>
     /// <param name="entities">Entities that currently match the given query</param>
     /// <remarks>Called immediately after standard update, respects dependencies</remarks>
-    void OnUpdateQueryEntities(TimeSpan deltaTime, ReadOnlySpan<Entity> entities);
+    void OnUpdateQueryEntities(TimeSpan deltaTime, ReadOnlySpan<Entity> entities) { }
 }
 
 public interface IJobDependsOn<TDependency> where TDependency : IUpdateJob;
@@ -59,6 +59,6 @@ public record JobConfiguration
     public TimeSpan UpdateThrottle { get; init; } = TimeSpan.Zero;
 
     public bool RunsOnMainThread { get; init; } = false;
-    
+
     public bool StartsWithEngine { get; init; } = true;
 }
