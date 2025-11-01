@@ -66,6 +66,7 @@
     <PackageVersion Include="Silk.NET.Windowing.Sdl" Version="2.22.0" />
     <PackageVersion Include="Simple.Avalonia.Hosting" Version="8.5.0" />
     <PackageVersion Include="System.Reactive.Interfaces" Version="6.0.1" />
+    <PackageVersion Include="TruePath" Version="1.10.0" />
     <PackageVersion Include="ValueTaskSupplement" Version="1.1.0" />
     <PackageVersion Include="Vogen" Version="7.0.3" />
     <PackageVersion Include="ZLinq" Version="1.5.3" />
