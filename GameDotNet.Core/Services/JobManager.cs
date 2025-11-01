@@ -1,10 +1,9 @@
 using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
-using Arch.Core;
-using CommunityToolkit.HighPerformance.Buffers;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
+using GameDotNet.Core.Tooling.Extensions;
 using MessagePipe;
 using QuikGraph;
 using QuikGraph.Algorithms;
@@ -272,7 +271,7 @@ public sealed class JobManager : IAsyncDisposable
                 {
                     var query = queryUpdateJob.Query;
                     // TODO: For now we just get the world from the scene manager, later we might want to support multiple worlds/scenes
-                    using var matchingEntities = GetMatchingEntities(workItem.SrcManager._sceneManager.World, in query);
+                    using var matchingEntities = workItem.SrcManager._sceneManager.World.GetEntitiesPooled(query);
 
                     queryUpdateJob.OnUpdateQueryEntities(deltaWatch.Elapsed, matchingEntities.Span);
                 }
@@ -284,14 +283,5 @@ public sealed class JobManager : IAsyncDisposable
             default:
                 throw new ArgumentOutOfRangeException();
         }
-    }
-
-    private static SpanOwner<Entity> GetMatchingEntities(World world, in QueryDescription query)
-    {
-        var matchCount = world.CountEntities(query);
-        var matches = SpanOwner<Entity>.Allocate(matchCount);
-        world.GetEntities(query, matches.Span);
-
-        return matches;
     }
 }

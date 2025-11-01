@@ -7,6 +7,7 @@
     <PackageReference Include="Arch.Relationships" />
     <PackageReference Include="ByteSize" />
     <PackageReference Include="dotVariant" />
+    <PackageReference Include="Intellenum" />
     <PackageReference Include="MessagePipe" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.AutoActivation" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
@@ -21,6 +22,7 @@
     <PackageReference Include="Shouldly" />
     <PackageReference Include="Silk.NET.Core" />
     <PackageReference Include="System.Reactive.Interfaces" />
+    <PackageReference Include="TruePath" />
     <PackageReference Include="ValueTaskSupplement" />
     <PackageReference Include="Vogen" />
     <PackageReference Include="ZLinq" />

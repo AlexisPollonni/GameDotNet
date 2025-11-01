@@ -1,5 +1,8 @@
+using System.Runtime.CompilerServices;
 using Arch.Core;
 using Arch.Core.Extensions;
+using CommunityToolkit.HighPerformance.Buffers;
+using ZLinq;
 
 namespace GameDotNet.Core.Tooling.Extensions;
 
@@ -34,5 +37,70 @@ public static class ArchWorldExtensions
 
             return null;
         }
+
+        public SpanOwner<Entity> GetEntitiesPooled(QueryDescription description)
+        {
+            var count = world.CountEntities(in description);
+
+            var entities = SpanOwner<Entity>.Allocate(count);
+
+            world.GetEntities(in description, entities.Span);
+
+            return entities;
+        }
+
+        public ValueEnumerable<FromQueryDescription, Entity> QueryEnumerable(QueryDescription description) =>
+            new(new(description, world));
+    }
+
+    extension(QueryDescription queryDescription)
+    {
+        public ValueEnumerable<FromQueryDescription, Entity> AsValueEnumerable(World world)
+        {
+            return new(new(queryDescription, world));
+        }
+    }
+
+    public ref struct FromQueryDescription(QueryDescription description, World world) : IValueEnumerator<Entity>
+    {
+        private QueryChunkEnumerator _chunkQuery = world.Query(description).GetChunkIterator().GetEnumerator();
+        private EntityEnumerator _entityEnumerator;
+
+        public void Dispose()
+        {
+            //noop
+        }
+
+        public bool TryGetNext(out Entity current)
+        {
+            while (!_entityEnumerator.MoveNext())
+            {
+                if (!_chunkQuery.MoveNext())
+                {
+                    Unsafe.SkipInit(out current);
+                    return false;
+                }
+                
+                _entityEnumerator = _chunkQuery.Current.GetEnumerator();
+            }
+
+            current = _chunkQuery.Current.Entity(_entityEnumerator.Current);
+            return true;
+        }
+
+        public bool TryGetNonEnumeratedCount(out int count)
+        {
+            count = world.CountEntities(description);
+            return true;
+        }
+
+        public bool TryGetSpan(out ReadOnlySpan<Entity> span)
+        {
+            span = default;
+            return false;
+        }
+
+        public bool TryCopyTo(scoped Span<Entity> destination, Index offset) =>
+            false;
     }
 }
