@@ -1,31 +1,22 @@
 using Arch.Core;
 using Arch.Core.Extensions;
 using Collections.Pooled;
-using GameDotNet.Core.Physics.Components;
-using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Graphics.Assets;
-using GameDotNet.Management.ECS.Components;
+using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Components;
 
-namespace GameDotNet.Management;
+namespace GameDotNet.Core;
 
 /// <summary>
 /// Manages the currently loaded scene, modify in the future to enable streaming
 /// </summary>
-public sealed class SceneManager : IDisposable
+public sealed class SceneInstanceManager : IDisposable
 {
-    public World World { get; }
-    public Scene? LoadedScene { get; private set; }
+    public World World { get; } = World.Create();
+    public ISceneInstance? LoadedScene { get; private set; }
     
-    private readonly PooledList<EntityReference> _loadedSceneEntities;
+    private readonly PooledList<Entity> _loadedSceneEntities = new();
 
-    public SceneManager()
-    {
-        World = World.Create();
-        
-        _loadedSceneEntities = new();
-    }
-
-    public bool LoadScene(Scene scene)
+    public bool LoadScene(ISavedSceneAsset scene)
     {
         // Make sure scene is unloaded before loading another
         UnloadScene();
@@ -39,7 +30,7 @@ public sealed class SceneManager : IDisposable
     {
         foreach (ref var entity in _loadedSceneEntities.Span)
             if (entity.IsAlive())
-                World.Destroy(entity.Entity);
+                World.Destroy(entity);
 
         _loadedSceneEntities.Clear();
         LoadedScene = null;
@@ -57,13 +48,13 @@ public sealed class SceneManager : IDisposable
 
         foreach (var meshes in obj.Meshes.WithIndex())
         {
-            var e = World.Create(new Tag($"{obj.Name}_{meshes.Index}"),
+            var e = World.Create(Label.From($"{obj.Name}_{meshes.Index}"),
                                  meshes.Item,
                                  transform.ToTranslation(),
                                  transform.ToRotation(),
                                  transform.ToScale());
 
-            _loadedSceneEntities.Add(e.Reference());
+            _loadedSceneEntities.Add(e);
         }
 
         foreach (var child in obj.Children)
@@ -71,4 +62,13 @@ public sealed class SceneManager : IDisposable
             CreateFromSceneObject(child, transform);
         }
     }
+}
+
+internal class DefaultSceneInstance(ISavedSceneAsset sceneAsset) : ISceneInstance
+{
+    public ISavedSceneAsset SceneAsset { get; } = sceneAsset;
+    public void Dispose()
+    { }
+
+    public World EntityWorld { get; } = World.Create();
 }
