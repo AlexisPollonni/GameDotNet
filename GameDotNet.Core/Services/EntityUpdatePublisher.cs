@@ -47,7 +47,8 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers an ECS component type if not already registered in the singleton registry.
+    /// Registers an ECS component type if not already registered in the singleton registry and additionally registers
+    /// publishers to notify when components of this type are added, set or removed from entities.
     /// </summary>
     /// <typeparam name="T">Ecs component type to register</typeparam>
     /// <returns></returns>
