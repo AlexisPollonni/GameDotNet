@@ -9,7 +9,7 @@ public static class ServiceCollectionExtensions
 {
     private class EntityUpdatePublisher
     {
-        public EntityUpdatePublisher(SceneManager scene,
+        public EntityUpdatePublisher(SceneInstanceManager scene,
                                      IPublisher<EntityCreatedEvent> entityCreatedPublisher,
                                      IPublisher<EntityDestroyedEvent> entityDestroyedPublisher)
         {
@@ -21,7 +21,7 @@ public static class ServiceCollectionExtensions
 
     private class ComponentPublisher<TComponent>
     {
-        public ComponentPublisher(SceneManager sceneManager,
+        public ComponentPublisher(SceneInstanceManager sceneManager,
                                   IPublisher<EntityComponentAddedEvent> componentAddedPublisher,
                                   IPublisher<EntityComponentSetEvent> componentSetPublisher,
                                   IPublisher<EntityComponentRemovedEvent> componentRemovedPublisher)

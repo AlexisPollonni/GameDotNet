@@ -15,7 +15,7 @@ namespace GameDotNet.Core.Services;
 
 public sealed class JobManager : IAsyncDisposable
 {
-    private readonly SceneManager _sceneManager;
+    private readonly SceneInstanceManager _sceneManager;
     private readonly Meter _meter;
 
     private bool _initialized;
@@ -43,7 +43,7 @@ public sealed class JobManager : IAsyncDisposable
                         IEnumerable<IUpdateJob> registeredJobs,
                         IZeroAllocThreadPoolScheduler<WorkerItem> scheduler,
                         IJobDependencyGraph jobDependencyGraph,
-                        SceneManager sceneManager)
+                        SceneInstanceManager sceneManager)
     {
         _timeProvider = timeProvider;
         _registeredJobs = registeredJobs;
