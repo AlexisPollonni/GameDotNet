@@ -1,9 +1,10 @@
 using System.Numerics;
 using Arch.Core;
 using Arch.Core.Extensions;
+using GameDotNet.Core.Physics.Components;
 using Serilog;
 
-namespace GameDotNet.Core.Physics.Components;
+namespace GameDotNet.Core.Components;
 
 public record struct Transform
 {

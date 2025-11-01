@@ -1,3 +1,4 @@
+using GameDotNet.Core.Abstractions;
 using Vogen;
 
 namespace GameDotNet.Core.Components;
@@ -6,4 +7,4 @@ namespace GameDotNet.Core.Components;
 /// Provides a simple component to label entities.
 /// </summary>
 [ValueObject<string>]
-public readonly partial record struct Label;
+public readonly partial record struct Label : ISceneComponent;
