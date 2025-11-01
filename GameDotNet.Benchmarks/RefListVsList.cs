@@ -1,5 +1,5 @@
 ﻿using BenchmarkDotNet.Attributes;
-using GameDotNet.Core.Tools.Containers;
+using GameDotNet.Core.Tooling.Collections;
 
 namespace GameDotNet.Benchmarks;
 
