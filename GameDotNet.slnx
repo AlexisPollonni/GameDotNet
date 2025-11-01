@@ -19,7 +19,6 @@
   <Project Path="GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />
   <Project Path="GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
   <Project Path="GameDotNet.Hosting\GameDotNet.Hosting.csproj" />
-  <Project Path="GameDotNet.Input\GameDotNet.Input.csproj" />
   <Project Path="GameDotNet.SampleGame\GameDotNet.SampleGame.csproj" />
   <Project Path="GameDotNet.Tests\GameDotNet.Tests.csproj" />
   <Project Path="ThirdParty\Aspire.ServiceDefaults\Aspire.ServiceDefaults.csproj" />
