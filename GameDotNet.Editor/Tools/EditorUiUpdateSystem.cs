@@ -1,5 +1,3 @@
-using System;
-using GameDotNet.Management.ECS;
 using MessagePipe;
 
 namespace GameDotNet.Editor.Tools;

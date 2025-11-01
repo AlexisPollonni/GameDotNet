@@ -1,4 +1,3 @@
-using System;
 using System.Reactive.Linq;
 using Avalonia;
 using Avalonia.Controls;
@@ -7,11 +6,8 @@ using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Metadata;
 using Avalonia.Platform;
-using GameDotNet.Core.Tools.Containers;
-using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Editor.Tools;
-using GameDotNet.Graphics;
-using GameDotNet.Graphics.Abstractions;
+using GameDotNet.Core.Tooling.Collections;
+using GameDotNet.Core.Tooling.Extensions;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 

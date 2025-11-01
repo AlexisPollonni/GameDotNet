@@ -1,4 +1,3 @@
-using System;
 using System.Collections.ObjectModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
@@ -8,10 +7,7 @@ using Arch.Core.Extensions;
 using Avalonia.ReactiveUI;
 using DynamicData;
 using DynamicData.Alias;
-using GameDotNet.Management;
-using GameDotNet.Management.ECS.Components;
 using MessagePipe;
-using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 using EntityNode = DynamicData.Node<GameDotNet.Editor.ViewModels.EntityEntryViewModel, Arch.Core.EntityReference>;
 
@@ -24,8 +20,8 @@ public sealed class EntityTreeViewModel : ViewModelBase
 
     [Reactive]
     public ReadOnlyObservableCollection<EntityNode>? EntityTree { get; set; }
-
-    public EntityTreeViewModel(SceneManager sceneManager)
+    
+    public EntityTreeViewModel(SceneManager sceneManager, ISubscriber<entity>)
     {
         var cache = new SourceList<Entity>();
         SelectedItems = new();
@@ -45,7 +41,7 @@ public sealed class EntityTreeViewModel : ViewModelBase
                     }
                 }
             });
-
+            
             sceneManager.World.EntityCreated.AsObservable().Subscribe(args => cache.Add(args.Entity)).DisposeWith(d);
             sceneManager.World.EntityDestroyed.AsObservable().Subscribe(args => cache.Remove(args.Entity)).DisposeWith(d);
             

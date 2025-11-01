@@ -1,10 +1,10 @@
-using Silk.NET.Input;
+using GameDotNet.Core.Abstractions;
 
 namespace GameDotNet.Editor.Tools;
 
 public static class AvaloniaExtensions
 {
-    public static MouseButton ToSilkButton(this Avalonia.Input.MouseButton button) => button switch
+    public static MouseButton ToAbstraction(this Avalonia.Input.MouseButton button) => button switch
     {
         Avalonia.Input.MouseButton.None => MouseButton.Unknown,
         Avalonia.Input.MouseButton.Left => MouseButton.Left,

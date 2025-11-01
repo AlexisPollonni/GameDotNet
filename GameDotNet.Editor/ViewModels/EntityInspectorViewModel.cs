@@ -1,8 +1,5 @@
-using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -10,12 +7,11 @@ using System.Reflection;
 using System.Windows.Input;
 using Arch.Core;
 using Arch.Core.Extensions;
-using Arch.Core.Utils;
 using Avalonia.ReactiveUI;
 using Collections.Pooled;
 using DynamicData;
 using DynamicData.Binding;
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Editor.Tools;
 using Microsoft.Extensions.ObjectPool;
 using ReactiveUI;
@@ -33,7 +29,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
     private readonly SourceList<PropertyNodeViewModel> _components;
     private readonly PropertyNodeCache _propertyCache;
     private readonly DefaultObjectPool<PropertyNodeViewModel> _nodePool;
-    private EntityReference _selectedEntity;
+    private Entity _selectedEntity;
 
 
     public EntityInspectorViewModel(EntityTreeViewModel treeView, EditorUiUpdateSystem uiUpdateSystem)
@@ -41,7 +37,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
         _components = new();
         _propertyCache = new();
         _nodePool = new(new NodePooledObjectPolicy(_propertyCache), 10000);
-        _selectedEntity = EntityReference.Null;
+        _selectedEntity = Entity.Null;
 
         var sync = new object();
         this.WhenActivated(d =>
@@ -86,11 +82,10 @@ public sealed class EntityInspectorViewModel : ViewModelBase
     }
 
 
-    private void UpdateComponents(EntityReference nodeKey)
+    private void UpdateComponents(Entity entity)
     {
-        _selectedEntity = nodeKey;
-        var entity = nodeKey.Entity;
-        var types = entity.GetComponentTypes();
+        _selectedEntity = entity;
+        var types = entity.GetComponentTypes().;
 
         var nodes = types.Select(type => ComputeNodesFromComponent(entity, type));
 
@@ -165,13 +160,13 @@ public sealed class EntityInspectorViewModel : ViewModelBase
     private void UpdateInspector()
     {
         if (Components is null) return;
-        if (_selectedEntity == EntityReference.Null)
+        if (_selectedEntity == Entity.Null)
             return;
 
 
         _components.Edit(list =>
         {
-            var entity = _selectedEntity.Entity;
+            var entity = _selectedEntity;
 
             var newCompTypes = entity.GetComponentTypes();
             var oldCompTypes = list.Select(x => (ComponentType)x.Type);
@@ -201,7 +196,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                     current.Value = entry.Getter!.Invoke(current.Parent.Value!);
                 }
                 else
-                    current.Value = _selectedEntity.Entity.Get(current.Type);
+                    current.Value = _selectedEntity.Get(current.Type);
 
                 queue.EnqueueRange(current.ChildPropertyNodes.Items
                     .SkipWhile(n => !n.IsVisible)
