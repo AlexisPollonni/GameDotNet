@@ -9,13 +9,16 @@ namespace GameDotNet.Core.Services;
 internal sealed class ResettableWorkItem<TUserState> : IThreadPoolWorkItem, IResettable 
     where TUserState : struct
 {
-    private readonly record struct JobItem(
+    // ReSharper disable once MemberCanBePrivate.Global
+    // Incorrect Rider suggestion.
+    // Cannot make private because of property WorkValue. Causes CS0053
+    internal readonly record struct JobItem(
         Func<TUserState, CancellationToken, ValueTask> Work,
         TUserState UserState,
         PooledValueTaskSource Source,
         CancellationToken Token);
 
-    public JobItem? WorkValue { get; set; }
+    internal JobItem? WorkValue { get; set; }
 
     public void Execute()
     {
