@@ -1,15 +1,7 @@
 using System.Drawing;
 using System.Numerics;
-using System.Reactive.Linq;
 using Arch.Core;
 using Arch.Core.Extensions;
-using GameDotNet.Core.Physics.Components;
-using GameDotNet.Core.Tools.Containers;
-using GameDotNet.Graphics.Abstractions;
-using GameDotNet.Management;
-using GameDotNet.Management.ECS;
-using GameDotNet.Management.ECS.Components;
-using MessagePipe;
 using Microsoft.Extensions.Logging;
 using Serilog;
 

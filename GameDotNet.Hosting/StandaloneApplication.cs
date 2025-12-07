@@ -1,10 +1,7 @@
 using System.Reactive;
 using System.Reactive.Linq;
-using GameDotNet.Core.Tools.Containers;
-using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics;
 using MessagePipe;
-using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Silk.NET.Windowing;
 

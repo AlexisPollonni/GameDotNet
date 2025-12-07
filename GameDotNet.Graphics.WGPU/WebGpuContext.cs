@@ -1,11 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
-using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core.Contexts;
-using Silk.NET.Core.Native;
-using Silk.NET.WebGPU;
 using static Microsoft.Extensions.Logging.LogLevel;
 using Adapter = GameDotNet.Graphics.WGPU.Wrappers.Adapter;
 using AdapterProperties = GameDotNet.Graphics.WGPU.Wrappers.AdapterProperties;

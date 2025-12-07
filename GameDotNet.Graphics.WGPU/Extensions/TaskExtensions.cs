@@ -1,4 +1,3 @@
-using GameDotNet.Graphics.WGPU.Wrappers;
 using Instance = GameDotNet.Graphics.WGPU.Wrappers.Instance;
 
 namespace GameDotNet.Graphics.WGPU.Extensions;

@@ -1,7 +1,4 @@
 using System.Drawing;
-using GameDotNet.Graphics.Abstractions;
-using GameDotNet.Input;
-using GameDotNet.Input.Abstract;
 using MessagePipe;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Windowing;

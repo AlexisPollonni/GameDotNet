@@ -1,8 +1,6 @@
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using GameDotNet.Core.Physics.Components;
-using GameDotNet.Management;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Maths;
 using Buffer = GameDotNet.Graphics.WGPU.Wrappers.Buffer;

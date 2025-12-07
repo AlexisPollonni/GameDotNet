@@ -1,5 +1,4 @@
-﻿using GameDotNet.Core.Tools.Containers;
-using GameDotNet.Graphics.WGPU.Extensions;
+﻿using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;

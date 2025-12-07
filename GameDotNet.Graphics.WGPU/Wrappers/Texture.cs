@@ -1,5 +1,4 @@
-﻿using GameDotNet.Core.Tools.Containers;
-using Silk.NET.Core.Native;
+﻿using Silk.NET.Core.Native;
 using unsafe TexturePtr = Silk.NET.WebGPU.Texture*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

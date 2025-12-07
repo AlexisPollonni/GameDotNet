@@ -1,3 +1,4 @@
+using System.Timers;
 using Serilog;
 using Serilog.Sinks.Async;
 using Timer = System.Timers.Timer;
@@ -31,7 +32,7 @@ internal sealed class AsyncSinkMonitorHook : IAsyncLogEventSinkMonitor
         _timer.Start();
     }
 
-    private void Timer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
+    private void Timer_Elapsed(object? sender, ElapsedEventArgs e)
     {
         if (_inspector is null) return;
 

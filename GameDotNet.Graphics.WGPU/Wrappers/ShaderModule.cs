@@ -1,4 +1,3 @@
-using Silk.NET.WebGPU;
 using unsafe ShaderModulePtr = Silk.NET.WebGPU.ShaderModule*;
 
 namespace GameDotNet.Graphics.WGPU.Wrappers;

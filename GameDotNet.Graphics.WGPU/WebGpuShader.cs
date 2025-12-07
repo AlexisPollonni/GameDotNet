@@ -1,10 +1,7 @@
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using GameDotNet.Graphics.Abstractions;
-using GameDotNet.Graphics.WGPU.Extensions;
 using Microsoft.Extensions.Logging;
-using Silk.NET.WebGPU;
-using SpirvReflectSharp;
 using LogLevel = Microsoft.Extensions.Logging.LogLevel;
 using ShaderModule = GameDotNet.Graphics.WGPU.Wrappers.ShaderModule;
 using VertexBufferLayout = GameDotNet.Graphics.WGPU.Wrappers.VertexBufferLayout;

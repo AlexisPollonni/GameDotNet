@@ -1,5 +1,4 @@
 ﻿using System.Runtime.InteropServices;
-using GameDotNet.Core.Tools.Containers;
 using Silk.NET.Core;
 using Silk.NET.Core.Native;
 

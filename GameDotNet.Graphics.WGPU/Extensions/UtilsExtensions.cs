@@ -1,5 +1,3 @@
-using Silk.NET.SPIRV.Reflect;
-
 namespace GameDotNet.Graphics.WGPU.Extensions;
 
 public static class UtilsExtensions
