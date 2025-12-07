@@ -264,7 +264,7 @@ public static class ArchEntityMutationExtensions
         /// Destroys this entity and all its descendants recursively (bottom-up).
         /// Children are destroyed before their parents.
         /// </summary>
-        public void DestroyWithChildren(World world)
+        public void DestroyWithChildren()
         {
             // Destroy descendants first (bottom-up) to avoid dangling references
             foreach (var descendant in thisEntity.Descendants().Reverse())
@@ -278,13 +278,13 @@ public static class ArchEntityMutationExtensions
         /// Destroys only this entity. Its children are reparented to this entity's parent.
         /// If this entity has no parent, its children become root entities.
         /// </summary>
-        public void DestroyAndPromoteChildren(World world)
+        public void DestroyAndPromoteChildren()
         {
             var parent = thisEntity.Parent;
-            var children = thisEntity.Children().ToArray();
+            using var children = thisEntity.Children().ToArrayPool();
             
             // Reparent all children
-            foreach (var child in children)
+            foreach (var child in children.Array)
             {
                 if (parent.HasValue)
                 {
@@ -302,11 +302,11 @@ public static class ArchEntityMutationExtensions
         /// <summary>
         /// Destroys only this entity. Its children become root entities (orphaned).
         /// </summary>
-        public void DestroyAndOrphanChildren(World world)
+        public void DestroyAndOrphanChildren()
         {
-            var children = thisEntity.Children().ToArray();
+            using var children = thisEntity.Children().ToArrayPool();
             
-            foreach (var child in children)
+            foreach (var child in children.Array)
             {
                 child.DetachFromParent();
             }
