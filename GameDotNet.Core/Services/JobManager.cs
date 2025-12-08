@@ -37,13 +37,13 @@ public sealed class JobManager : IAsyncDisposable
     private readonly IJobDependencyGraph _jobDependencyGraph;
 
     internal JobManager(IMeterFactory meterFactory,
-                        TimeProvider timeProvider,
-                        IAsyncSubscriber<EngineStartedEvent> engineStart,
-                        IAsyncSubscriber<EngineStoppingEvent> engineStopping,
-                        IEnumerable<IUpdateJob> registeredJobs,
-                        IZeroAllocThreadPoolScheduler<WorkerItem> scheduler,
-                        IJobDependencyGraph jobDependencyGraph,
-                        SceneInstanceManager sceneManager)
+        TimeProvider timeProvider,
+        IAsyncSubscriber<EngineStartedEvent> engineStart,
+        IAsyncSubscriber<EngineStoppingEvent> engineStopping,
+        IEnumerable<IUpdateJob> registeredJobs,
+        IZeroAllocThreadPoolScheduler<WorkerItem> scheduler,
+        IJobDependencyGraph jobDependencyGraph,
+        SceneInstanceManager sceneManager)
     {
         _timeProvider = timeProvider;
         _registeredJobs = registeredJobs;
@@ -55,7 +55,11 @@ public sealed class JobManager : IAsyncDisposable
         _stoppingSubscription = engineStopping.Subscribe(OnStopping);
     }
 
-    internal readonly record struct WorkerItem(IUpdateJob Job, WorkerItem.ItemType Type, JobManager SrcManager, JobData Data)
+    internal readonly record struct WorkerItem(
+        IUpdateJob Job,
+        WorkerItem.ItemType Type,
+        JobManager SrcManager,
+        JobData Data)
     {
         internal enum ItemType
         {
@@ -85,7 +89,8 @@ public sealed class JobManager : IAsyncDisposable
     public async ValueTask Update(CancellationToken token)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        _initialized.ShouldBeTrue("JobManager is not initialized yet. Make sure to start the engine before calling Update.");
+        _initialized.ShouldBeTrue(
+            "JobManager is not initialized yet. Make sure to start the engine before calling Update.");
 
         if (!_initialized) return;
 
@@ -152,11 +157,11 @@ public sealed class JobManager : IAsyncDisposable
         while (_jobsToAdd.TryDequeue(out var jobToAdd))
         {
             _allJobs.TryAdd(jobToAdd,
-                            new(new(_timeProvider),
-                                new(_timeProvider),
-                                _meter.CreateHistogram<double>($"{jobToAdd.GetType().FullName}.ExecuteTime",
-                                                               "ms",
-                                                               "Execution time of the job in milliseconds")));
+                new(new(_timeProvider),
+                    new(_timeProvider),
+                    _meter.CreateHistogram<double>($"{jobToAdd.GetType().FullName}.ExecuteTime",
+                        "ms",
+                        "Execution time of the job in milliseconds")));
             hasChanges = true;
         }
 
@@ -174,17 +179,17 @@ public sealed class JobManager : IAsyncDisposable
         _runningDependencyGraph.Clear();
 
         using var graphEdges = _allJobs.Keys.AsValueEnumerable()
-                                       .SelectMany(job =>
-                                       {
-                                           return _jobDependencyGraph.GetDependencies(job.GetType())
-                                                                     .AsValueEnumerable()
-                                                                     .Select(GetJobByType)
-                                                                     .Where(depJob => depJob.IsStarted)
-                                                                     .Select(jobDep => new SEdge<IUpdateJob>(
-                                                                                 job,
-                                                                                 jobDep));
-                                       })
-                                       .ToArrayPool();
+            .SelectMany(job =>
+            {
+                return _jobDependencyGraph.GetDependencies(job.GetType())
+                    .AsValueEnumerable()
+                    .Select(GetJobByType)
+                    .Where(depJob => depJob.IsStarted)
+                    .Select(jobDep => new SEdge<IUpdateJob>(
+                        job,
+                        jobDep));
+            })
+            .ToArrayPool();
 
         _runningDependencyGraph.AddVerticesAndEdgeRange(graphEdges.Array);
 
@@ -250,6 +255,7 @@ public sealed class JobManager : IAsyncDisposable
     private static async ValueTask WorkerLoop(WorkerItem workItem, CancellationToken token)
     {
         var job = workItem.Job;
+        // TODO: Replace with union pattern matching
         switch (workItem.Type)
         {
             case WorkerItem.ItemType.Startup:
@@ -270,10 +276,14 @@ public sealed class JobManager : IAsyncDisposable
                 if (workItem.Job is IQueryUpdateJob queryUpdateJob)
                 {
                     var query = queryUpdateJob.Query;
-                    // TODO: For now we just get the world from the scene manager, later we might want to support multiple worlds/scenes
-                    using var matchingEntities = workItem.SrcManager._sceneManager.World.GetEntitiesPooled(query);
+                    var sceneManager = workItem.SrcManager._sceneManager;
 
-                    queryUpdateJob.OnUpdateQueryEntities(deltaWatch.Elapsed, matchingEntities.Span);
+                    foreach (var scene in sceneManager.EnabledScenes)
+                    {
+                        using var matchingEntities = scene.EntityWorld.GetEntitiesPooled(query);
+
+                        queryUpdateJob.OnUpdateQueryEntities(deltaWatch.Elapsed, matchingEntities.Span);
+                    }
                 }
 
                 deltaWatch.Restart();

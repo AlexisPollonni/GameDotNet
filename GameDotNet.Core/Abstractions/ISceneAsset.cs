@@ -1,6 +1,6 @@
 namespace GameDotNet.Core.Abstractions;
 
-public interface ISavedSceneAsset : IAsset
+public interface ISceneAsset : IAsset
 {
     IEnumerable<IAsset> SceneAssets { get; }
 }

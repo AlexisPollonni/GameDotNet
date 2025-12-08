@@ -1,3 +1,5 @@
+using GameDotNet.Graphics.Assets.Assimp;
+
 namespace GameDotNet.Graphics.Assets;
 
 public class Scene
