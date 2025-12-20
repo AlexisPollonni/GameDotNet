@@ -55,6 +55,7 @@ public sealed class JobManager : IAsyncDisposable
         _stoppingSubscription = engineStopping.Subscribe(OnStopping);
     }
 
+    //TODO: need to change this to a union struct down the line will be easier to manage, either when union proposal lands or with dot variant 
     internal readonly record struct WorkerItem(
         IUpdateJob Job,
         WorkerItem.ItemType Type,
