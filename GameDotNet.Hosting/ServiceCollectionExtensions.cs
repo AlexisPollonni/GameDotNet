@@ -72,6 +72,23 @@ public static class ServiceCollectionExtensions
     }
 }
 
+file class DefaultJobDependencyGraph(IServiceProvider provider) : IJobDependencyGraph
+{
+    internal record JobDependencyDescriptor(Type JobType, Type JobDependency);
+
+    public IEnumerable<Type> GetDependencies(Type jobType)
+    {
+        return provider.GetKeyedServices<JobDependencyDescriptor>(jobType)
+            .Select(descriptor => descriptor.JobDependency);
+    }
+}
+
+
+/// <summary>
+/// Generates service collection registrations for frame jobs and job dependencies
+/// TODO: in the future will be included in an analyzer/source generator referenced by scripting projects as well as the engine.
+/// TODO: In future will include registration for other types of services (event based, etc...)
+/// </summary>
 public static partial class GeneratedServiceCollectionExtensions
 {
     [GenerateServiceRegistrations(AssignableTo = typeof(IUpdateJob), AssemblyNameFilter = "GameDotNet*", Lifetime = ServiceLifetime.Singleton)]
@@ -82,26 +99,16 @@ public static partial class GeneratedServiceCollectionExtensions
                                   CustomHandler = nameof(RegisterJobAndDependency))]
     public static partial IServiceCollection AddJobDependencies(this IServiceCollection services);
 
+    
     private static void RegisterJobAndDependency<TJob, TJobDependency>(IServiceCollection services)
         where TJob : class, IJobDependsOn<TJobDependency>, IUpdateJob where TJobDependency : IUpdateJob
     {
         services.TryAddSingleton<IJobDependencyGraph, DefaultJobDependencyGraph>();
         services.AddKeyedSingleton(serviceKey: typeof(TJob),
-                                   new DefaultJobDependencyGraph.JobDependencyDescriptor(
-                                       typeof(TJob),
-                                       typeof(TJobDependency)));
+            new DefaultJobDependencyGraph.JobDependencyDescriptor(
+                typeof(TJob),
+                typeof(TJobDependency)));
 
         services.TryAddSingleton<IUpdateJob, TJob>();
-    }
-
-    private class DefaultJobDependencyGraph(IServiceProvider provider) : IJobDependencyGraph
-    {
-        internal record JobDependencyDescriptor(Type JobType, Type JobDependency);
-
-        public IEnumerable<Type> GetDependencies(Type jobType)
-        {
-            return provider.GetKeyedServices<JobDependencyDescriptor>(jobType)
-                           .Select(descriptor => descriptor.JobDependency);
-        }
     }
 }
