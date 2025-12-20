@@ -7,7 +7,7 @@ using Nito.Disposables;
 
 namespace GameDotNet.Core.Services;
 
-file sealed class EntityUpdatePublisher : SingleDisposable<EmptyStruct>
+internal sealed class EntityUpdatePublisher : SingleDisposable<EmptyStruct>
 {
     private readonly IDisposable _disposableBag;
     private readonly IPublisher<EntityCreatedEvent> _entityCreatedPublisher;
@@ -46,13 +46,13 @@ file sealed class EntityUpdatePublisher : SingleDisposable<EmptyStruct>
     }
 }
 
-file sealed class ComponentPublisher<TComponent> : SingleDisposable<EmptyStruct>
+internal sealed class ComponentPublisher<TComponent> : SingleDisposable<EmptyStruct>
 {
     private readonly IPublisher<EntityComponentAddedEvent> _componentAddedPublisher;
     private readonly IPublisher<EntityComponentSetEvent> _componentSetPublisher;
     private readonly IPublisher<EntityComponentRemovedEvent> _componentRemovedPublisher;
     private readonly IDisposable _disposables;
-    
+
     public ComponentPublisher(
         ISubscriber<SceneInstantiatedEvent> sceneInstantiatedSubscriber,
         IPublisher<EntityComponentAddedEvent> componentAddedPublisher,
@@ -68,7 +68,7 @@ file sealed class ComponentPublisher<TComponent> : SingleDisposable<EmptyStruct>
     private void OnSceneInstantiated(SceneInstantiatedEvent e)
     {
         var world = e.Instance.EntityWorld;
-        
+
         world.SubscribeComponentAdded<TComponent>((in entity, ref comp) =>
         {
             _componentAddedPublisher.Publish(
@@ -91,24 +91,5 @@ file sealed class ComponentPublisher<TComponent> : SingleDisposable<EmptyStruct>
     protected override void Dispose(EmptyStruct context)
     {
         _disposables.Dispose();
-    }
-}
-
-public static class ServiceCollectionExtensions
-{
-    /// <summary>
-    /// Registers an ECS component type if not already registered in the singleton registry and additionally registers
-    /// publishers to notify when components of this type are added, set or removed from entities.
-    /// </summary>
-    /// <typeparam name="T">Ecs component type to register</typeparam>
-    /// <returns></returns>
-    public static IServiceCollection AddEcsComponent<T>(this IServiceCollection services)
-    {
-        services.TryAddActivatedSingleton<EntityUpdatePublisher>();
-        services.TryAddActivatedSingleton<ComponentPublisher<T>>();
-
-        ComponentRegistry.Add<T>();
-
-        return services;
     }
 }
