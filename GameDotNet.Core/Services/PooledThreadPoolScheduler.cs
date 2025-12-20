@@ -54,6 +54,7 @@ internal sealed class ResettableWorkItem<TUserState> : IThreadPoolWorkItem, IRes
     }
 }
 
+//TODO: Right now uses 2 object pools for work item and vts, but could be combined into one with a unique work item type.
 internal sealed class PooledThreadPoolScheduler<TUserState>(
     ObjectPool<PooledValueTaskSource> valueTaskSourcePool,
     ObjectPool<ResettableWorkItem<TUserState>> workItemPool) : IZeroAllocThreadPoolScheduler<TUserState>
