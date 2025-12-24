@@ -7,7 +7,6 @@ using Shouldly;
 namespace GameDotNet.Core.Services;
 
 internal sealed class ResettableWorkItem<TUserState> : IThreadPoolWorkItem, IResettable 
-    where TUserState : struct
 {
     // ReSharper disable once MemberCanBePrivate.Global
     // Incorrect Rider suggestion.
@@ -58,7 +57,6 @@ internal sealed class ResettableWorkItem<TUserState> : IThreadPoolWorkItem, IRes
 internal sealed class PooledThreadPoolScheduler<TUserState>(
     ObjectPool<PooledValueTaskSource> valueTaskSourcePool,
     ObjectPool<ResettableWorkItem<TUserState>> workItemPool) : IZeroAllocThreadPoolScheduler<TUserState>
-    where TUserState : struct
 {
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
