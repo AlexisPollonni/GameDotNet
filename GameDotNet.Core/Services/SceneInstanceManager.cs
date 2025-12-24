@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
-using System.Reactive;
 using Arch.Core;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Components;
+using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
 using MessagePipe;
 using Nito.Disposables;
@@ -107,7 +107,7 @@ public sealed class SceneInstanceManager(IEnumerable<IAssetImporter<ISceneAsset>
 
 }
 
-internal class DefaultSceneInstance : SingleDisposable<Unit>, ISceneInstance
+internal class DefaultSceneInstance : SingleDisposable<EmptyStruct>, ISceneInstance
 {
     public ISceneAsset SceneAsset { get; }
 
@@ -120,14 +120,14 @@ internal class DefaultSceneInstance : SingleDisposable<Unit>, ISceneInstance
     private readonly Entity _sceneRoot;
 
 
-    public DefaultSceneInstance(ISceneAsset sceneAsset) : base(Unit.Default)
+    public DefaultSceneInstance(ISceneAsset sceneAsset) : base(default)
     {
         SceneAsset = sceneAsset;
 
         _sceneRoot = sceneAsset.CreateEntity(EntityWorld);
     }
 
-    protected override void Dispose(Unit _)
+    protected override void Dispose(EmptyStruct _)
     {
         _sceneRoot.DestroyWithChildren();
         EntityWorld.Dispose();

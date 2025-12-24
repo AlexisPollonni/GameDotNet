@@ -1,13 +1,13 @@
-using System.Reactive;
 using Arch.Core;
 using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Tooling;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using Nito.Disposables;
 
 namespace GameDotNet.Core.Services;
 
-file sealed class EntityUpdatePublisher : SingleDisposable<Unit>
+file sealed class EntityUpdatePublisher : SingleDisposable<EmptyStruct>
 {
     private readonly IDisposable _disposableBag;
     private readonly IPublisher<EntityCreatedEvent> _entityCreatedPublisher;
@@ -40,13 +40,13 @@ file sealed class EntityUpdatePublisher : SingleDisposable<Unit>
         //TODO: Unsubscribe?
     }
 
-    protected override void Dispose(Unit context)
+    protected override void Dispose(EmptyStruct context)
     {
         _disposableBag.Dispose();
     }
 }
 
-file sealed class ComponentPublisher<TComponent> : SingleDisposable<Unit>
+file sealed class ComponentPublisher<TComponent> : SingleDisposable<EmptyStruct>
 {
     private readonly IPublisher<EntityComponentAddedEvent> _componentAddedPublisher;
     private readonly IPublisher<EntityComponentSetEvent> _componentSetPublisher;
@@ -88,7 +88,7 @@ file sealed class ComponentPublisher<TComponent> : SingleDisposable<Unit>
         });
     }
 
-    protected override void Dispose(Unit context)
+    protected override void Dispose(EmptyStruct context)
     {
         _disposables.Dispose();
     }
