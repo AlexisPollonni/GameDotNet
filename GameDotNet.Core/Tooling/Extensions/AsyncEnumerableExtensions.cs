@@ -98,15 +98,23 @@ public static class AsyncEnumerableExtensions
                 writer.TryComplete();
             });
 
-            
-            await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+
+            try
             {
-                yield return item;
+                await foreach (var item in channel.Reader.ReadAllAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    yield return item;
+                }
+            }
+            finally
+            {
+                unsubscribe(Handler);
+                writer.TryComplete();
             }
 
 
             yield break;
-            
+
             void Handler(T item)
             {
 #pragma warning disable SYSLIB5007
