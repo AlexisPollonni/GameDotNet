@@ -22,7 +22,6 @@
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="Shouldly" />
     <PackageReference Include="Silk.NET.Core" />
-    <PackageReference Include="System.Reactive.Interfaces" />
     <PackageReference Include="TruePath" />
     <PackageReference Include="ValueTaskSupplement" />
     <PackageReference Include="Vogen" />
