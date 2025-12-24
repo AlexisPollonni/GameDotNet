@@ -1,60 +1,32 @@
-using System.Collections.Concurrent;
-using System.Threading.Channels;
 using GameDotNet.Core.Abstractions;
+using MessagePipe;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Vogen;
+using Shouldly;
+using ValueTaskSupplement;
 
 namespace GameDotNet.Core.Services;
 
-/// <summary>
-/// Dummy key type used for global (non-keyed) events
-/// </summary>
-file readonly struct GlobalEventKey : IEquatable<GlobalEventKey>
-{
-    public static readonly GlobalEventKey Instance = default;
-
-    public bool Equals(GlobalEventKey other) => true;
-    public override bool Equals(object? obj) => obj is GlobalEventKey;
-    public override int GetHashCode() => 0;
-}
-
-[ValueObject<ValueTuple<Type, object>>]
-internal readonly partial struct ChannelKey
-{
-    public static ChannelKey From<TKey, TEvent>(TKey key) where TKey : notnull
-    {
-        return From((typeof(TEvent), key));
-    }
-    
-    public static ChannelKey FromGlobal<TEvent>()
-    {
-        return From<GlobalEventKey, TEvent>(GlobalEventKey.Instance);
-    }
-}
-
-internal class EventRegistry(ILogger<EventRegistry> logger, IEnumerable<IEventListener> listeners, TimeProvider timeProvider)
+internal class EventRegistry(
+    ILogger<EventRegistry> logger,
+    IEnumerable<IEventListener> listeners,
+    TimeProvider timeProvider,
+    IServiceProvider serviceProvider,
+    IZeroAllocThreadPoolScheduler<EventRegistry.SubscriptionWorkItem> scheduler)
     : BackgroundService, IEventRegistry, IAsyncDisposable,
 
         //implements publisher in same class for simplicity
         IEventBus
 {
-    // Unified channel storage - nested dictionary: Type -> Key -> Channel
-    // Global events use GlobalEventKey.Instance as the key
-    private readonly Dictionary<ChannelKey, object> _channels = new();
-
-    // Store cleanup actions to avoid reflection during shutdown
-    private readonly ConcurrentDictionary<ChannelKey, Action> _cleanupActions = new();
-
-    private readonly Lock _channelsLock = new();
-
-    private readonly List<Task> _listenerTasks = [];
+    private readonly List<ValueTask> _listenerTasks = [];
+    private readonly Lock _listenersLock = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        ConfigureStartupListeners();
-
         stoppingToken.ThrowIfCancellationRequested();
+
+        ConfigureStartupListeners();
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -62,8 +34,20 @@ internal class EventRegistry(ILogger<EventRegistry> logger, IEnumerable<IEventLi
             {
                 await WaitUntilListenerAvailable(stoppingToken);
 
-                var completedTask = await Task.WhenAny(_listenerTasks);
-                _listenerTasks.Remove(completedTask);
+                ValueTask[] activeTasks;
+                lock (_listenersLock)
+                {
+                    activeTasks = _listenerTasks.ToArray();
+                }
+
+                var completedTaskIndex = await ValueTaskEx.WhenAny(activeTasks);
+
+                ValueTask completedTask;
+                lock (_listenersLock)
+                {
+                    completedTask = _listenerTasks[completedTaskIndex];
+                    _listenerTasks.RemoveAt(completedTaskIndex);
+                }
 
                 // Check if the task completed normally or with error
                 await completedTask;
@@ -78,7 +62,10 @@ internal class EventRegistry(ILogger<EventRegistry> logger, IEnumerable<IEventLi
                 logger.LogError(ex, "Event listener task faulted");
             }
 
-            logger.LogDebug("Active listeners: {Count}", _listenerTasks.Count);
+            lock (_listenersLock)
+            {
+                logger.LogDebug("Active listeners: {Count}", _listenerTasks.Count);
+            }
         }
 
         return;
@@ -102,11 +89,18 @@ internal class EventRegistry(ILogger<EventRegistry> logger, IEnumerable<IEventLi
 
         async ValueTask WaitUntilListenerAvailable(CancellationToken token)
         {
-            while (_listenerTasks.Count == 0)
+            while (!token.IsCancellationRequested)
             {
-                token.ThrowIfCancellationRequested();
-                logger.LogWarning("No event listeners registered yet, waiting...");
-                await Task.Delay(TimeSpan.FromMilliseconds(100), token);
+                lock (_listenersLock)
+                {
+                    if (_listenerTasks.Count > 0)
+                    {
+                        break;
+                    }
+                }
+
+                logger.LogDebug("No event listeners registered yet, waiting...");
+                await Task.Delay(TimeSpan.FromMilliseconds(100), timeProvider, token);
             }
         }
     }
@@ -114,67 +108,122 @@ internal class EventRegistry(ILogger<EventRegistry> logger, IEnumerable<IEventLi
 
     // ===== IEventRegistry Implementation =====
 
-    public IEventRegistry.EventSubscriptionBuilder On<TEvent>(Func<IAsyncEnumerable<TEvent>, CancellationToken, Task> handler, CancellationToken token = default)
+    public IEventRegistry.EventSubscriptionBuilder On<TEvent>(
+        Func<IAsyncEnumerable<TEvent>, CancellationToken, Task> handler, CancellationToken token = default)
     {
-        return On(GlobalEventKey.Instance, handler, token);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        var task = scheduler.EnqueueWork(QueueSubscriber<TEvent>, new(serviceProvider, null, handler), token);
+
+        lock (_listenersLock)
+        {
+            _listenerTasks.Add(task);
+        }
+
+        return default;
     }
 
     public IEventRegistry.EventSubscriptionBuilder On<TKey, TEvent>(TKey key,
-        Func<IAsyncEnumerable<TEvent>, CancellationToken, Task> handler, CancellationToken token = default) where TKey : notnull
+        Func<IAsyncEnumerable<TEvent>, CancellationToken, Task> handler, CancellationToken token = default)
+        where TKey : notnull
     {
         ArgumentNullException.ThrowIfNull(handler);
         ArgumentNullException.ThrowIfNull(key);
 
-        var channel = GetOrCreateChannel<TKey, TEvent>(key);
-        var stream = channel.Reader.ReadAllAsync(token);
+        var task = scheduler.EnqueueWork(QueueSubscriber<TKey, TEvent>, new(serviceProvider, key, handler), token);
 
-        // Start the handler task
-        var listenerTask = Task.Run(async Task? () =>
+        lock (_listenersLock)
         {
-            try
-            {
-                await handler(stream, token);
-            }
-            catch (OperationCanceledException)
-            {
-                // Expected during shutdown
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Unhandled exception in keyed event handler for {EventType} with key {Key}",
-                    typeof(TEvent).Name, key);
-            }
-        }, token);
-
-        _listenerTasks.Add(listenerTask);
+            _listenerTasks.Add(task);
+        }
 
         return default; // ref struct, no actual state needed
     }
 
+    private static async ValueTask QueueSubscriber<TKey, TEvent>(SubscriptionWorkItem subscriptionWorkItem,
+        CancellationToken token) where TKey : notnull
+    {
+        var provider = subscriptionWorkItem.Provider;
+        var key = subscriptionWorkItem.Key.ShouldBeOfType<TKey>();
+        var handler = subscriptionWorkItem.Handler
+            .ShouldBeOfType<Func<IAsyncEnumerable<TEvent>, CancellationToken, Task>>();
+
+        var subscriber = provider.GetRequiredService<ISingletonAsyncSubscriber<TKey, TEvent>>();
+
+        var enumerable = subscriber.AsAsyncEnumerable(key);
+
+        try
+        {
+            await handler(enumerable, token);
+        }
+        catch (OperationCanceledException)
+        {
+            provider.GetService<ILogger<EventRegistry>>()?.LogDebug(
+                "Event listener for {EventType} with key {Key} was cancelled",
+                typeof(TEvent).Name, subscriptionWorkItem.Key);
+        }
+        catch (Exception ex)
+        {
+            provider.GetService<ILogger<EventRegistry>>()?.LogError(ex,
+                "Event listener for {EventType} with key {Key} faulted",
+                typeof(TEvent).Name, subscriptionWorkItem.Key);
+        }
+    }
+
+    private static async ValueTask QueueSubscriber<TEvent>(SubscriptionWorkItem subscriptionWorkItem,
+        CancellationToken token)
+    {
+        var provider = subscriptionWorkItem.Provider;
+        var handler = subscriptionWorkItem.Handler
+            .ShouldBeOfType<Func<IAsyncEnumerable<TEvent>, CancellationToken, Task>>();
+
+        var subscriber = provider.GetRequiredService<ISingletonAsyncSubscriber<TEvent>>();
+
+        var enumerable = subscriber.AsAsyncEnumerable();
+
+        try
+        {
+            await handler(enumerable, token);
+        }
+        catch (OperationCanceledException)
+        {
+            provider.GetService<ILogger<EventRegistry>>()?.LogDebug(
+                "Event listener for {EventType} was cancelled",
+                typeof(TEvent).Name);
+        }
+        catch (Exception ex)
+        {
+            provider.GetService<ILogger<EventRegistry>>()?.LogError(ex,
+                "Event listener for {EventType} faulted",
+                typeof(TEvent).Name);
+        }
+    }
+
+    internal readonly record struct SubscriptionWorkItem(IServiceProvider Provider, object? Key, object Handler);
+
     // ===== IEventBus Implementation =====
+    //TODO: Consider caching publishers for performance if profiling show it's needed
 
     public void Publish<TEvent>(TEvent evt)
     {
-        Publish(GlobalEventKey.Instance, evt);
+        var publisher = serviceProvider.GetRequiredService<ISingletonAsyncPublisher<TEvent>>();
+
+        publisher.Publish(evt);
     }
 
     public void Publish<TKey, TEvent>(TKey key, TEvent evt) where TKey : notnull
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        var channel = GetOrCreateChannel<TKey, TEvent>(key);
-        
-        // Use TryWrite for lock-free, zero-allocation fast path
-        if (!channel.Writer.TryWrite(evt))
-        {
-            // Fallback to sync write if channel is bounded and full
-            channel.Writer.WriteAsync(evt).GetAwaiter().GetResult();
-        }
+        var publisher = serviceProvider.GetRequiredService<ISingletonAsyncPublisher<TKey, TEvent>>();
+
+        publisher.Publish(key, evt);
     }
 
-    public ValueTask PublishAsync<TEvent>(TEvent evt, CancellationToken cancellationToken = default)
+    public async ValueTask PublishAsync<TEvent>(TEvent evt, CancellationToken cancellationToken = default)
     {
-        return PublishAsync(GlobalEventKey.Instance, evt, cancellationToken);
+        var publisher = serviceProvider.GetRequiredService<ISingletonAsyncPublisher<TEvent>>();
+        await publisher.PublishAsync(evt, cancellationToken);
     }
 
     public async ValueTask PublishAsync<TKey, TEvent>(TKey key, TEvent evt,
@@ -182,14 +231,21 @@ internal class EventRegistry(ILogger<EventRegistry> logger, IEnumerable<IEventLi
     {
         ArgumentNullException.ThrowIfNull(key);
 
-        var channel = GetOrCreateChannel<TKey, TEvent>(key);
-        await channel.Writer.WriteAsync(evt, cancellationToken);
+        var publisher = serviceProvider.GetRequiredService<ISingletonAsyncPublisher<TKey, TEvent>>();
+        await publisher.PublishAsync(key, evt, cancellationToken);
     }
 
-    public ValueTask PublishAllAsync<TEvent>(IAsyncEnumerable<TEvent> events,
+    public async ValueTask PublishAllAsync<TEvent>(IAsyncEnumerable<TEvent> events,
         CancellationToken cancellationToken = default)
     {
-        return PublishAllAsync(GlobalEventKey.Instance, events, cancellationToken);
+        ArgumentNullException.ThrowIfNull(events);
+
+        var publisher = serviceProvider.GetRequiredService<ISingletonAsyncPublisher<TEvent>>();
+
+        await foreach (var evt in events.WithCancellation(cancellationToken))
+        {
+            await publisher.PublishAsync(evt, cancellationToken);
+        }
     }
 
     public async ValueTask PublishAllAsync<TKey, TEvent>(TKey key, IAsyncEnumerable<TEvent> events,
@@ -198,108 +254,50 @@ internal class EventRegistry(ILogger<EventRegistry> logger, IEnumerable<IEventLi
         ArgumentNullException.ThrowIfNull(key);
         ArgumentNullException.ThrowIfNull(events);
 
-        var channel = GetOrCreateChannel<TKey, TEvent>(key);
+        var publisher = serviceProvider.GetRequiredService<ISingletonAsyncPublisher<TKey, TEvent>>();
 
         await foreach (var evt in events.WithCancellation(cancellationToken))
         {
-            await channel.Writer.WriteAsync(evt, cancellationToken);
+            await publisher.PublishAsync(key, evt, cancellationToken);
         }
     }
 
     // ===== Channel Management =====
 
-    private Channel<TEvent> GetOrCreateChannel<TKey, TEvent>(TKey key) where TKey : notnull
-    {
-        var eventType = typeof(TEvent);
-
-        // Get or create the type-level dictionary
-        Dictionary<TKey, Channel<TEvent>> keyDict;
-        
-        lock (_channelsLock)
-        {
-            if (!_channels.TryGetValue(eventType, out var existingDict))
-            {
-                keyDict = new();
-                _channels[eventType] = keyDict;
-
-                // Register cleanup action for this event type (no reflection!)
-                _cleanupActions[eventType] = () => CompleteAllChannelsForEventType(keyDict);
-            }
-            else
-            {
-                keyDict = (Dictionary<TKey, Channel<TEvent>>)existingDict;
-            }
-        }
-
-        // Now work with the key-level dictionary
-        lock (keyDict)
-        {
-            if (keyDict.TryGetValue(key, out var channel))
-            {
-                return channel;
-            }
-
-            channel = Channel.CreateUnbounded<TEvent>(new()
-            {
-                SingleReader = false,
-                SingleWriter = false,
-                AllowSynchronousContinuations = false
-            });
-
-            keyDict[key] = channel;
-
-            if (typeof(TKey) == typeof(GlobalEventKey))
-            {
-                logger.LogDebug("Created global event channel for {EventType}", eventType.Name);
-            }
-            else
-            {
-                logger.LogDebug("Created keyed event channel for {EventType} with key {Key}", eventType.Name, key);
-            }
-
-            return channel;
-        }
-    }
-
-    private static void CompleteAllChannelsForEventType<TKey, TEvent>(Dictionary<TKey, Channel<TEvent>> keyDict)
-        where TKey : notnull
-    {
-        foreach (var channel in keyDict.Values)
-        {
-            channel.Writer.TryComplete();
-        }
-    }
-
     public async ValueTask DisposeAsync()
     {
-        // Complete all channels to signal no more events
-        lock (_channelsLock)
+        lock (_listenerTasks)
         {
-            foreach (var cleanupAction in _cleanupActions.Values)
+            if (_listenerTasks.Count == 0)
             {
-                cleanupAction();
+                return;
             }
         }
-        
         // Wait for all remaining tasks with a timeout
-        if (_listenerTasks.Count > 0)
+
+        try
         {
-            try
+            Task listenerCleanupTask;
+
+            lock (_listenersLock)
             {
-                await Task.WhenAll(_listenerTasks).WaitAsync(TimeSpan.FromSeconds(5), timeProvider);
+                listenerCleanupTask = Task.WhenAll(_listenerTasks.Select(task => task.AsTask()))
+                    .WaitAsync(TimeSpan.FromSeconds(5), timeProvider);
             }
-            catch (OperationCanceledException)
-            {
-                logger.LogWarning("Shutdown cancelled, some listeners may not have completed cleanly");
-            }
-            catch (TimeoutException)
-            {
-                logger.LogWarning("Timeout waiting for listeners to complete during shutdown");
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error waiting for listener tasks during shutdown");
-            }
+
+            await listenerCleanupTask;
+        }
+        catch (OperationCanceledException)
+        {
+            logger.LogWarning("Shutdown cancelled, some listeners may not have completed cleanly");
+        }
+        catch (TimeoutException)
+        {
+            logger.LogWarning("Timeout waiting for listeners to complete during shutdown");
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error waiting for listener tasks during shutdown");
         }
     }
 }
