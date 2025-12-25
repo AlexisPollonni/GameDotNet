@@ -1,6 +1,6 @@
 namespace GameDotNet.Core.Abstractions;
 
-internal interface IEventBus
+public interface IEventBus
 {
     void Publish<TEvent>(TEvent evt);
     void Publish<TKey, TEvent>(TKey key, TEvent evt) where TKey : notnull;
