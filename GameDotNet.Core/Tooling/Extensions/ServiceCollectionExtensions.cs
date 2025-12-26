@@ -1,4 +1,5 @@
 ﻿using Arch.Core;
+using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,7 +13,7 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <typeparam name="T">Ecs component type to register</typeparam>
     /// <returns></returns>
-    public static IServiceCollection AddEcsComponent<T>(this IServiceCollection services)
+    public static IServiceCollection AddEcsComponent<T>(this IServiceCollection services) where T : ISceneComponent
     {
         services.TryAddActivatedSingleton<EntityUpdatePublisher>();
         services.TryAddActivatedSingleton<ComponentPublisher<T>>();
