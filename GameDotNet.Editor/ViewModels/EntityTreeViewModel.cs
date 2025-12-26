@@ -7,24 +7,27 @@ using Arch.Core.Extensions;
 using Avalonia.ReactiveUI;
 using DynamicData;
 using DynamicData.Alias;
+using GameDotNet.Core;
+using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Tooling.Extensions;
 using MessagePipe;
 using ReactiveUI.Fody.Helpers;
-using EntityNode = DynamicData.Node<GameDotNet.Editor.ViewModels.EntityEntryViewModel, Arch.Core.EntityReference>;
+using EntityNode = DynamicData.Node<GameDotNet.Editor.ViewModels.EntityEntryViewModel, Arch.Core.Entity>;
 
 namespace GameDotNet.Editor.ViewModels;
 
 public sealed class EntityTreeViewModel : ViewModelBase
 {
-    [Reactive]
-    public ObservableCollection<EntityNode> SelectedItems { get; set; }
+    [Reactive] public ObservableCollection<EntityNode> SelectedItems { get; set; }
 
-    [Reactive]
-    public ReadOnlyObservableCollection<EntityNode>? EntityTree { get; set; }
-    
-    public EntityTreeViewModel(SceneManager sceneManager, ISubscriber<entity>)
+    [Reactive] public ReadOnlyObservableCollection<EntityNode>? EntityTree { get; set; }
+
+    public EntityTreeViewModel(SceneInstanceManager sceneManager,
+        ISubscriber<EntityCreatedEvent> createdEvent,
+        ISubscriber<EntityDestroyedEvent> destroyedEvent)
     {
         var cache = new SourceList<Entity>();
-        SelectedItems = new();
+        SelectedItems = [];
 
         this.WhenActivated(d =>
         {
@@ -41,19 +44,21 @@ public sealed class EntityTreeViewModel : ViewModelBase
                     }
                 }
             });
-            
-            sceneManager.World.EntityCreated.AsObservable().Subscribe(args => cache.Add(args.Entity)).DisposeWith(d);
-            sceneManager.World.EntityDestroyed.AsObservable().Subscribe(args => cache.Remove(args.Entity)).DisposeWith(d);
-            
+
+            createdEvent.Subscribe(args => cache.Add(args.New)).DisposeWith(d);
+            destroyedEvent.Subscribe(args => cache.Remove(args.Destroyed)).DisposeWith(d);
+
+            componentAddedEvent.Subscribe(args => args.)
+
             cache.Connect()
-                 .ObserveOn(Scheduler.Default)
-                 .AddKey(static entity => entity.Reference())
-                 .Select(static entity => new EntityEntryViewModel(entity))
-                 .TransformToTree(static model => model.Parent)
-                 .ObserveOn(AvaloniaScheduler.Instance)
-                 .Bind(out var tree)
-                 .Subscribe()
-                 .DisposeWith(d);
+                .ObserveOn(Scheduler.Default)
+                .AddKey(static entity => entity)
+                .Select(static entity => new EntityEntryViewModel(entity))
+                .TransformToTree(static model => model.Parent)
+                .ObserveOn(AvaloniaScheduler.Instance)
+                .Bind(out var tree)
+                .Subscribe()
+                .DisposeWith(d);
 
             EntityTree = tree;
         });
@@ -63,6 +68,6 @@ public sealed class EntityTreeViewModel : ViewModelBase
 public record EntityEntryViewModel(Entity Entity)
 {
     public Entity Entity { get; } = Entity;
-    public EntityReference Parent => !Entity.TryGet(out ParentEntityComponent p) ? EntityReference.Null : p.Parent;
-    public string? Name => !Entity.TryGet(out Tag tag) ? null : tag.Name;
+    public Entity? Parent => Entity.Parent;
+    public string? Name => Entity.Label;
 }

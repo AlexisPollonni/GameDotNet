@@ -11,81 +11,81 @@ using Avalonia.ReactiveUI;
 using Collections.Pooled;
 using DynamicData;
 using DynamicData.Binding;
+using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Editor.Tools;
+using MessagePipe;
 using Microsoft.Extensions.ObjectPool;
 using ReactiveUI;
 using ReactiveUI.Fody.Helpers;
 
 namespace GameDotNet.Editor.ViewModels;
 
-public sealed class EntityInspectorViewModel : ViewModelBase
+internal sealed class EntityInspectorViewModel(
+    EntityTreeViewModel entityTreeView,
+    EditorSampledUpdatePublisher sampledUpdatePublisher,
+    PropertyNodeCache propertyCache,
+    ObjectPool<PropertyNodeViewModel> nodePool,
+    ISubscriber<EntityComponentAddedEvent> componentAddedSubscriber,
+    ISubscriber<EntityComponentSetEvent> componentSetSubscriber,
+    ISubscriber<EntityComponentRemovedEvent> componentRemovedSubscriber) : ViewModelBase
 {
-    public ICommand RefreshCommand { get; }
+    public ICommand RefreshCommand { get; private set; }
 
+    public ReadOnlyObservableCollection<PropertyNodeViewModel>? Components { get; set; }
+    private readonly SourceList<PropertyNodeViewModel> _components = new();
+    
+    
+    private Entity _selectedEntity = Entity.Null;
+    private Signature _loadedSignature = Signature.Null;
 
-    [Reactive] public ReadOnlyObservableCollection<PropertyNodeViewModel>? Components { get; set; }
-
-    private readonly SourceList<PropertyNodeViewModel> _components;
-    private readonly PropertyNodeCache _propertyCache;
-    private readonly DefaultObjectPool<PropertyNodeViewModel> _nodePool;
-    private Entity _selectedEntity;
-
-
-    public EntityInspectorViewModel(EntityTreeViewModel treeView, EditorUiUpdateSystem uiUpdateSystem)
+    public override void OnActivated(CompositeDisposable disposable)
     {
-        _components = new();
-        _propertyCache = new();
-        _nodePool = new(new NodePooledObjectPolicy(_propertyCache), 10000);
-        _selectedEntity = Entity.Null;
+        RefreshCommand = ReactiveCommand.Create(OnRefreshCommand).DisposeWith(disposable);
 
-        var sync = new object();
-        this.WhenActivated(d =>
-        {
-            treeView.SelectedItems.ToObservableChangeSet()
-                .ObserveOn(Scheduler.Default)
-                .SubscribeMany(node =>
-                {
-                    lock (sync)
-                    {
-                        UpdateComponents(node.Key);   
-                    }
-                    return Disposable.Empty;
-                })
-                .Subscribe().DisposeWith(d);
-
-            _components.Connect()
-                .ObserveOn(AvaloniaScheduler.Instance)
-                .Bind(out var comps)
-                .Subscribe()
-                .DisposeWith(d);
-            Components = comps;
-
-            uiUpdateSystem.SampledUpdate
-                .Subscribe(_ =>
-                {
-                    lock (sync)
-                    {
-                        UpdateInspector();
-                    }
-                })
-                .DisposeWith(d);
-        });
-
-        RefreshCommand = ReactiveCommand.Create(() =>
-        {
-            lock (sync)
+        sampledUpdatePublisher.SampledUpdate
+            .Subscribe(_ =>
             {
-                UpdateInspector();
-            }
-        });
+                OnRefreshCommand();
+            })
+            .DisposeWith(disposable);
+        
+        entityTreeView.SelectedItems
+            .ToObservableChangeSet()
+            .ObserveOn(Scheduler.Default)
+            .FirstAsync()
+            .OnItemRefreshed(node => OnActiveEntityChanged(node.Key))
+            .Subscribe().DisposeWith(disposable);
+
+        _components.Connect()
+            .ObserveOn(AvaloniaScheduler.Instance)
+            .Bind(out var comps)
+            .Subscribe()
+            .DisposeWith(disposable);
+        Components = comps;
+        
+        
+        
+    }
+
+    private void OnActiveEntityChanged(Entity newEntity)
+    {
+        
+    }
+
+    private void OnRefreshCommand()
+    {
+        lock (sync)
+        {
+            UpdateInspector();
+        }
     }
 
 
     private void UpdateComponents(Entity entity)
     {
         _selectedEntity = entity;
-        var types = entity.GetComponentTypes().;
+        var types = entity.GetComponentTypes();
 
         var nodes = types.Select(type => ComputeNodesFromComponent(entity, type));
 
@@ -214,7 +214,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                         if (newCount < curCount)
                         {
                             foreach (var n in list.Skip(newCount))
-                                _nodePool.Return(n);
+                                nodePool.Return(n);
                             list.RemoveRange(newCount, curCount - newCount);
                             return;
                         }
@@ -238,7 +238,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                         if (e.MoveNext())
                         {
                             // In the visible window so we swap w new value
-                            _nodePool.Return(list[i]);
+                            nodePool.Return(list[i]);
                             list[i] = e.Current;
                         }
                         else
@@ -251,7 +251,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
                     else if (!e.MoveNext())
                     {
                         for (var j = i; j < curCount; j++)
-                            _nodePool.Return(list[j]);
+                            nodePool.Return(list[j]);
                         list.RemoveRange(i, curCount); // Truncates excess nodes no longer present in list
                     }
                 });
@@ -271,7 +271,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
 
     private PropertyNodeViewModel CreateNode(PropertyNodeViewModel? parent, string? name, Type type, object? value, bool isReadonly = false)
     {
-        var n = _nodePool.Get();
+        var n = nodePool.Get();
 
         n.Parent = parent;
         n.Name = name;
@@ -288,7 +288,7 @@ public sealed class EntityInspectorViewModel : ViewModelBase
 
     private PropertyNodeViewModel CreateNode(PropertyNodeViewModel parent, PropertyInfo info)
     {
-        var entry = _propertyCache.GetEntryFromInfo(info);
+        var entry = propertyCache.GetEntryFromInfo(info);
 
         var value = entry.Getter?.Invoke(parent.Value);
         var node = CreateNode(parent, info.Name, info.PropertyType, value);
@@ -315,12 +315,5 @@ public sealed class EntityInspectorViewModel : ViewModelBase
             list.Remove(originalItemsSet);
             list.AddRange(newItemsSet);
         });
-    }
-
-    private class NodePooledObjectPolicy(PropertyNodeCache cache) : PooledObjectPolicy<PropertyNodeViewModel>
-    {
-        public override PropertyNodeViewModel Create() => new(cache);
-
-        public override bool Return(PropertyNodeViewModel obj) => obj.TryReset();
     }
 }

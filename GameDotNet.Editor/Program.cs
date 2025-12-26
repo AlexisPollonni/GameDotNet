@@ -36,17 +36,10 @@ class Program
         builder.Services
                .AddEngineInstrumentation()
                .AddAvaloniaLogger(LogEventLevel.Warning, LogArea.Property, LogArea.Control, LogArea.Visual, LogArea.Layout, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
-               .AddSystem<EditorUiUpdateSystem>()
                .AddTransient<ViewLocator>()
-               .AddTransient<WebGpuViewModel>()
-               .AddView<WebGpuViewModel, WebGpuView>()
-               .AddSingleton<EntityTreeViewModel>()
-               .AddView<EntityTreeViewModel, EntityTreeViewControl>()
-               .AddSingleton<LogViewerViewModel>()
-               .AddView<LogViewerViewModel, LogViewerControl>()
-               .AddSingleton<MainWindowViewModel>()
-               .AddView<EntityInspectorViewModel, EntityInspectorControl>()
-               .AddSingleton<EntityInspectorViewModel>()
+               .AddEditorViews()
+               .AddSystem<EditorSampledUpdatePublisher>()
+               
                .AddViewerLogging();
         
         
@@ -71,6 +64,7 @@ class Program
         AppBuilder.Configure(() => new App(serviceProvider))
                   .UsePlatformDetect()
                   .UseReactiveUI()
+                  .UseRenderingSubsystem(() => InitializeRender(serviceProvider), "GameDotNet.Renderer")
                   .AfterSetup(builder =>
                   {
                       // The ApplicationLifetime is null when using the previewer.
@@ -79,6 +73,11 @@ class Program
                           AfterDesktopSetup(desktop, serviceProvider);
                       }
                   });
+
+    private static void InitializeRender(IServiceProvider provider)
+    {
+        //TODO
+    }
 
     private static void AfterDesktopSetup(IClassicDesktopStyleApplicationLifetime desktop, IServiceProvider provider)
     {

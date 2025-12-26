@@ -15,7 +15,7 @@ public static class AvaloniaExtensions
         _ => MouseButton.Unknown
     };
     
-    public static Key ToSilkKey(this Avalonia.Input.Key key) => key switch
+    public static Key ToAbstraction(this Avalonia.Input.Key key) => key switch
     {
         Avalonia.Input.Key.None => Key.Unknown,
         Avalonia.Input.Key.Back => Key.Backspace,

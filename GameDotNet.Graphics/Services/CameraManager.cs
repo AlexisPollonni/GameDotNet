@@ -45,7 +45,7 @@ public sealed class CameraManager : IQueryUpdateJob, IDisposable
 
     private static readonly CameraOptions DefaultCamOptions = new();
 
-    public CameraManager(SceneInstanceManager sceneManager, ISubscriber<ActiveViewportChangedEvent> activeViewportChangedSubscriber)
+    public CameraManager(SceneInstanceManager sceneManager, ISubscriber<ViewportActiveChangedEvent> activeViewportChangedSubscriber)
     {
         _sceneManager = sceneManager;
         _disposables = new();
