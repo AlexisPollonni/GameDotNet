@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Shouldly;
 using ValueTaskSupplement;
+using static GameDotNet.Core.Abstractions.IEventRegistry;
 
 namespace GameDotNet.Core.Services;
 
@@ -108,8 +109,8 @@ internal class EventRegistry(
 
     // ===== IEventRegistry Implementation =====
 
-    public IEventRegistry.EventSubscriptionBuilder On<TEvent>(
-        Func<IAsyncEnumerable<TEvent>, CancellationToken, Task> handler, CancellationToken token = default)
+    public EventSubscriptionBuilder On<TEvent>(
+        EventRegistrationHandler<TEvent> handler, CancellationToken token = default)
     {
         ArgumentNullException.ThrowIfNull(handler);
 
@@ -123,8 +124,8 @@ internal class EventRegistry(
         return default;
     }
 
-    public IEventRegistry.EventSubscriptionBuilder On<TKey, TEvent>(TKey key,
-        Func<IAsyncEnumerable<TEvent>, CancellationToken, Task> handler, CancellationToken token = default)
+    public EventSubscriptionBuilder On<TKey, TEvent>(TKey key,
+        EventRegistrationHandler<TEvent> handler, CancellationToken token = default)
         where TKey : notnull
     {
         ArgumentNullException.ThrowIfNull(handler);
