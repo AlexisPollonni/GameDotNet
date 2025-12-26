@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
+using dotVariant;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
-using MessagePipe;
+using Nito.Disposables;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using Shouldly;
@@ -13,16 +15,64 @@ using ZLinq;
 
 namespace GameDotNet.Core.Services;
 
-public sealed class JobManager : IAsyncDisposable
+[Variant]
+[SuppressMessage("ReSharper", "DefaultStructEqualityIsUsed.Global")]
+public readonly partial struct JobWorkerItem
 {
-    private readonly SceneInstanceManager _sceneManager;
-    private readonly Meter _meter;
+    static partial void VariantOf(Startup first, Stopping second, Update third);
+
+    public readonly struct Startup(IUpdateJob job)
+    {
+        public ValueTask Execute(CancellationToken token) => job.OnStarted(token);
+    }
+
+    public readonly struct Stopping(IUpdateJob job)
+    {
+        public ValueTask Execute(CancellationToken token) => job.OnStopped(token);
+    }
+
+    public readonly struct Update(IUpdateJob job, JobManager.JobData data, SceneInstanceManager sceneManager)
+    {
+        public async ValueTask Execute(CancellationToken token)
+        {
+            var execWatch = data.ExecuteWatch;
+            var deltaWatch = data.DeltaUpdateWatch;
+
+            execWatch.Restart();
+
+            await job.OnUpdate(deltaWatch.Elapsed, token);
+            if (job is IQueryUpdateJob queryUpdateJob)
+            {
+                var query = queryUpdateJob.Query;
+
+                foreach (var scene in sceneManager.EnabledScenes)
+                {
+                    using var matchingEntities = scene.EntityWorld.GetEntitiesPooled(query);
+
+                    queryUpdateJob.OnUpdateQueryEntities(deltaWatch.Elapsed, matchingEntities.Span);
+                }
+            }
+
+            deltaWatch.Restart();
+            data.Measure.Record(data.ExecuteWatch.Elapsed.TotalMilliseconds);
+        }
+    }
+}
+
+[RegisterSingleton<JobManager>]
+public sealed class JobManager( //TODO: for now public but change to internal later when interface is defined
+    IMeterFactory meterFactory,
+    TimeProvider timeProvider,
+    IEnumerable<IUpdateJob> registeredJobs,
+    IZeroAllocThreadPoolScheduler<JobWorkerItem> scheduler,
+    IJobDependencyGraph jobDependencyGraph,
+    SceneInstanceManager sceneManager) : SingleAsyncDisposable<EmptyStruct>(default), IEventListener
+{
+    private readonly Meter _meter = meterFactory.Create(new($"{typeof(JobManager).FullName}.Updates"));
 
     private bool _initialized;
-    private bool _disposed;
 
-    private readonly IZeroAllocThreadPoolScheduler<WorkerItem> _scheduler;
-
+    private readonly CancellationTokenSource _disposeCts = new();
     private readonly ConcurrentDictionary<IUpdateJob, JobData> _allJobs = [];
     private readonly BidirectionalGraph<IUpdateJob, SEdge<IUpdateJob>> _runningDependencyGraph = new(false);
     private readonly ConcurrentDictionary<IUpdateJob, ValueTask> _runningJobTasks = [];
@@ -30,58 +80,24 @@ public sealed class JobManager : IAsyncDisposable
     private readonly ConcurrentQueue<IUpdateJob> _jobsToAdd = [];
     private readonly ConcurrentQueue<IUpdateJob> _jobsToRemove = [];
 
-    private readonly IEnumerable<IUpdateJob> _registeredJobs;
-    private readonly IDisposable _startupSubscription;
-    private readonly IDisposable _stoppingSubscription;
-    private readonly TimeProvider _timeProvider;
-    private readonly IJobDependencyGraph _jobDependencyGraph;
+    public record JobData(ValueStopwatch ExecuteWatch, ValueStopwatch DeltaUpdateWatch, Histogram<double> Measure);
 
-    internal JobManager(IMeterFactory meterFactory,
-        TimeProvider timeProvider,
-        IAsyncSubscriber<EngineStartedEvent> engineStart,
-        IAsyncSubscriber<EngineStoppingEvent> engineStopping,
-        IEnumerable<IUpdateJob> registeredJobs,
-        IZeroAllocThreadPoolScheduler<WorkerItem> scheduler,
-        IJobDependencyGraph jobDependencyGraph,
-        SceneInstanceManager sceneManager)
+    public void Configure(IEventRegistry registry)
     {
-        _timeProvider = timeProvider;
-        _registeredJobs = registeredJobs;
-        _jobDependencyGraph = jobDependencyGraph;
-        _sceneManager = sceneManager;
-        _meter = meterFactory.Create(new($"{typeof(JobManager).FullName}.Updates"));
-        _scheduler = scheduler;
-        _startupSubscription = engineStart.Subscribe(OnStartup);
-        _stoppingSubscription = engineStopping.Subscribe(OnStopping);
+        registry.OnEvent<EngineStartedEvent>(OnStartup, _disposeCts.Token);
+        registry.OnEvent<EngineStoppingEvent>(OnStopping, _disposeCts.Token);
     }
-
-    //TODO: need to change this to a union struct down the line will be easier to manage, either when union proposal lands or with dot variant 
-    internal readonly record struct WorkerItem(
-        IUpdateJob Job,
-        WorkerItem.ItemType Type,
-        JobManager SrcManager,
-        JobData Data)
-    {
-        internal enum ItemType
-        {
-            Startup,
-            Stopping,
-            Update
-        }
-    }
-
-    internal record JobData(ValueStopwatch ExecuteWatch, ValueStopwatch DeltaUpdateWatch, Histogram<double> Measure);
 
     public void AddJob(IUpdateJob job)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(IsDisposeStarted, this);
 
         _jobsToAdd.Enqueue(job);
     }
 
     public void RemoveJob(IUpdateJob job)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(IsDisposeStarted, this);
 
         _jobsToRemove.Enqueue(job);
     }
@@ -89,7 +105,7 @@ public sealed class JobManager : IAsyncDisposable
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
     public async ValueTask Update(CancellationToken token)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        ObjectDisposedException.ThrowIf(IsDisposeStarted, this);
         _initialized.ShouldBeTrue(
             "JobManager is not initialized yet. Make sure to start the engine before calling Update.");
 
@@ -100,16 +116,15 @@ public sealed class JobManager : IAsyncDisposable
             RebuildRunningJobGraph();
         }
 
-        await RunJobGraph(WorkerItem.ItemType.Update, token).ConfigureAwait(false);
+        var sharedState = (_allJobs, sceneManager);
+        await RunJobGraph(static (state, job) => new JobWorkerItem.Update(job, state._allJobs[job], state.sceneManager),
+            sharedState, token).ConfigureAwait(false);
     }
 
-    public async ValueTask DisposeAsync()
+    protected override async ValueTask DisposeAsync(EmptyStruct context)
     {
-        if (_disposed) return;
-        _disposed = true;
-
-        _startupSubscription.Dispose();
-        _stoppingSubscription.Dispose();
+        await _disposeCts.CancelAsync();
+        _disposeCts.Dispose();
 
         await ValueTaskEx.WhenAll(_runningJobTasks.Values);
 
@@ -118,7 +133,7 @@ public sealed class JobManager : IAsyncDisposable
 
     private async ValueTask OnStartup(EngineStartedEvent _, CancellationToken token)
     {
-        foreach (var job in _registeredJobs)
+        foreach (var job in registeredJobs)
         {
             AddJob(job);
         }
@@ -136,14 +151,15 @@ public sealed class JobManager : IAsyncDisposable
             RebuildRunningJobGraph();
         }
 
-        await RunJobGraph(WorkerItem.ItemType.Startup, token).ConfigureAwait(false);
+        await RunJobGraph<EmptyStruct>((_, job) => new JobWorkerItem.Startup(job), default, token)
+            .ConfigureAwait(false);
 
         _initialized = true;
     }
 
     private async ValueTask OnStopping(EngineStoppingEvent _, CancellationToken token)
     {
-        await RunJobGraph(WorkerItem.ItemType.Stopping, token).ConfigureAwait(false);
+        await RunJobGraph<EmptyStruct>((_, job) => new JobWorkerItem.Stopping(), default, token).ConfigureAwait(false);
 
         foreach (var job in _allJobs.Keys)
         {
@@ -158,8 +174,8 @@ public sealed class JobManager : IAsyncDisposable
         while (_jobsToAdd.TryDequeue(out var jobToAdd))
         {
             _allJobs.TryAdd(jobToAdd,
-                new(new(_timeProvider),
-                    new(_timeProvider),
+                new(new(timeProvider),
+                    new(timeProvider),
                     _meter.CreateHistogram<double>($"{jobToAdd.GetType().FullName}.ExecuteTime",
                         "ms",
                         "Execution time of the job in milliseconds")));
@@ -182,7 +198,7 @@ public sealed class JobManager : IAsyncDisposable
         using var graphEdges = _allJobs.Keys.AsValueEnumerable()
             .SelectMany(job =>
             {
-                return _jobDependencyGraph.GetDependencies(job.GetType())
+                return jobDependencyGraph.GetDependencies(job.GetType())
                     .AsValueEnumerable()
                     .Select(GetJobByType)
                     .Where(depJob => depJob.IsStarted)
@@ -213,7 +229,8 @@ public sealed class JobManager : IAsyncDisposable
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
-    private async ValueTask RunJobGraph(WorkerItem.ItemType updateType, CancellationToken token)
+    private async ValueTask RunJobGraph<TState>(Func<TState, IUpdateJob, JobWorkerItem> createWorkerItem, TState state,
+        CancellationToken token)
     {
         _runningJobTasks.IsEmpty.ShouldBeTrue("There are still running jobs from previous execution");
 
@@ -230,7 +247,7 @@ public sealed class JobManager : IAsyncDisposable
             }
 
             // Start the current job and track its task
-            var jobTask = EnqueueWorkJob(currentJob, updateType, token);
+            var jobTask = EnqueueWorkJob(createWorkerItem(state, currentJob), token);
 
             _runningJobTasks.TryAdd(currentJob, jobTask);
         }
@@ -246,53 +263,26 @@ public sealed class JobManager : IAsyncDisposable
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
-    private async ValueTask EnqueueWorkJob(IUpdateJob job, WorkerItem.ItemType type, CancellationToken token)
+    private async ValueTask EnqueueWorkJob(JobWorkerItem workItem, CancellationToken token)
     {
-        var workItem = new WorkerItem(job, type, this, _allJobs[job]);
-        await _scheduler.EnqueueWork(WorkerLoop, workItem, token).ConfigureAwait(false);
+        await scheduler.EnqueueWork(OnWorkerItemExecute, workItem, token).ConfigureAwait(false);
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
-    private static async ValueTask WorkerLoop(WorkerItem workItem, CancellationToken token)
+    private static async ValueTask OnWorkerItemExecute(JobWorkerItem workItem, CancellationToken token)
     {
-        var job = workItem.Job;
-        // TODO: Replace with union pattern matching
-        switch (workItem.Type)
+        if (workItem.TryMatch(out JobWorkerItem.Startup startup))
         {
-            case WorkerItem.ItemType.Startup:
-                await job.OnStarted(token);
-                break;
-            case WorkerItem.ItemType.Stopping:
-                await job.OnStopped(token);
-                break;
-            case WorkerItem.ItemType.Update:
-                var jobData = workItem.Data;
-
-                var execWatch = jobData.ExecuteWatch;
-                var deltaWatch = jobData.DeltaUpdateWatch;
-
-                execWatch.Restart();
-
-                await job.OnUpdate(deltaWatch.Elapsed, token);
-                if (workItem.Job is IQueryUpdateJob queryUpdateJob)
-                {
-                    var query = queryUpdateJob.Query;
-                    var sceneManager = workItem.SrcManager._sceneManager;
-
-                    foreach (var scene in sceneManager.EnabledScenes)
-                    {
-                        using var matchingEntities = scene.EntityWorld.GetEntitiesPooled(query);
-
-                        queryUpdateJob.OnUpdateQueryEntities(deltaWatch.Elapsed, matchingEntities.Span);
-                    }
-                }
-
-                deltaWatch.Restart();
-                jobData.Measure.Record(jobData.ExecuteWatch.Elapsed.TotalMilliseconds);
-
-                break;
-            default:
-                throw new ArgumentOutOfRangeException();
+            await startup.Execute(token).ConfigureAwait(false);
         }
+        else if (workItem.TryMatch(out JobWorkerItem.Stopping stopping))
+        {
+            await stopping.Execute(token).ConfigureAwait(false);
+        }
+        else if (workItem.TryMatch(out JobWorkerItem.Update update))
+        {
+            await update.Execute(token).ConfigureAwait(false);
+        }
+        else throw new InvalidOperationException();
     }
 }

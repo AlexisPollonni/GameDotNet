@@ -7,6 +7,7 @@
     <PackageReference Include="Arch.Relationships" />
     <PackageReference Include="ByteSize" />
     <PackageReference Include="dotVariant" />
+    <PackageReference Include="Injectio" />
     <PackageReference Include="Intellenum" />
     <PackageReference Include="MessagePipe" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.AutoActivation" />

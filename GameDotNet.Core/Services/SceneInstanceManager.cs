@@ -4,7 +4,6 @@ using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Components;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
-using MessagePipe;
 using Nito.Disposables;
 using Shouldly;
 
@@ -18,9 +17,9 @@ public readonly record struct SceneDestroyingEvent(ISceneInstance SceneInstance)
 /// <summary>
 /// Manages the currently loaded scene, modify in the future to enable streaming
 /// </summary>
+[RegisterSingleton<SceneInstanceManager>] //TODO: define interface
 public sealed class SceneInstanceManager(IEnumerable<IAssetImporter<ISceneAsset>> sceneImporters, 
-                                        IPublisher<SceneInstantiatedEvent> sceneInstantiatedPublisher,
-                                        IPublisher<SceneDestroyingEvent> sceneDestroyingPublisher)
+                                        IEventBus eventBus)
 {
     public ISceneInstance? ActiveScene { get; private set; }
 
@@ -52,6 +51,7 @@ public sealed class SceneInstanceManager(IEnumerable<IAssetImporter<ISceneAsset>
         return result;
     }
 
+    //TODO: switch to async ?
     public ISceneInstance InstantiateScene(ISceneAsset sceneAsset, bool makeActive = true)
     {
         //for now we keep it simple and create the scenes here, maybe use DI container in the future?
@@ -70,14 +70,14 @@ public sealed class SceneInstanceManager(IEnumerable<IAssetImporter<ISceneAsset>
         
         _allInstancedScenes.Add(sceneInstance);
         
-        sceneInstantiatedPublisher.Publish(new(sceneInstance));
+        eventBus.Publish(new SceneInstantiatedEvent(sceneInstance));
         return sceneInstance;
     }
 
     public void DestroyActiveScene()
     {
         if (ActiveScene is null) return;
-        sceneDestroyingPublisher.Publish(new(ActiveScene));
+        eventBus.Publish(new SceneDestroyingEvent(ActiveScene));
         ActiveScene?.Dispose();
         
         ActiveScene = null;

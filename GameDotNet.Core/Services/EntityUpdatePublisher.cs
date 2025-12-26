@@ -1,95 +1,93 @@
 using Arch.Core;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
-using MessagePipe;
-using Microsoft.Extensions.DependencyInjection;
+using GameDotNet.Core.Tooling.Extensions;
 using Nito.Disposables;
 
 namespace GameDotNet.Core.Services;
 
-internal sealed class EntityUpdatePublisher : SingleDisposable<EmptyStruct>
+[RegisterSingleton<IEventListener>(Duplicate = DuplicateStrategy.Append)]
+internal sealed class EntityUpdatePublisher(IEventBus eventBus)
+    : SingleAsyncDisposable<EmptyStruct>(default), IEventListener
 {
-    private readonly IDisposable _disposableBag;
-    private readonly IPublisher<EntityCreatedEvent> _entityCreatedPublisher;
-    private readonly IPublisher<EntityDestroyedEvent> _entityDestroyedPublisher;
+    private readonly CancellationTokenSource _subscriptionTokenSource = new();
 
-    public EntityUpdatePublisher(
-        ISubscriber<SceneInstantiatedEvent> sceneInstantiatedSubscriber,
-        ISubscriber<SceneDestroyingEvent> sceneDestroyingSubscriber,
-        IPublisher<EntityCreatedEvent> entityCreatedPublisher,
-        IPublisher<EntityDestroyedEvent> entityDestroyedPublisher) : base(default)
+
+    public void Configure(IEventRegistry registry)
     {
-        _entityCreatedPublisher = entityCreatedPublisher;
-        _entityDestroyedPublisher = entityDestroyedPublisher;
-        _disposableBag = DisposableBag.Create(
-            sceneInstantiatedSubscriber.Subscribe(OnSceneInstantiated),
-            sceneDestroyingSubscriber.Subscribe(OnSceneDestroyed)
-        );
+        registry.OnEvent<SceneInstantiatedEvent>(OnSceneInstantiated, _subscriptionTokenSource.Token);
+        registry.OnEvent<SceneDestroyingEvent>(OnSceneDestroying, _subscriptionTokenSource.Token);
     }
 
-    private void OnSceneInstantiated(SceneInstantiatedEvent e)
+    private ValueTask OnSceneInstantiated(SceneInstantiatedEvent sceneEvent, CancellationToken cancellationToken)
     {
-        var world = e.Instance.EntityWorld;
+        var world = sceneEvent.Instance.EntityWorld;
 
-        world.SubscribeEntityCreated((in entity) => { _entityCreatedPublisher.Publish(new(entity)); });
-        world.SubscribeEntityDestroyed((in entity) => { _entityDestroyedPublisher.Publish(new(entity)); });
+        world.SubscribeEntityCreated(OnEntityCreated);
+        world.SubscribeEntityDestroyed(OnEntityDestroyed);
+        
+        return ValueTask.CompletedTask;
     }
 
-    private void OnSceneDestroyed(SceneDestroyingEvent e)
+    private static ValueTask OnSceneDestroying(SceneDestroyingEvent sceneDestroyingEvent, CancellationToken cancellationToken)
     {
         //TODO: Unsubscribe?
+        return default;
     }
 
-    protected override void Dispose(EmptyStruct context)
+    private void OnEntityCreated(in Entity entity)
     {
-        _disposableBag.Dispose();
+        eventBus.Publish(new EntityCreatedEvent(entity));
+    }
+
+    private void OnEntityDestroyed(in Entity entity)
+    {
+        eventBus.Publish(new EntityDestroyedEvent(entity));
+    }
+
+    protected override async ValueTask DisposeAsync(EmptyStruct context)
+    {
+        await _subscriptionTokenSource.CancelAsync();
+        _subscriptionTokenSource.Dispose();
     }
 }
 
-internal sealed class ComponentPublisher<TComponent> : SingleDisposable<EmptyStruct>
+internal sealed class ComponentPublisher<TComponent>(IEventBus eventBus) : SingleAsyncDisposable<EmptyStruct>(default), IEventListener
 {
-    private readonly IPublisher<EntityComponentAddedEvent> _componentAddedPublisher;
-    private readonly IPublisher<EntityComponentSetEvent> _componentSetPublisher;
-    private readonly IPublisher<EntityComponentRemovedEvent> _componentRemovedPublisher;
-    private readonly IDisposable _disposables;
+    private readonly CancellationTokenSource _subscriptionTokenSource = new();
 
-    public ComponentPublisher(
-        ISubscriber<SceneInstantiatedEvent> sceneInstantiatedSubscriber,
-        IPublisher<EntityComponentAddedEvent> componentAddedPublisher,
-        IPublisher<EntityComponentSetEvent> componentSetPublisher,
-        IPublisher<EntityComponentRemovedEvent> componentRemovedPublisher) : base(default)
+    public void Configure(IEventRegistry registry)
     {
-        _componentAddedPublisher = componentAddedPublisher;
-        _componentSetPublisher = componentSetPublisher;
-        _componentRemovedPublisher = componentRemovedPublisher;
-        _disposables = sceneInstantiatedSubscriber.Subscribe(OnSceneInstantiated);
+        registry.OnEvent<SceneInstantiatedEvent>(OnSceneInstantiated, _subscriptionTokenSource.Token);
     }
 
-    private void OnSceneInstantiated(SceneInstantiatedEvent e)
+    private ValueTask OnSceneInstantiated(SceneInstantiatedEvent e, CancellationToken cancellationToken)
     {
         var world = e.Instance.EntityWorld;
 
         world.SubscribeComponentAdded<TComponent>((in entity, ref comp) =>
         {
-            _componentAddedPublisher.Publish(
-                new(entity, typeof(TComponent)));
+            eventBus.Publish(
+                new EntityComponentAddedEvent(entity, typeof(TComponent)));
         });
 
         world.SubscribeComponentSet<TComponent>((in entity, ref comp) =>
         {
-            _componentSetPublisher.Publish(
-                new(entity, typeof(TComponent)));
+            eventBus.Publish(
+                new EntityComponentSetEvent(entity, typeof(TComponent)));
         });
 
         world.SubscribeComponentRemoved<TComponent>((in entity, ref comp) =>
         {
-            _componentRemovedPublisher.Publish(
-                new(entity, typeof(TComponent)));
+            eventBus.Publish(
+                new EntityComponentRemovedEvent(entity, typeof(TComponent)));
         });
+        return ValueTask.CompletedTask;
     }
 
-    protected override void Dispose(EmptyStruct context)
+    protected override async ValueTask DisposeAsync(EmptyStruct context)
     {
-        _disposables.Dispose();
+        await _subscriptionTokenSource.CancelAsync();
+        _subscriptionTokenSource.Dispose();
     }
 }

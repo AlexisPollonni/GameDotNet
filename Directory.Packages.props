@@ -20,6 +20,7 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="dotVariant" Version="0.5.3" />
     <PackageVersion Include="FluentAvaloniaUI" Version="2.3.0" />
+    <PackageVersion Include="Injectio" Version="5.1.0" />
     <PackageVersion Include="Intellenum" Version="1.0.6" />
     <PackageVersion Include="MessagePipe" Version="1.8.1" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />

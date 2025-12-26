@@ -9,6 +9,9 @@ using static GameDotNet.Core.Abstractions.IEventRegistry;
 
 namespace GameDotNet.Core.Services;
 
+[RegisterSingleton<IHostedService>]
+[RegisterSingleton<IEventRegistry>]
+[RegisterSingleton<IEventBus>]
 internal class EventRegistry(
     ILogger<EventRegistry> logger,
     IEnumerable<IEventListener> listeners,
