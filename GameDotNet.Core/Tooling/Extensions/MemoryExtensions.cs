@@ -30,7 +30,7 @@ public static class MemoryExtensions
         if (nullable is null)
             return ref Unsafe.NullRef<T>();
 
-        return ref Unsafe.AsRef(nullable).DangerousGetValueOrDefaultReference();
+        return ref Unsafe.AsRef(in nullable).DangerousGetValueOrDefaultReference();
     }
 
 
