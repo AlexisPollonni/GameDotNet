@@ -1,5 +1,6 @@
 using Arch.Core;
 using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Models;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
 using Nito.Disposables;

@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Intellenum;
 
-namespace GameDotNet.Core.Abstractions;
+namespace GameDotNet.Core.Models;
 
 /// <summary>
 /// Represents the indices of the mouse buttons.
@@ -76,7 +76,7 @@ public partial class MouseButton
     public static readonly MouseButton Button11;
 
     /// <summary>
-    /// The twelth mouse button.
+    /// The twelfth mouse button.
     /// </summary>
     public static readonly MouseButton Button12;
 }

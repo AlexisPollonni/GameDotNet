@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Models;
 
 namespace GameDotNet.Core.Services;
 

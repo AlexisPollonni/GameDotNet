@@ -4,6 +4,7 @@ using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
 using dotVariant;
 using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Models;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
 using Nito.Disposables;

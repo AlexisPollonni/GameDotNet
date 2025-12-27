@@ -2,17 +2,13 @@ using System.Collections.Concurrent;
 using Arch.Core;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Components;
+using GameDotNet.Core.Models;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
 using Nito.Disposables;
 using Shouldly;
 
 namespace GameDotNet.Core.Services;
-
-
-public readonly record struct SceneInstantiatedEvent(ISceneInstance Instance);
-public readonly record struct SceneDestroyingEvent(ISceneInstance SceneInstance);
-
 
 /// <summary>
 /// Manages the currently loaded scene, modify in the future to enable streaming

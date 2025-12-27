@@ -1,7 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Intellenum;
 
-namespace GameDotNet.Core.Abstractions;
+namespace GameDotNet.Core.Models;
 
 /// <summary>
 /// Represents keyboard keys.

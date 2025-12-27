@@ -1,4 +1,5 @@
 using System.Numerics;
+using GameDotNet.Core.Models;
 using MessagePipe;
 
 namespace GameDotNet.Core.Abstractions;
