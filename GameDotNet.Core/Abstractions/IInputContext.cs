@@ -1,18 +1,17 @@
 using System.Numerics;
 using GameDotNet.Core.Models;
-using MessagePipe;
 
 namespace GameDotNet.Core.Abstractions;
 
 public interface IInputContext
 {
-    public ISubscriber<Key> KeyDown { get; }
-    public ISubscriber<Key> KeyUp { get; }
+    public IAsyncEnumerable<Key> KeyDown { get; }
+    public IAsyncEnumerable<Key> KeyUp { get; }
 
-    public ISubscriber<MouseButton> MouseClickDown { get; }
-    public ISubscriber<MouseButton> MouseClickUp { get; }
-    public ISubscriber<MouseScrollEvent> MouseScroll { get; }
-    public ISubscriber<MouseMoveEvent> MouseMove { get; }
+    public IAsyncEnumerable<MouseButton> MouseClickDown { get; }
+    public IAsyncEnumerable<MouseButton> MouseClickUp { get; }
+    public IAsyncEnumerable<MouseScrollEvent> MouseScroll { get; }
+    public IAsyncEnumerable<MouseMoveEvent> MouseMove { get; }
     
     public bool CursorHidden { get; set; }
     public bool CursorRestricted { get; set; }
