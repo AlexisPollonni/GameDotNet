@@ -1,7 +1,7 @@
 using Intellenum;
 using ShaderSlang.Net.Bindings.Generated;
 
-namespace GameDotNet.Graphics.Abstractions;
+namespace GameDotNet.Graphics.Models;
 
 [Intellenum<uint>]
 [Member("Vertex", Stage.Vertex)]

@@ -1,4 +1,4 @@
-namespace GameDotNet.Graphics;
+namespace GameDotNet.Graphics.Services;
 
 public class RenderGraph
 {

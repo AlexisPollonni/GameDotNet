@@ -2,7 +2,7 @@ using System.Drawing;
 using System.Numerics;
 using GameDotNet.Core.Tooling.Extensions;
 
-namespace GameDotNet.Graphics;
+namespace GameDotNet.Graphics.Models;
 
 public struct Vertex
 {

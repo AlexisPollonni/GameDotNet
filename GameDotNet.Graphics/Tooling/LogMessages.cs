@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using static Microsoft.Extensions.Logging.LogLevel;
 
-namespace GameDotNet.Graphics.Tools;
+namespace GameDotNet.Graphics.Tooling;
 
 internal static partial class LogMessages
 {

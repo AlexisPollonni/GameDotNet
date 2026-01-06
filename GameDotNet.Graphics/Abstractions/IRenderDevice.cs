@@ -1,5 +1,6 @@
 using System.Drawing;
 using ByteSizeLib;
+using GameDotNet.Graphics.Models;
 
 namespace GameDotNet.Graphics.Abstractions;
 

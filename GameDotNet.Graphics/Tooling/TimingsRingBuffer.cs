@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace GameDotNet.Graphics;
+namespace GameDotNet.Graphics.Tooling;
 
 public class TimingsRingBuffer
 {

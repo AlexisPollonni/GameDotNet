@@ -9,6 +9,7 @@
     <PackageVersion Include="Arch.Relationships" Version="1.0.1" />
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.2.1" />
     <PackageVersion Include="AssimpNetter" Version="6.0.2.1" />
+    <PackageVersion Include="AutoFactories.Microsoft.DependencyInjection" Version="1.1.19" />
     <PackageVersion Include="Avalonia" Version="11.2.8" />
     <PackageVersion Include="Avalonia.Controls.TreeDataGrid" Version="11.1.1" />
     <PackageVersion Include="Avalonia.Desktop" Version="11.2.8" />
@@ -27,6 +28,7 @@
     <PackageVersion Include="Microsoft.DotNet.ILCompiler" Version="9.0.4" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.AutoActivation" Version="10.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.4" />
+    <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="9.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="9.0.4" />

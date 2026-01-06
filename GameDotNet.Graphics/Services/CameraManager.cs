@@ -1,15 +1,16 @@
 using System.Numerics;
-using System.Reactive.Linq;
 using Arch.Core;
 using Arch.Core.Extensions;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Components;
+using GameDotNet.Core.Models;
 using GameDotNet.Core.Physics.Components;
 using GameDotNet.Core.Services;
-using GameDotNet.Core.Tooling.Collections;
+using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
-using MessagePipe;
+using Nito.Disposables;
 using ZLinq;
+using Key = GameDotNet.Core.Models.Key;
 
 namespace GameDotNet.Graphics.Services;
 
@@ -38,56 +39,60 @@ public readonly record struct CameraRuntimeData(
     float Pitch,
     Vector2 LastMousePosition) : ISceneComponent;
 
-public sealed class CameraManager : IQueryUpdateJob, IDisposable
+[RegisterSingleton<IQueryUpdateJob>(Duplicate = DuplicateStrategy.Append)]
+[RegisterSingleton<IEventListener>(Duplicate =  DuplicateStrategy.Append)]
+public sealed class CameraManager(SceneInstanceManager sceneManager) : SingleAsyncDisposable<EmptyStruct>(default), IQueryUpdateJob, IEventListener
 {
-    private readonly SceneInstanceManager _sceneManager;
-    private readonly DisposableList _disposables;
+    public bool IsStarted { get; set; }
+
+    public JobConfiguration Options { get; } = new();
+
+    public QueryDescription Query { get; } = new QueryDescription().WithAll<Camera>();
+
 
     private static readonly CameraOptions DefaultCamOptions = new();
+    
+    private CancellationTokenSource _cts = new();
 
-    public CameraManager(SceneInstanceManager sceneManager, ISubscriber<ViewportActiveChangedEvent> activeViewportChangedSubscriber)
+    public void Configure(IEventRegistry registry)
     {
-        _sceneManager = sceneManager;
-        _disposables = new();
-
-        var viewChanged = activeViewportChangedSubscriber.AsObservable().Select(v => v.Current).DistinctUntilChanged();
-
-        viewChanged.Subscribe(OnActiveViewChanged).DisposeWith(_disposables);
-
-        Query = new QueryDescription().WithAll<Camera>();
+        registry.On<ViewportActiveChangedEvent>(OnViewportActiveChanged, _cts.Token);
     }
 
-    private void OnActiveViewChanged(IViewPort viewPort)
+    protected override async ValueTask DisposeAsync(EmptyStruct context)
     {
-        var world = _sceneManager.World;
+        await _cts.CancelAsync();
+        _cts.Dispose();
+    }
 
-        var cameras = world.QueryEnumerable(Query);
-
-        if (!world.QueryEnumerable(Query.WithAll<CameraRuntimeData>())
-                  .Any(entity => entity.Get<CameraRuntimeData>().AttachedViewPort == viewPort)) { }
-
-        foreach (var camera in cameras)
+    private async Task OnViewportActiveChanged(IAsyncEnumerable<ViewportActiveChangedEvent> evt, CancellationToken token)
+    {
+        await foreach (var viewPort in evt.Select(e => e.Current).Distinct().WithCancellation(token))
         {
-            if (!camera.TryGet<CameraRuntimeData>(out var camData))
-            {
-                camData = new(viewPort, Vector3.Zero, 0, 0, viewPort.Input.MousePosition);
-            }
+            var worlds = sceneManager.EnabledScenes
+                .AsValueEnumerable()
+                .Select(instance => instance.EntityWorld);
+                
+            var cameras = worlds.SelectMany(world => world.QueryEnumerable(Query)); ;
 
-            if (camData.AttachedViewPort != viewPort)
-            {
-                continue;
-            }
+            if (!worlds.SelectMany(world => world.QueryEnumerable(Query.WithAll<CameraRuntimeData>()))
+                    .Any(entity => entity.Get<CameraRuntimeData>().AttachedViewPort == viewPort)) { }
 
-            camera.Set(camData);
+            foreach (var camera in cameras)
+            {
+                if (!camera.TryGet<CameraRuntimeData>(out var camData))
+                {
+                    camData = new(viewPort, Vector3.Zero, 0, 0, viewPort.Input.MousePosition);
+                }
+
+                if (camData.AttachedViewPort != viewPort)
+                {
+                    continue;
+                }
+
+                camera.Set(camData);
+            }
         }
-    }
-
-    public ValueTask OnStarted(CancellationToken token = default)
-    {
-        var world = _sceneManager.World;
-
-        GetOrCreateMainCameraEntity(world);
-        return default;
     }
 
     private Entity GetOrCreateMainCameraEntity(World world)
@@ -107,11 +112,6 @@ public sealed class CameraManager : IQueryUpdateJob, IDisposable
                             new Camera(),
                             Translation.From(pos),
                             Rotation.From(rot));
-    }
-
-    public void Dispose()
-    {
-        _disposables.Dispose();
     }
 
     private void UpdateInput(TimeSpan delta, Entity camera, in CameraRuntimeData runtimeData)
@@ -202,8 +202,4 @@ public sealed class CameraManager : IQueryUpdateJob, IDisposable
             entity.Set<Translation>(entity.Get<Translation>().Value + runtimeData.Velocity * (float)deltaTime.TotalSeconds);
         }
     }
-
-    public bool IsStarted { get; set; }
-    public JobConfiguration Options { get; } = new();
-    public QueryDescription Query { get; }
 }

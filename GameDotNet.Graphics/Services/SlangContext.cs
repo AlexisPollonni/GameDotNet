@@ -1,52 +1,60 @@
-using GameDotNet.Graphics.Abstractions;
-using GameDotNet.Graphics.Tools;
 using Microsoft.Extensions.Logging;
 using ShaderSlang.Net.Bindings.Generated;
+using ShaderSlang.Net.ComWrappers;
 using ShaderSlang.Net.ComWrappers.Gfx;
 using ShaderSlang.Net.ComWrappers.Gfx.Descriptions;
 using ShaderSlang.Net.ComWrappers.Tools.Extensions;
 using ShaderSlang.Net.Pretty.Gfx.Tools;
+using static ShaderSlang.Net.Bindings.Generated.ITransientResourceHeap.Flags.TransientResourceHeapFlagsEnum;
+using ICommandQueue = ShaderSlang.Net.ComWrappers.Gfx.Interfaces.ICommandQueue;
 using IDevice = ShaderSlang.Net.ComWrappers.Gfx.Interfaces.IDevice;
 using IEntryPoint = ShaderSlang.Net.ComWrappers.Interfaces.IEntryPoint;
-using IGlobalSession = ShaderSlang.Net.ComWrappers.Interfaces.IGlobalSession;
-using IInputLayout = ShaderSlang.Net.ComWrappers.Gfx.Interfaces.IInputLayout;
 using ISession = ShaderSlang.Net.ComWrappers.Interfaces.ISession;
 using IModule = ShaderSlang.Net.ComWrappers.Interfaces.IModule;
+using ITransientResourceHeap = ShaderSlang.Net.ComWrappers.Gfx.Interfaces.ITransientResourceHeap;
+using ShaderStage = GameDotNet.Graphics.Models.ShaderStage;
 
-namespace GameDotNet.Graphics;
+namespace GameDotNet.Graphics.Services;
 
-public sealed partial class SlangContext
+[RegisterSingleton<SlangContext>]
+public sealed class SlangContext
 {
     private readonly ILogger<SlangContext> _logger;
-    private readonly IGlobalSession _globalSession;
 
     private readonly Dictionary<string, IModule> _loadedModules = new();
     
     public ISession Session { get; }
     public IDevice Device { get; }
+    public ITransientResourceHeap TransientHeap { get; set; }
+    public ICommandQueue GraphicsQueue { get; set; }
 
 
     public SlangContext(ILogger<SlangContext> logger, IEnumerable<string> searchPaths)
     {
         _logger = logger;
-        _globalSession = ShaderSlang.Net.ComWrappers.Slang.CreateGlobalSession();
+        var globalSession = Slang.CreateGlobalSession();
 
-        var slangDesc = new SlangDescription()
+        var slangDesc = new SlangDescription
         {
             DefaultMatrixLayoutMode = MatrixLayoutMode.RowMajor,
             SearchPaths = searchPaths.ToArray(),
-            GlobalSession = _globalSession,
+            GlobalSession = globalSession,
         };
 
-        var deviceDesc = new DeviceDescription()
+        var deviceDesc = new DeviceDescription
         {
             Slang = slangDesc,
+            // Force Vulkan backend for now before DX12 support is added.
+            DeviceType = DeviceType.Vulkan,
         };
         
         Gfx.CreateDevice(deviceDesc, out var device).ThrowIfFailed();
         Device = device;
 
         Session = Device.GetSlangSessionOrThrow();
+        TransientHeap = Device.CreateTransientResourceHeapOrThrow(new(AllowResizing));
+        GraphicsQueue =
+            Device.CreateCommandQueueOrThrow(new(ShaderSlang.Net.Bindings.Generated.ICommandQueue.QueueType.Graphics));
     }
 
     public bool TryLoadModule(string moduleName)
@@ -118,40 +126,40 @@ public sealed partial class SlangContext
                            });
     }
 
-    public IInputLayout ComputeInputLayoutFromEntryPoint(IEntryPoint entryPoint)
-    {
-        var funcReflection = entryPoint.GetFunctionReflection();
-
-        var entryParameter = funcReflection?.Parameters.SingleOrDefault();
-        if (entryParameter is null)
-        {
-            
-        }
-        
-        var parameterType = entryParameter?.Type;
-        if (parameterType is null)
-        {
-            
-        }
-
-        if (parameterType?.Kind is not TypeKind.Struct)
-        {
-            LogMessages.ShaderEntryPointInvalidForInput();
-        }
-        
-        parameterType?.Fields.Select(r => )
-        
-        
-        var inputLayoutDesc = new InputLayoutDescription( ,
-        [new()
-        {
-            stride = ,
-            slotClass = InputSlotClass.PerVertex,
-            instanceDataStepRate = 0
-        }]);
-
-        return Device.CreateInputLayoutOrThrow(inputLayoutDesc);
-    }
+    // public IInputLayout ComputeInputLayoutFromEntryPoint(IEntryPoint entryPoint)
+    // {
+    //     var funcReflection = entryPoint.GetFunctionReflection();
+    //
+    //     var entryParameter = funcReflection?.Parameters.SingleOrDefault();
+    //     if (entryParameter is null)
+    //     {
+    //
+    //     }
+    //
+    //     var parameterType = entryParameter?.Type;
+    //     if (parameterType is null)
+    //     {
+    //
+    //     }
+    //
+    //     if (parameterType?.Kind is not TypeKind.Struct)
+    //     {
+    //         LogMessages.ShaderEntryPointInvalidForInput();
+    //     }
+    //
+    //     parameterType?.Fields.Select(r => )
+    //
+    //
+    //     var inputLayoutDesc = new InputLayoutDescription( ,
+    //     [new()
+    //     {
+    //         stride = ,
+    //         slotClass = InputSlotClass.PerVertex,
+    //         instanceDataStepRate = 0
+    //     }]);
+    //
+    //     return Device.CreateInputLayoutOrThrow(inputLayoutDesc);
+    // }
 
 
 
