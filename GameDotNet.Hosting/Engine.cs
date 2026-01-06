@@ -1,7 +1,8 @@
 using System.IO.Compression;
 using GameDotNet.Core;
-using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Models;
 using GameDotNet.Core.Services;
+using Injectio.Attributes;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -13,6 +14,7 @@ using Serilog.Sinks.File.GZip;
 
 namespace GameDotNet.Hosting;
 
+[RegisterSingleton]
 public sealed class Engine
 {
     public string ApplicationName { get; }
@@ -99,6 +101,7 @@ public sealed class Engine
     }
 }
 
+[RegisterSingleton<IHostedService, EngineStartupHostedService>(Duplicate = DuplicateStrategy.Append)]
 internal sealed class EngineStartupHostedService(
     JobManager jobManager,
     IAsyncPublisher<EngineStartedEvent> engineStart,

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
-    <ProjectReference Include="..\GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />
+    <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
     <ProjectReference Include="..\ThirdParty\Aspire.ServiceDefaults\Aspire.ServiceDefaults.csproj" />
   </ItemGroup>
   <ItemGroup>

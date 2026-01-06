@@ -1,13 +1,8 @@
 using GameDotNet.Core.Abstractions;
-using GameDotNet.Core.Services;
 using GameDotNet.Core.Tooling;
-using GameDotNet.Graphics;
-using GameDotNet.Graphics.Assets.Assimp;
-using GameDotNet.Graphics.WGPU;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using OpenTelemetry.Metrics;
 using Serilog;
 using Serilog.Events;
@@ -37,17 +32,11 @@ public static class ServiceCollectionExtensions
         {
             return services.AddMetrics()
                     .AddMessagePipe().Services
-                    .AddSingleton<JobManager>()
-                    .AddSingleton<SceneManager>()
-                    .AddTransient<AssimpNetImporter>()
-                    .AddSingleton<SlangContext>(p => new(p.GetRequiredService<ILogger<SlangContext>>(), ["Assets/"]))
-                    .AddSingleton<WebGpuRenderer>()
-                    
-                    .AddPooled<PooledValueTaskSource>();
+                    .AddGameDotNetCore()
+                    .AddGameDotNetGraphics()
+                    .AddGameDotNetHosting()
+                    .AddPooled<PooledValueTaskSource>();//TODO: move this to core registrations
         }
-
-        public IServiceCollection AddEngineHostedService() =>
-            services.AddHostedService<EngineStartupHostedService>();
 
         public IServiceCollection AddEngineInstrumentation()
         {
