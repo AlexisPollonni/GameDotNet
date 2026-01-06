@@ -100,15 +100,6 @@ public static class ArchEntityMutationExtensions
         }
 
         /// <summary>
-        /// Sets the parent of this entity, keeping the current parent if newParent is null.
-        /// </summary>
-        /// <param name="newParent">The new parent entity</param>
-        public void SetParent(Entity newParent)
-        {
-            thisEntity.SetParent((Entity?)newParent);
-        }
-
-        /// <summary>
         /// Detaches this entity from its parent, making it a root entity.
         /// Same as SetParent(null).
         /// </summary>
