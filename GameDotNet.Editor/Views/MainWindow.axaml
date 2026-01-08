@@ -16,17 +16,18 @@
 				<TextBlock HorizontalAlignment="Right" 
 						   Foreground="White"
 						   Padding="10, 0">
-					<Run FontWeight="Bold">FPS: </Run>
-					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.AverageFps}"/>
-					<Run> | Render: </Run>
-					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Average.TotalMilliseconds}"/>
-					<Run>ms | Min: </Run>
-					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Min.TotalMilliseconds}"/>
-					<Run>ms | Max: </Run>
-					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Max.TotalMilliseconds}"/>
-					<Run>ms | StdDev: </Run>
-					<Run Text="{CompiledBinding WebGpuViewModel.RenderStats.StdDev.TotalMilliseconds}"/>
-					<Run>ms</Run>
+					<!-- <Run FontWeight="Bold">FPS: </Run> -->
+					<!-- <Run Text="{CompiledBinding WebGpuViewModel.RenderStats.AverageFps}"/> -->
+					<!-- <Run> | Render: </Run> -->
+					<!-- <Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Average.TotalMilliseconds}"/> -->
+					<!-- <Run>ms | Min: </Run> -->
+					<!-- <Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Min.TotalMilliseconds}"/> -->
+					<!-- <Run>ms | Max: </Run> -->
+					<!-- <Run Text="{CompiledBinding WebGpuViewModel.RenderStats.Max.TotalMilliseconds}"/> -->
+					<!-- <Run>ms | StdDev: </Run> -->
+					<!-- <Run Text="{CompiledBinding WebGpuViewModel.RenderStats.StdDev.TotalMilliseconds}"/> -->
+					<!-- <Run>ms</Run> -->
+                    <!-- TODO: reimplement render timings display -->
 				</TextBlock>
 		</StackPanel>
 		<Grid ColumnDefinitions="*, 6*, 2*" RowDefinitions="6*, *">

@@ -39,7 +39,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GameDotNet.Graphics.Avalonia\GameDotNet.Graphics.Avalonia.csproj" />
-    <ProjectReference Include="..\GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />
     <ProjectReference Include="..\GameDotNet.Hosting\GameDotNet.Hosting.csproj" />
   </ItemGroup>
   <ItemGroup>

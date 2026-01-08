@@ -1,9 +1,9 @@
 ﻿namespace GameDotNet.Editor.ViewModels;
 
-public class MainWindowViewModel(WebGpuViewModel webGpuViewModel, EntityTreeViewModel treeViewModel, LogViewerViewModel LogViewModel, EntityInspectorViewModel InspectorViewModel) : ViewModelBase
+internal class MainWindowViewModel(EditorTabViewPortViewModel webGpuViewModel, EntityTreeViewModel treeViewModel, LogViewerViewModel logViewModel, EntityInspectorViewModel inspectorViewModel) : ViewModelBase
 {
-    public WebGpuViewModel WebGpuViewModel { get; } = webGpuViewModel;
+    public EditorTabViewPortViewModel WebGpuViewModel { get; } = webGpuViewModel;
     public EntityTreeViewModel TreeViewModel { get; } = treeViewModel;
-    public EntityInspectorViewModel InspectorViewModel { get; } = InspectorViewModel;
-    public LogViewerViewModel LogViewModel { get; } = LogViewModel;
+    public EntityInspectorViewModel InspectorViewModel { get; } = inspectorViewModel;
+    public LogViewerViewModel LogViewModel { get; } = logViewModel;
 }
