@@ -18,7 +18,6 @@
   <Project Path="GameDotNet.Editor.AppHost\GameDotNet.Editor.AppHost.csproj" />
   <Project Path="GameDotNet.Editor\GameDotNet.Editor.csproj" />
   <Project Path="GameDotNet.Graphics.Avalonia/GameDotNet.Graphics.Avalonia.csproj" />
-  <Project Path="GameDotNet.Graphics.WGPU\GameDotNet.Graphics.WGPU.csproj" />
   <Project Path="GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
   <Project Path="GameDotNet.Hosting\GameDotNet.Hosting.csproj" />
   <Project Path="GameDotNet.SampleGame\GameDotNet.SampleGame.csproj" />
