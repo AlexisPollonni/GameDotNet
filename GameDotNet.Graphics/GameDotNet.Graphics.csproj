@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="AssimpNetter" />
+    <PackageReference Include="AutoCtor" />
     <PackageReference Include="AutoFactories.Microsoft.DependencyInjection" />
     <PackageReference Include="Injectio" />
     <PackageReference Include="Intellenum" />

@@ -1,30 +1,23 @@
 using Arch.Core;
-using AutoFactories;
+using AutoCtor;
 using GameDotNet.Core.Components;
 using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.Models;
 
 namespace GameDotNet.Graphics.Services;
 
-[AutoFactory]
-[RegisterTransient<IMeshPartAsset>]
-internal sealed class AssimpLoadedMeshPartAsset(
-    Identifiable identifier,
-    [FromFactory]string name,
-    IReadOnlyList<Vertex> vertices,
-    IReadOnlyList<uint> indices,
-    IMeshMaterialAsset? material
-    ) : IMeshPartAsset
+[AutoConstruct]
+internal sealed partial class AssimpLoadedMeshPartAsset : IMeshPartAsset
 {
-    public string Name { get; } = name;
-    public Identifiable Identifier { get; } = identifier;
+    public string Name { get; }
+    public Identifiable Identifier { get; }
 
-    public IReadOnlyList<Vertex> Vertices { get; } = vertices;
+    public IReadOnlyList<Vertex> Vertices { get; }
 
-    public IReadOnlyList<uint> Indices { get; } = indices;
+    public IReadOnlyList<uint> Indices { get; }
 
-    public IMeshMaterialAsset? Material { get; } = material;
-
+    public IMeshMaterialAsset? Material { get; }
+    
     public Entity CreateEntity(World world)
     {
         throw new NotImplementedException();

@@ -1,7 +1,7 @@
 using Arch.Core;
 using Arch.Core.Extensions;
 using Assimp;
-using AutoFactories;
+using AutoCtor;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Components;
 using GameDotNet.Core.Tooling.Extensions;
@@ -9,19 +9,17 @@ using GameDotNet.Graphics.Models;
 
 namespace GameDotNet.Graphics.Services;
 
-[RegisterTransient]
-[AutoFactory]
-internal sealed class AssimpLoadedMeshSceneAsset(
-    string name,
-    Identifiable id,
-    IReadOnlyDictionary<string, MetadataProperty> metadata,
-    Node rootNode,
-    IReadOnlyList<AssimpLoadedMeshPartAsset> meshParts) : ISceneAsset
+[AutoConstruct]
+internal sealed partial class AssimpLoadedMeshSceneAsset : ISceneAsset
 {
-    public string Name => name;
-    public Identifiable Identifier => id;
-    public IEnumerable<IAsset> SceneAssets => meshParts;
+    public string Name { get; }
+    public Identifiable Identifier { get; }
+    public IEnumerable<IAsset> SceneAssets => _meshParts;
+    
+    public IReadOnlyDictionary<string, MetadataProperty> Metadata { get; }
 
+    private readonly Node _rootNode;
+    private readonly IReadOnlyList<AssimpLoadedMeshPartAsset> _meshParts;
 
     public Entity CreateEntity(World world)
     {
@@ -30,8 +28,8 @@ internal sealed class AssimpLoadedMeshSceneAsset(
         var nodeStack = new Stack<(Node node, Entity parentEntity)>();
 
         var rootEntity = world.Create();
-        rootEntity.Add(Label.From(name), id);
-        nodeStack.Push((rootNode, rootEntity));
+        rootEntity.Add(Label.From(Name), Identifier);
+        nodeStack.Push((_rootNode, rootEntity));
 
         while (nodeStack.Count > 0)
         {
@@ -48,7 +46,7 @@ internal sealed class AssimpLoadedMeshSceneAsset(
 
             foreach (var meshIndex in node.MeshIndices)
             {
-                var meshPart = meshParts[meshIndex];
+                var meshPart = _meshParts[meshIndex];
 
                 var meshEntity = meshPart.CreateEntity(world);
                 //TODO: add mesh component

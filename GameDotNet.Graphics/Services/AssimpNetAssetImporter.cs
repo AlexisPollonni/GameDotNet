@@ -18,7 +18,6 @@ namespace GameDotNet.Graphics.Services;
 internal sealed class AssimpNetAssetImporter(
     AssimpLoggerStream logStream,
     IZeroAllocThreadPoolScheduler<AssimpNetAssetImporter.ImportWorkItem> importScheduler,
-    IAssimpLoadedMeshPartAssetFactory meshPartFactory,
     IHttpClientFactory httpClientFactory)
     : IAssetImporter<AssimpLoadedMeshSceneAsset>, IDisposable
 {
@@ -110,8 +109,8 @@ internal sealed class AssimpNetAssetImporter(
         var metadata = GetMetadata(scene.Metadata);
         var meshes = scene.Meshes.Select(ImportMeshPart).ToArray();
         //TODO: here import other types of assets like materials, animations, etc.
-        
-        return new(scene.Name, scene.Name.ToIdentifiable(NamespaceGuid), metadata, scene.RootNode, meshes);
+
+        return new(scene.RootNode, meshes, scene.Name, scene.Name.ToIdentifiable(NamespaceGuid), metadata);
     }
 
     public void Dispose()
@@ -150,7 +149,7 @@ internal sealed class AssimpNetAssetImporter(
                 vertices[i] = new(vertPositions[i], normals[i], colors[i]);
 
         var meshId = $"{mesh.Name}".ToIdentifiable(NamespaceGuid);
-        return new(meshId, mesh.Name, vertices, mesh.GetUnsignedIndices().ToArray(), null);
+        return new(mesh.Name, meshId, vertices, mesh.GetUnsignedIndices().ToArray(), null);
     }
 
 
