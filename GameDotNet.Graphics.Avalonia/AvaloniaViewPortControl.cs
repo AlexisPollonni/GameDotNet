@@ -16,7 +16,7 @@ using Size = System.Drawing.Size;
 namespace GameDotNet.Graphics.Avalonia;
 
 
-internal abstract class AvaloniaViewPortControl(
+public abstract class AvaloniaViewPortControl(
     ILogger<AvaloniaViewPortControl> logger,
     IEventBus eventBus
 ) : Control, IViewPort, IInputContext, IAsyncDisposable

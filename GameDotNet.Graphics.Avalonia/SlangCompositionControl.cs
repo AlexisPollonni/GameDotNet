@@ -20,8 +20,8 @@ namespace GameDotNet.Graphics.Avalonia;
 /// Avalonia control that renders using Slang Gfx via composition interop.
 /// This provides a surface where you can render your game/3D content.
 /// </summary>
-[RegisterScoped]
-internal class SlangCompositionControl(
+[RegisterScoped(Registration = RegistrationStrategy.Self)]
+public class SlangCompositionControl(
     ILogger<SlangCompositionControl> logger,
     SlangContext slangContext, 
     ILogger<AvaloniaViewPortControl> viewportLogger, 
