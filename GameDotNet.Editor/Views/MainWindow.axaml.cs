@@ -4,7 +4,7 @@ using GameDotNet.Editor.ViewModels;
 
 namespace GameDotNet.Editor.Views
 {
-    public partial class MainWindow : ReactiveWindow<MainWindowViewModel>
+    internal partial class MainWindow : ReactiveWindow<MainWindowViewModel>
     {
         public MainWindow()
         {
