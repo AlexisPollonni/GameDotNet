@@ -6,10 +6,6 @@
     <ItemGroup>
       <PackageReference Include="Avalonia" />
       <PackageReference Include="CommunityToolkit.HighPerformance" />
-      <PackageReference Include="DependencyPropertyGenerator">
-        <PrivateAssets>all</PrivateAssets>
-        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      </PackageReference>
       <PackageReference Include="Nito.Disposables" />
       <PackageReference Include="System.Linq.Async" />
     </ItemGroup>
