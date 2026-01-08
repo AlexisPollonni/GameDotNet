@@ -1,7 +1,6 @@
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry.Metrics;
 using Serilog;
@@ -61,17 +60,6 @@ public static class ServiceCollectionExtensions
     }
 }
 
-file class DefaultJobDependencyGraph(IServiceProvider provider) : IJobDependencyGraph
-{
-    internal record JobDependencyDescriptor(Type JobType, Type JobDependency);
-
-    public IEnumerable<Type> GetDependencies(Type jobType)
-    {
-        return provider.GetKeyedServices<JobDependencyDescriptor>(jobType)
-            .Select(descriptor => descriptor.JobDependency);
-    }
-}
-
 
 /// <summary>
 /// Generates service collection registrations for frame jobs and job dependencies
@@ -85,19 +73,6 @@ public static partial class GeneratedServiceCollectionExtensions
     
     [GenerateServiceRegistrations(AssignableTo = typeof(IJobDependsOn<>),
                                   AssemblyNameFilter = "GameDotNet*",
-                                  CustomHandler = nameof(RegisterJobAndDependency))]
+                                  CustomHandler = nameof(Core.Services.ServiceCollectionExtensions.RegisterJobAndDependency))]
     public static partial IServiceCollection AddJobDependencies(this IServiceCollection services);
-
-    
-    private static void RegisterJobAndDependency<TJob, TJobDependency>(IServiceCollection services)
-        where TJob : class, IJobDependsOn<TJobDependency>, IUpdateJob where TJobDependency : IUpdateJob
-    {
-        services.TryAddSingleton<IJobDependencyGraph, DefaultJobDependencyGraph>();
-        services.AddKeyedSingleton(serviceKey: typeof(TJob),
-            new DefaultJobDependencyGraph.JobDependencyDescriptor(
-                typeof(TJob),
-                typeof(TJobDependency)));
-
-        services.TryAddSingleton<IUpdateJob, TJob>();
-    }
 }
