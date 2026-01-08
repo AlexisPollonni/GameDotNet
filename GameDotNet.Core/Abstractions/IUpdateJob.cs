@@ -12,7 +12,7 @@ public interface IUpdateJob
 
     public ValueTask OnUpdate(TimeSpan deltaTime, CancellationToken cancellationToken = default);
 
-    public bool IsStarted { get; internal set; }
+    public bool IsStarted { get; set; }
 
     public JobConfiguration Options { get; }
 }
