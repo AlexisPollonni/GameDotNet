@@ -3,7 +3,7 @@ using GameDotNet.Editor.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace GameDotNet.Editor.Tools;
+namespace GameDotNet.Editor.Services;
 
 public sealed class ViewerLogProvider(LogViewerViewModel viewer) : ILoggerProvider
 {

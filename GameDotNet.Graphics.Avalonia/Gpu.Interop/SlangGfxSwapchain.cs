@@ -2,7 +2,7 @@ using System.Drawing;
 using Avalonia;
 using Avalonia.Platform;
 using Avalonia.Rendering.Composition;
-using GameDotNet.Graphics;
+using GameDotNet.Graphics.Services;
 using ShaderSlang.Net.ComWrappers.Gfx.Descriptions;
 using ShaderSlang.Net.ComWrappers.Gfx.Interfaces;
 using static Avalonia.Platform.KnownPlatformGraphicsExternalSemaphoreHandleTypes;
@@ -12,7 +12,7 @@ using ITextureResource = ShaderSlang.Net.ComWrappers.Gfx.Interfaces.ITextureReso
 using ITransientResourceHeap = ShaderSlang.Net.ComWrappers.Gfx.Interfaces.ITransientResourceHeap;
 using Unmanaged = ShaderSlang.Net.Bindings.Generated;
 
-namespace GameDotNet.Editor.Tools.GpuInterop;
+namespace GameDotNet.Graphics.Avalonia.Gpu.Interop;
 
 internal class SlangGfxSwapchain(ICompositionGpuInterop interop, CompositionDrawingSurface target, SlangContext context)
     : SwapchainBase<SlangGfxSwapchainImage>(interop, target)

@@ -4,10 +4,10 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Logging;
 using Avalonia.ReactiveUI;
+using GameDotNet.Editor.Services;
 using GameDotNet.Editor.Tools;
 using GameDotNet.Editor.ViewModels;
 using GameDotNet.Editor.Views;
-using GameDotNet.Graphics.Assets.Assimp;
 using GameDotNet.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -38,7 +38,8 @@ class Program
                .AddAvaloniaLogger(LogEventLevel.Warning, LogArea.Property, LogArea.Control, LogArea.Visual, LogArea.Layout, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
                .AddTransient<ViewLocator>()
                .AddEditorViews()
-               .AddSystem<EditorSampledUpdatePublisher>()
+               .AddGameDotNetGraphicsAvalonia()
+               .AddGameDotNetEditor()
                
                .AddViewerLogging();
         
@@ -64,7 +65,6 @@ class Program
         AppBuilder.Configure(() => new App(serviceProvider))
                   .UsePlatformDetect()
                   .UseReactiveUI()
-                  .UseRenderingSubsystem(() => InitializeRender(serviceProvider), "GameDotNet.Renderer")
                   .AfterSetup(builder =>
                   {
                       // The ApplicationLifetime is null when using the previewer.
@@ -73,11 +73,6 @@ class Program
                           AfterDesktopSetup(desktop, serviceProvider);
                       }
                   });
-
-    private static void InitializeRender(IServiceProvider provider)
-    {
-        //TODO
-    }
 
     private static void AfterDesktopSetup(IClassicDesktopStyleApplicationLifetime desktop, IServiceProvider provider)
     {
@@ -91,9 +86,5 @@ class Program
         Application.Current?.DataTemplates.Add(provider.GetRequiredService<ViewLocator>());
         
         desktop.MainWindow.DataContext = provider.GetRequiredService<MainWindowViewModel>();
-                
-        //TODO: Remove when asset manager and scene loading Ui is done
-        provider.GetRequiredService<AssimpNetImporter>().LoadSceneFromFile("Assets/MonkeyScene.dae", out var scene);
-        provider.GetRequiredService<SceneManager>().LoadScene(scene ?? throw new InvalidOperationException());
     }
 }

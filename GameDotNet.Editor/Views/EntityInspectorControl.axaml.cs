@@ -3,7 +3,7 @@ using GameDotNet.Editor.ViewModels;
 
 namespace GameDotNet.Editor.Views;
 
-public sealed partial class EntityInspectorControl : ReactiveUserControl<EntityInspectorViewModel>
+internal sealed partial class EntityInspectorControl : ReactiveUserControl<EntityInspectorViewModel>
 {
     public EntityInspectorControl()
     {

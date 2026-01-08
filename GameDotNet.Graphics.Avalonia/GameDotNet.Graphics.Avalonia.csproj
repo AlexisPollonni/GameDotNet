@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <ItemGroup>
+      <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Avalonia" />
+      <PackageReference Include="CommunityToolkit.HighPerformance" />
+      <PackageReference Include="DependencyPropertyGenerator">
+        <PrivateAssets>all</PrivateAssets>
+        <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      </PackageReference>
+      <PackageReference Include="Nito.Disposables" />
+      <PackageReference Include="System.Linq.Async" />
+    </ItemGroup>
+
+</Project>
+

@@ -9,6 +9,7 @@
     <PackageVersion Include="Arch.Relationships" Version="1.0.1" />
     <PackageVersion Include="Aspire.Hosting.AppHost" Version="9.2.1" />
     <PackageVersion Include="AssimpNetter" Version="6.0.2.1" />
+    <PackageVersion Include="AutoCtor" Version="2.10.0" />
     <PackageVersion Include="AutoFactories.Microsoft.DependencyInjection" Version="1.1.19" />
     <PackageVersion Include="Avalonia" Version="11.2.8" />
     <PackageVersion Include="Avalonia.Controls.TreeDataGrid" Version="11.1.1" />
@@ -18,6 +19,8 @@
     <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.2.8" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageVersion Include="ByteSize" Version="2.1.2" />
+    <PackageVersion Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
+    <PackageVersion Include="DependencyPropertyGenerator" Version="1.5.0" />
     <PackageVersion Include="dotVariant" Version="0.5.3" />
     <PackageVersion Include="FluentAvaloniaUI" Version="2.3.0" />
     <PackageVersion Include="Injectio" Version="5.1.0" />
@@ -65,6 +68,7 @@
     <PackageVersion Include="Silk.NET.Windowing.Extensions" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Windowing.Sdl" Version="2.22.0" />
     <PackageVersion Include="Simple.Avalonia.Hosting" Version="8.5.0" />
+    <PackageVersion Include="System.Linq.Async" Version="7.0.0" />
     <PackageVersion Include="TruePath" Version="1.10.0" />
     <PackageVersion Include="TUnit" Version="1.5.80" />
     <PackageVersion Include="ValueTaskSupplement" Version="1.1.0" />

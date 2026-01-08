@@ -8,8 +8,7 @@ public static class ServiceCollectionExtensions
 {
     internal static IServiceCollection AddEditorViews(this IServiceCollection serviceCollection)
     {
-        return serviceCollection.AddTransient<WebGpuViewModel>()
-            .AddView<WebGpuViewModel, WebGpuView>()
+        return serviceCollection
             .AddSingleton<EntityTreeViewModel>()
             .AddView<EntityTreeViewModel, EntityTreeViewControl>()
             .AddSingleton<LogViewerViewModel>()

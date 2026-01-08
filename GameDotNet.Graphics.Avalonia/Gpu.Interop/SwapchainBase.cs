@@ -1,8 +1,8 @@
-using System.Reactive.Disposables;
 using Avalonia;
 using Avalonia.Rendering.Composition;
+using Nito.Disposables;
 
-namespace GameDotNet.Editor.Tools.GpuInterop;
+namespace GameDotNet.Graphics.Avalonia.Gpu.Interop;
 
 /// <summary>
 /// A helper class for composition-backed swapchains, should not be a public API yet
@@ -74,13 +74,4 @@ internal abstract class SwapchainBase<TImage> : IAsyncDisposable where TImage : 
         foreach (var img in _pendingImages)
             await img.DisposeAsync();
     }
-}
-
-
-interface ISwapchainImage : IAsyncDisposable
-{
-    PixelSize Size { get; }
-    Task? LastPresent { get; }
-    void BeginDraw();
-    void Present();
 }

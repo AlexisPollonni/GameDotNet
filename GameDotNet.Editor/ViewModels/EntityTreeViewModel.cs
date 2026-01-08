@@ -3,71 +3,111 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Arch.Core;
-using Arch.Core.Extensions;
 using Avalonia.ReactiveUI;
 using DynamicData;
 using DynamicData.Alias;
-using GameDotNet.Core;
 using GameDotNet.Core.Abstractions;
+using GameDotNet.Core.Models;
+using GameDotNet.Core.Services;
 using GameDotNet.Core.Tooling.Extensions;
-using MessagePipe;
 using ReactiveUI.Fody.Helpers;
 using EntityNode = DynamicData.Node<GameDotNet.Editor.ViewModels.EntityEntryViewModel, Arch.Core.Entity>;
 
 namespace GameDotNet.Editor.ViewModels;
 
-public sealed class EntityTreeViewModel : ViewModelBase
+public sealed class EntityTreeViewModel(
+    SceneInstanceManager sceneManager) : ViewModelBase,IEventListener, IAsyncDisposable
 {
-    [Reactive] public ObservableCollection<EntityNode> SelectedItems { get; set; }
+    [Reactive] public ObservableCollection<EntityNode> SelectedItems { get; set; } = [];
 
     [Reactive] public ReadOnlyObservableCollection<EntityNode>? EntityTree { get; set; }
 
-    public EntityTreeViewModel(SceneInstanceManager sceneManager,
-        ISubscriber<EntityCreatedEvent> createdEvent,
-        ISubscriber<EntityDestroyedEvent> destroyedEvent)
-    {
-        var cache = new SourceList<Entity>();
-        SelectedItems = [];
+    private readonly CancellationTokenSource _cts = new();
+    private readonly SourceList<Entity> _cache = new();
 
-        this.WhenActivated(d =>
+    public override void OnActivated(CompositeDisposable disposable)
+    {
+        base.OnActivated(disposable);
+        
+        _cache.Connect()
+            .ObserveOn(Scheduler.Default)
+            .Select(static entity => new EntityEntryViewModel(entity)) //TODO: pool entries? switch to structs?
+            .AddKey(static vm => vm.Entity)
+            .TransformToTree(static model => model.Parent)
+            .ObserveOn(AvaloniaScheduler.Instance)
+            .Bind(out var tree)
+            .Subscribe()
+            .DisposeWith(disposable);
+
+        EntityTree = tree;
+    }
+
+    public void Configure(IEventRegistry registry)
+    {
+        registry.On<EntityCreatedEvent>(OnEntityCreated, _cts.Token);
+        registry.On<EntityDestroyedEvent>(OnEntityDestroyed, _cts.Token);
+
+        registry.OnEvent<SceneActiveChangedEvent>(OnActiveSceneChanged, _cts.Token);
+    }
+
+    private ValueTask OnActiveSceneChanged(SceneActiveChangedEvent eventArgs, CancellationToken token)
+    {
+        _cache.Edit(list =>
         {
-            cache.Edit(list =>
+            list.Clear();
+            
+            var newActiveScene = eventArgs.Current;
+            if (newActiveScene is null) return;
+            
+            foreach (var arch in newActiveScene.EntityWorld)
             {
-                foreach (var arch in sceneManager.World)
+                foreach (var chunk in arch)
                 {
-                    foreach (var chunk in arch)
+                    foreach (var i in chunk)
                     {
-                        foreach (var i in chunk)
-                        {
-                            list.Add(chunk.Entity(i));
-                        }
+                        list.Add(chunk.Entity(i));
                     }
                 }
-            });
-
-            createdEvent.Subscribe(args => cache.Add(args.New)).DisposeWith(d);
-            destroyedEvent.Subscribe(args => cache.Remove(args.Destroyed)).DisposeWith(d);
-
-            componentAddedEvent.Subscribe(args => args.)
-
-            cache.Connect()
-                .ObserveOn(Scheduler.Default)
-                .AddKey(static entity => entity)
-                .Select(static entity => new EntityEntryViewModel(entity))
-                .TransformToTree(static model => model.Parent)
-                .ObserveOn(AvaloniaScheduler.Instance)
-                .Bind(out var tree)
-                .Subscribe()
-                .DisposeWith(d);
-
-            EntityTree = tree;
+            }
         });
+
+        return default;
+    }
+
+    private async Task OnEntityCreated(IAsyncEnumerable<EntityCreatedEvent> enumerable, CancellationToken token)
+    {
+        await foreach (var eventArgs in enumerable
+                           .Where(evt => evt.New.World == sceneManager.ActiveScene?.EntityWorld)
+                           .WithCancellation(token))
+        {
+            _cache.Add(eventArgs.New);
+        }
+    }
+
+    private async Task OnEntityDestroyed(IAsyncEnumerable<EntityDestroyedEvent> enumerable, CancellationToken token)
+    {
+        await foreach (var eventArgs in enumerable
+                           .Where(evt => evt.Destroyed.World == sceneManager.ActiveScene?.EntityWorld)
+                           .WithCancellation(token))
+        {
+            _cache.Add(eventArgs.Destroyed);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _cts.CancelAsync();
+        _cts.Dispose();
+        
+        _cache.Dispose();
+        
+        Dispose();
     }
 }
 
 public record EntityEntryViewModel(Entity Entity)
 {
     public Entity Entity { get; } = Entity;
-    public Entity? Parent => Entity.Parent;
+    public Entity Parent => Entity.Parent ?? Entity.Null;
     public string? Name => Entity.Label;
 }
