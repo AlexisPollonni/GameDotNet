@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Drawing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
@@ -6,6 +7,7 @@ using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Graphics.Models;
+using GameDotNet.Graphics.Tooling;
 using MessagePipe;
 using Microsoft.Extensions.ObjectPool;
 using ShaderSlang.Net.Bindings.Generated;
@@ -41,6 +43,7 @@ public class SlangRenderer(SlangContext context, ObjectPool<PooledValueTaskSourc
 
 
     private readonly List<(IFence, PooledValueTaskSource, ulong)> _inflightFences = [];
+    private readonly ConcurrentDictionary<IViewPort, TimingsRingBuffer> _viewportTimings = new();
     private readonly Lock _fenceLock = new();
 
 
@@ -50,13 +53,15 @@ public class SlangRenderer(SlangContext context, ObjectPool<PooledValueTaskSourc
         var device = context.Device;
         var texture = request.Image;
 
+        var timings = _viewportTimings.GetOrAdd(request.ViewPort, _ => new(512));
+
         var textureView = device.CreateTextureViewOrThrow(texture, new());
 
         var color = Color.FromArgb((int)DateTimeOffset.UtcNow.Ticks);
 
         await ClearTextureAsync(textureView, color, cancellationToken);
 
-        return new();
+        return new(timings.ComputeStats());
 
         //TODO: Implement actual rendering here
         // var frameBufferLayout =
@@ -90,7 +95,7 @@ public class SlangRenderer(SlangContext context, ObjectPool<PooledValueTaskSourc
 
             innerTcs.SetException(e);
         }, tcs);
-        
+
         try
         {
             lock (_fenceLock)
@@ -111,7 +116,8 @@ public class SlangRenderer(SlangContext context, ObjectPool<PooledValueTaskSourc
         }
     }
 
-    private async ValueTask ClearTextureAsync(IResourceView texture, Color clearColor, CancellationToken token = default)
+    private async ValueTask ClearTextureAsync(IResourceView texture, Color clearColor,
+        CancellationToken token = default)
     {
         var cmd = context.TransientHeap.CreateCommandBufferOrThrow();
 
@@ -122,7 +128,7 @@ public class SlangRenderer(SlangContext context, ObjectPool<PooledValueTaskSourc
         encoder.ClearResourceView(texture, new() { color = clearValue }, ClearResourceViewFlags.Enum.ClearStencil);
 
         cmd.Close();
-        
+
         var fence = context.Device.CreateFenceOrThrow(new());
         context.GraphicsQueue.ExecuteCommandBuffers([cmd], fence, 1);
 

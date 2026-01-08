@@ -2,11 +2,13 @@ using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Rendering.Composition;
 using Avalonia.Threading;
+using DependencyPropertyGenerator;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Graphics.Avalonia.Gpu.Interop;
 using GameDotNet.Graphics.Models;
 using GameDotNet.Graphics.Services;
+using GameDotNet.Graphics.Tooling;
 using Injectio.Attributes;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
@@ -21,7 +23,8 @@ namespace GameDotNet.Graphics.Avalonia;
 /// This provides a surface where you can render your game/3D content.
 /// </summary>
 [RegisterScoped(Registration = RegistrationStrategy.Self)]
-public class SlangCompositionControl(
+[DependencyProperty<TimelineStats>("RenderStats")]
+public partial class SlangCompositionControl(
     ILogger<SlangCompositionControl> logger,
     SlangContext slangContext, 
     ILogger<AvaloniaViewPortControl> viewportLogger, 
@@ -129,7 +132,8 @@ public class SlangCompositionControl(
         
         using (swapchain.BeginDraw(new(size.Width, size.Height), out var image))
         {
-            await renderHandler.InvokeAsync(new(this, image, new(size.Width, size.Height)), token).ConfigureAwait(true);
+            var presentResponse = await renderHandler.InvokeAsync(new(this, image, new(size.Width, size.Height)), token).ConfigureAwait(true);
+            RenderStats = presentResponse.RenderStats;
         }
     }
 
