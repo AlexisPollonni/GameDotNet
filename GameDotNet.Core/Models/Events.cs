@@ -17,8 +17,9 @@ public readonly record struct ViewportDestroyedEvent(IViewPort Viewport);
 public readonly record struct ViewportActiveChangedEvent(IViewPort? Previous, IViewPort Current);
 public readonly record struct ViewportResizedEvent(IViewPort Viewport, Size OldSize, Size NewSize);
 public readonly record struct ViewportFocusChangedEvent(IViewPort Viewport, bool HasFocus);
-public readonly record struct SceneInstantiatedEvent(ISceneInstance Instance);
-public readonly record struct SceneDestroyingEvent(ISceneInstance SceneInstance);
+public readonly record struct SceneInstantiatedEvent(ISceneInstance New);
+public readonly record struct SceneDestroyingEvent(ISceneInstance Destroyed);
+public readonly record struct SceneActiveChangedEvent(ISceneInstance? Previous, ISceneInstance? Current);
 
 public readonly record struct KeyDownEvent(Key Key);
 public readonly record struct KeyUpEvent(Key Key);

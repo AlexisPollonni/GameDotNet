@@ -22,7 +22,7 @@ internal sealed class EntityUpdatePublisher(IEventBus eventBus)
 
     private ValueTask OnSceneInstantiated(SceneInstantiatedEvent sceneEvent, CancellationToken cancellationToken)
     {
-        var world = sceneEvent.Instance.EntityWorld;
+        var world = sceneEvent.New.EntityWorld;
 
         world.SubscribeEntityCreated(OnEntityCreated);
         world.SubscribeEntityDestroyed(OnEntityDestroyed);
@@ -64,7 +64,7 @@ internal sealed class ComponentPublisher<TComponent>(IEventBus eventBus) : Singl
 
     private ValueTask OnSceneInstantiated(SceneInstantiatedEvent e, CancellationToken cancellationToken)
     {
-        var world = e.Instance.EntityWorld;
+        var world = e.New.EntityWorld;
 
         world.SubscribeComponentAdded<TComponent>((in entity, ref comp) =>
         {

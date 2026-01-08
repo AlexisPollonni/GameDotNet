@@ -17,7 +17,17 @@ namespace GameDotNet.Core.Services;
 public sealed class SceneInstanceManager(IEnumerable<IAssetImporter<ISceneAsset>> sceneImporters, 
                                         IEventBus eventBus)
 {
-    public ISceneInstance? ActiveScene { get; private set; }
+    public ISceneInstance? ActiveScene
+    {
+        get;
+        private set
+        {
+            //TODO: move this to MakeActive(Async) dedicated method, handle async publish there
+            var oldScene = field;
+            field = value;
+            eventBus.Publish(new SceneActiveChangedEvent(oldScene, value));
+        }
+    }
 
     public IReadOnlyCollection<ISceneInstance> EnabledScenes => _enabledScenes;
     public IReadOnlyCollection<ISceneInstance> DisabledScenes => _disabledScenes;
