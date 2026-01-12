@@ -3,6 +3,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using Arch.Core;
+using AutoCtor;
 using Avalonia.ReactiveUI;
 using DynamicData;
 using DynamicData.Alias;
@@ -15,8 +16,8 @@ using EntityNode = DynamicData.Node<GameDotNet.Editor.ViewModels.EntityEntryView
 
 namespace GameDotNet.Editor.ViewModels;
 
-public sealed class EntityTreeViewModel(
-    SceneInstanceManager sceneManager) : ViewModelBase,IEventListener, IAsyncDisposable
+[AutoConstruct]
+public sealed partial class EntityTreeViewModel : ViewModelBase, IAsyncDisposable
 {
     [Reactive] public ObservableCollection<EntityNode> SelectedItems { get; set; } = [];
 
@@ -24,6 +25,7 @@ public sealed class EntityTreeViewModel(
 
     private readonly CancellationTokenSource _cts = new();
     private readonly SourceList<Entity> _cache = new();
+    private readonly SceneInstanceManager _sceneManager;
 
     public override void OnActivated(CompositeDisposable disposable)
     {
@@ -42,7 +44,8 @@ public sealed class EntityTreeViewModel(
         EntityTree = tree;
     }
 
-    public void Configure(IEventRegistry registry)
+    [AutoPostConstruct]
+    private void Configure(IEventRegistry registry)
     {
         registry.On<EntityCreatedEvent>(OnEntityCreated, _cts.Token);
         registry.On<EntityDestroyedEvent>(OnEntityDestroyed, _cts.Token);
@@ -77,7 +80,7 @@ public sealed class EntityTreeViewModel(
     private async Task OnEntityCreated(IAsyncEnumerable<EntityCreatedEvent> enumerable, CancellationToken token)
     {
         await foreach (var eventArgs in enumerable
-                           .Where(evt => evt.New.World == sceneManager.ActiveScene?.EntityWorld)
+                           .Where(evt => evt.New.World == _sceneManager.ActiveScene?.EntityWorld)
                            .WithCancellation(token))
         {
             _cache.Add(eventArgs.New);
@@ -87,7 +90,7 @@ public sealed class EntityTreeViewModel(
     private async Task OnEntityDestroyed(IAsyncEnumerable<EntityDestroyedEvent> enumerable, CancellationToken token)
     {
         await foreach (var eventArgs in enumerable
-                           .Where(evt => evt.Destroyed.World == sceneManager.ActiveScene?.EntityWorld)
+                           .Where(evt => evt.Destroyed.World == _sceneManager.ActiveScene?.EntityWorld)
                            .WithCancellation(token))
         {
             _cache.Add(eventArgs.Destroyed);

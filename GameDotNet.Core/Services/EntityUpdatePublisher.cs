@@ -1,21 +1,32 @@
 using Arch.Core;
+using AutoCtor;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Models;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 using Nito.Disposables;
 
 namespace GameDotNet.Core.Services;
 
-[RegisterSingleton<IEventListener>(Duplicate = DuplicateStrategy.Append)]
-internal sealed class EntityUpdatePublisher(IEventBus eventBus)
-    : SingleAsyncDisposable<EmptyStruct>(default), IEventListener
+[AutoConstruct]
+internal sealed partial class EntityUpdatePublisher
+    : SingleAsyncDisposable<EmptyStruct>
 {
     private readonly CancellationTokenSource _subscriptionTokenSource = new();
-
-
-    public void Configure(IEventRegistry registry)
+    private readonly IEventBus _eventBus;
+    
+    [RegisterServices]
+    internal static void Register(IServiceCollection services)
     {
+        services.Add(new(typeof(EmptyStruct), default(EmptyStruct)));
+        services.AddActivatedSingleton<EntityUpdatePublisher>();
+    }
+
+    [AutoPostConstruct]
+    public void Configure(IEventRegistry registry, out EmptyStruct context)
+    {
+        context = default;
         registry.OnEvent<SceneInstantiatedEvent>(OnSceneInstantiated, _subscriptionTokenSource.Token);
         registry.OnEvent<SceneDestroyingEvent>(OnSceneDestroying, _subscriptionTokenSource.Token);
     }
@@ -26,11 +37,12 @@ internal sealed class EntityUpdatePublisher(IEventBus eventBus)
 
         world.SubscribeEntityCreated(OnEntityCreated);
         world.SubscribeEntityDestroyed(OnEntityDestroyed);
-        
+
         return ValueTask.CompletedTask;
     }
 
-    private static ValueTask OnSceneDestroying(SceneDestroyingEvent sceneDestroyingEvent, CancellationToken cancellationToken)
+    private static ValueTask OnSceneDestroying(SceneDestroyingEvent sceneDestroyingEvent,
+        CancellationToken cancellationToken)
     {
         //TODO: Unsubscribe?
         return default;
@@ -38,12 +50,12 @@ internal sealed class EntityUpdatePublisher(IEventBus eventBus)
 
     private void OnEntityCreated(in Entity entity)
     {
-        eventBus.Publish(new EntityCreatedEvent(entity));
+        _eventBus.Publish(new EntityCreatedEvent(entity));
     }
 
     private void OnEntityDestroyed(in Entity entity)
     {
-        eventBus.Publish(new EntityDestroyedEvent(entity));
+        _eventBus.Publish(new EntityDestroyedEvent(entity));
     }
 
     protected override async ValueTask DisposeAsync(EmptyStruct context)
@@ -53,9 +65,11 @@ internal sealed class EntityUpdatePublisher(IEventBus eventBus)
     }
 }
 
-internal sealed class ComponentPublisher<TComponent>(IEventBus eventBus) : SingleAsyncDisposable<EmptyStruct>(default), IEventListener
+[AutoConstruct]
+internal sealed partial class ComponentPublisher<TComponent> : SingleAsyncDisposable<EmptyStruct>
 {
     private readonly CancellationTokenSource _subscriptionTokenSource = new();
+    private readonly IEventBus _eventBus;
 
     public void Configure(IEventRegistry registry)
     {
@@ -68,19 +82,19 @@ internal sealed class ComponentPublisher<TComponent>(IEventBus eventBus) : Singl
 
         world.SubscribeComponentAdded<TComponent>((in entity, ref comp) =>
         {
-            eventBus.Publish(
+            _eventBus.Publish(
                 new EntityComponentAddedEvent(entity, typeof(TComponent)));
         });
 
         world.SubscribeComponentSet<TComponent>((in entity, ref comp) =>
         {
-            eventBus.Publish(
+            _eventBus.Publish(
                 new EntityComponentSetEvent(entity, typeof(TComponent)));
         });
 
         world.SubscribeComponentRemoved<TComponent>((in entity, ref comp) =>
         {
-            eventBus.Publish(
+            _eventBus.Publish(
                 new EntityComponentRemovedEvent(entity, typeof(TComponent)));
         });
         return ValueTask.CompletedTask;

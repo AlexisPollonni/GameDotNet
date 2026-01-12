@@ -2,11 +2,13 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
+using AutoCtor;
 using dotVariant;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Models;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Core.Tooling.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 using Nito.Disposables;
 using QuikGraph;
 using QuikGraph.Algorithms;
@@ -60,16 +62,19 @@ public readonly partial struct JobWorkerItem
     }
 }
 
+[AutoConstruct]
 [RegisterSingleton<JobManager>]
-public sealed class JobManager( //TODO: for now public but change to internal later when interface is defined
-    IMeterFactory meterFactory,
-    TimeProvider timeProvider,
-    IEnumerable<IUpdateJob> registeredJobs,
-    IZeroAllocThreadPoolScheduler<JobWorkerItem> scheduler,
-    IJobDependencyGraph jobDependencyGraph,
-    SceneInstanceManager sceneManager) : SingleAsyncDisposable<EmptyStruct>(default), IEventListener
+public sealed partial class JobManager //TODO: for now public but change to internal later when interface is defined
+     : SingleAsyncDisposable<EmptyStruct>
 {
-    private readonly Meter _meter = meterFactory.Create(new($"{typeof(JobManager).FullName}.Updates"));
+    private readonly IMeterFactory _meterFactory;
+    private readonly TimeProvider _timeProvider;
+    private readonly IEnumerable<IUpdateJob> _registeredJobs;
+    private readonly IZeroAllocThreadPoolScheduler<JobWorkerItem> _scheduler;
+    private readonly IJobDependencyGraph _jobDependencyGraph;
+    private readonly SceneInstanceManager _sceneManager;
+    
+    private readonly Meter _meter;
 
     private bool _initialized;
 
@@ -83,8 +88,19 @@ public sealed class JobManager( //TODO: for now public but change to internal la
 
     public record JobData(ValueStopwatch ExecuteWatch, ValueStopwatch DeltaUpdateWatch, Histogram<double> Measure);
 
-    public void Configure(IEventRegistry registry)
+    [RegisterServices]
+    internal static void RegisterDependencies(IServiceCollection collection)
     {
+        //TODO: make extension method for this
+        collection.AddPooled<ResettableWorkItem<JobWorkerItem>>();
+        collection.AddPooled<PooledValueTaskSource>();
+    }
+    
+    [AutoPostConstruct]
+    private void Configure(IEventRegistry registry, out Meter meter)
+    {
+        meter = _meterFactory.Create(new($"{typeof(JobManager).FullName}.Updates"));
+        
         registry.OnEvent<EngineStartedEvent>(OnStartup, _disposeCts.Token);
         registry.OnEvent<EngineStoppingEvent>(OnStopping, _disposeCts.Token);
     }
@@ -117,7 +133,7 @@ public sealed class JobManager( //TODO: for now public but change to internal la
             RebuildRunningJobGraph();
         }
 
-        var sharedState = (_allJobs, sceneManager);
+        var sharedState = (_allJobs, sceneManager: _sceneManager);
         await RunJobGraph(static (state, job) => new JobWorkerItem.Update(job, state._allJobs[job], state.sceneManager),
             sharedState, token).ConfigureAwait(false);
     }
@@ -134,7 +150,7 @@ public sealed class JobManager( //TODO: for now public but change to internal la
 
     private async ValueTask OnStartup(EngineStartedEvent _, CancellationToken token)
     {
-        foreach (var job in registeredJobs)
+        foreach (var job in _registeredJobs)
         {
             AddJob(job);
         }
@@ -175,8 +191,8 @@ public sealed class JobManager( //TODO: for now public but change to internal la
         while (_jobsToAdd.TryDequeue(out var jobToAdd))
         {
             _allJobs.TryAdd(jobToAdd,
-                new(new(timeProvider),
-                    new(timeProvider),
+                new(new(_timeProvider),
+                    new(_timeProvider),
                     _meter.CreateHistogram<double>($"{jobToAdd.GetType().FullName}.ExecuteTime",
                         "ms",
                         "Execution time of the job in milliseconds")));
@@ -199,7 +215,7 @@ public sealed class JobManager( //TODO: for now public but change to internal la
         using var graphEdges = _allJobs.Keys.AsValueEnumerable()
             .SelectMany(job =>
             {
-                return jobDependencyGraph.GetDependencies(job.GetType())
+                return _jobDependencyGraph.GetDependencies(job.GetType())
                     .AsValueEnumerable()
                     .Select(GetJobByType)
                     .Where(depJob => depJob.IsStarted)
@@ -266,7 +282,7 @@ public sealed class JobManager( //TODO: for now public but change to internal la
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
     private async ValueTask EnqueueWorkJob(JobWorkerItem workItem, CancellationToken token)
     {
-        await scheduler.EnqueueWork(OnWorkerItemExecute, workItem, token).ConfigureAwait(false);
+        await _scheduler.EnqueueWork(OnWorkerItemExecute, workItem, token).ConfigureAwait(false);
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]

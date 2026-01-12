@@ -1,6 +1,7 @@
 using System.Numerics;
 using Arch.Core;
 using Arch.Core.Extensions;
+using AutoCtor;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Components;
 using GameDotNet.Core.Models;
@@ -39,9 +40,9 @@ public readonly record struct CameraRuntimeData(
     float Pitch,
     Vector2 LastMousePosition) : ISceneComponent;
 
+[AutoConstruct]
 [RegisterSingleton<IQueryUpdateJob>(Duplicate = DuplicateStrategy.Append)]
-[RegisterSingleton<IEventListener>(Duplicate =  DuplicateStrategy.Append)]
-public sealed class CameraManager(SceneInstanceManager sceneManager) : SingleAsyncDisposable<EmptyStruct>(default), IQueryUpdateJob, IEventListener
+public sealed partial class CameraManager : SingleAsyncDisposable<EmptyStruct>, IQueryUpdateJob
 {
     public bool IsStarted { get; set; }
 
@@ -50,11 +51,13 @@ public sealed class CameraManager(SceneInstanceManager sceneManager) : SingleAsy
     public QueryDescription Query { get; } = new QueryDescription().WithAll<Camera>();
 
 
+    private readonly CancellationTokenSource _cts = new();
+    private readonly SceneInstanceManager _sceneManager;
+    
     private static readonly CameraOptions DefaultCamOptions = new();
     
-    private CancellationTokenSource _cts = new();
-
-    public void Configure(IEventRegistry registry)
+    [AutoPostConstruct]
+    private void Configure(IEventRegistry registry)
     {
         registry.On<ViewportActiveChangedEvent>(OnViewportActiveChanged, _cts.Token);
     }
@@ -69,7 +72,7 @@ public sealed class CameraManager(SceneInstanceManager sceneManager) : SingleAsy
     {
         await foreach (var viewPort in evt.Select(e => e.Current).Distinct().WithCancellation(token))
         {
-            var worlds = sceneManager.EnabledScenes
+            var worlds = _sceneManager.EnabledScenes
                 .AsValueEnumerable()
                 .Select(instance => instance.EntityWorld);
                 

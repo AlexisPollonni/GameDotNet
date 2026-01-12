@@ -32,10 +32,12 @@ public sealed class LogViewerViewModel : ViewModelBase, IDisposable
         _logEventCache.Add(new(DateTimeOffset.Now, level, message));
     }
 
-    public void Dispose()
+    protected override void Dispose(bool disposing)
     {
         _disposable.Dispose();
         _logEventCache.Dispose();
+        
+        base.Dispose(disposing);
     }
 }
 

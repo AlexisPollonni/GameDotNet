@@ -60,7 +60,6 @@ internal sealed class PooledThreadPoolScheduler<TUserState>(
     ObjectPool<PooledValueTaskSource> valueTaskSourcePool,
     ObjectPool<ResettableWorkItem<TUserState>> workItemPool) : IZeroAllocThreadPoolScheduler<TUserState>
 {
-
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
     public async ValueTask EnqueueWork(Func<TUserState, CancellationToken, ValueTask> work,
                                        TUserState userState,

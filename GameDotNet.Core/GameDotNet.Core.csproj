@@ -5,6 +5,7 @@
   <ItemGroup>
     <PackageReference Include="Arch-Events" />
     <PackageReference Include="Arch.Relationships" />
+    <PackageReference Include="AutoCtor" />
     <PackageReference Include="ByteSize" />
     <PackageReference Include="dotVariant" />
     <PackageReference Include="Injectio" />
@@ -12,6 +13,8 @@
     <PackageReference Include="MessagePipe" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.AutoActivation" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.ObjectPool" />
+    <PackageReference Include="Microsoft.Extensions.ObjectPool.DependencyInjection" />
     <PackageReference Include="Microsoft.Toolkit.HighPerformance" />
     <PackageReference Include="Nito.Disposables" />
     <PackageReference Include="QuikGraph" />

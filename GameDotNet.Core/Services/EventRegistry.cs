@@ -14,7 +14,6 @@ namespace GameDotNet.Core.Services;
 [RegisterSingleton<IEventBus>]
 internal class EventRegistry(
     ILogger<EventRegistry> logger,
-    IEnumerable<IEventListener> listeners,
     TimeProvider timeProvider,
     IServiceProvider serviceProvider,
     IZeroAllocThreadPoolScheduler<EventRegistry.SubscriptionWorkItem> scheduler)
@@ -25,12 +24,16 @@ internal class EventRegistry(
 {
     private readonly List<ValueTask> _listenerTasks = [];
     private readonly Lock _listenersLock = new();
+    
+    [RegisterServices]
+    internal static void RegisterDependencies(IServiceCollection services)
+    {
+        services.AddPooled<ResettableWorkItem<SubscriptionWorkItem>>();
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         stoppingToken.ThrowIfCancellationRequested();
-
-        ConfigureStartupListeners();
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -73,23 +76,6 @@ internal class EventRegistry(
         }
 
         return;
-
-        void ConfigureStartupListeners()
-        {
-            // Configure all registered event listeners at startup
-            foreach (var listener in listeners)
-            {
-                try
-                {
-                    listener.Configure(this);
-                    logger.LogDebug("Configured event listener: {ListenerType}", listener.GetType().Name);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError(ex, "Failed to configure event listener: {ListenerType}", listener.GetType().Name);
-                }
-            }
-        }
 
         async ValueTask WaitUntilListenerAvailable(CancellationToken token)
         {
