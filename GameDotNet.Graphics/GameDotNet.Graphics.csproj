@@ -1,8 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-
-        <RuntimeIdentifier>$(NETCoreSdkRuntimeIdentifier)</RuntimeIdentifier>
     </PropertyGroup>
     <ItemGroup>
         <PackageReference Include="AssimpNetter"/>
@@ -11,7 +9,7 @@
         <PackageReference Include="Injectio"/>
         <PackageReference Include="Intellenum"/>
         <PackageReference Include="Microsoft.Extensions.Http"/>
-        <PackageReference Include="ShaderSlang.Net" IncludeAssets="all"/>
+        <PackageReference Include="ShaderSlang.Net" IncludeAssets="all" />
         <PackageReference Include="Silk.NET.Input"/>
     </ItemGroup>
     <ItemGroup>
