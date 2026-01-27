@@ -14,26 +14,31 @@
 	<UserControl.Resources>
 		<tools:ImplementationDataTemplate x:Key="InspectorValueDataTemplate">
 			<DataTemplate DataType="x:Boolean">
-				<ToggleSwitch IsChecked="{CompiledBinding}" />
+				<ToggleSwitch IsChecked="{CompiledBinding}"
+				              IsEnabled="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsReadonly}"/>
 			</DataTemplate>
 
 			<DataTemplate DataType="x:Single">
 				<fa:NumberBox Value="{CompiledBinding}"
-							  SmallChange="0.1" />
+							  SmallChange="0.1"
+							  IsEnabled="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsReadonly}"/>
 			</DataTemplate>
 
 			<DataTemplate DataType="x:Double">
 				<fa:NumberBox Value="{CompiledBinding}"
-							  SmallChange="0.1" />
+							  SmallChange="0.1"
+							  IsEnabled="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsReadonly}"/>
 			</DataTemplate>
 
 			<DataTemplate DataType="x:Int32">
 				<fa:NumberBox Value="{CompiledBinding}"
-							  SmallChange="1" />
+							  SmallChange="1"
+							  IsEnabled="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsReadonly}"/>
 			</DataTemplate>
 
 			<DataTemplate DataType="x:String">
-				<TextBox Text="{CompiledBinding }" />
+				<TextBox Text="{CompiledBinding }" 
+				         IsReadOnly="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsReadonly}"/>
 			</DataTemplate>
 
 			<!-- <DataTemplate DataType="collections:IEnumerable"> -->
