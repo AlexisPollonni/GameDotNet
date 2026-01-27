@@ -2,11 +2,9 @@
     <ItemGroup>
       <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
     </ItemGroup>
-    
     <PropertyGroup>
         <DefineConstants>$(DefineConstants);HAS_AVALONIA</DefineConstants>
     </PropertyGroup>
-
     <ItemGroup>
       <PackageReference Include="Avalonia" />
       <PackageReference Include="CommunityToolkit.HighPerformance" />
