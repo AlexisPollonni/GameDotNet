@@ -1,12 +1,13 @@
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
 using Shouldly;
 
 namespace GameDotNet.Core.Services;
 
-internal sealed class ResettableWorkItem<TUserState> : IThreadPoolWorkItem, IResettable 
+internal sealed class ResettableWorkItem<TUserState>(ILogger<ResettableWorkItem<TUserState>> logger) : IThreadPoolWorkItem, IResettable 
 {
     // ReSharper disable once MemberCanBePrivate.Global
     // Incorrect Rider suggestion.
@@ -43,6 +44,7 @@ internal sealed class ResettableWorkItem<TUserState> : IThreadPoolWorkItem, IRes
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Exception occurred while executing thread pool work item");
             item.Source.SetException(ex);
         }
     }
