@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using GameDotNet.Core;
+using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Models;
 using GameDotNet.Core.Services;
 using Injectio.Attributes;
@@ -104,12 +105,11 @@ public sealed class Engine
 [RegisterSingleton<IHostedService, EngineStartupHostedService>(Duplicate = DuplicateStrategy.Append)]
 internal sealed class EngineStartupHostedService(
     JobManager jobManager,
-    IAsyncPublisher<EngineStartedEvent> engineStart,
-    IAsyncPublisher<EngineStoppingEvent> engineStop) : BackgroundService
+    IEventBus eventBus) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken token)
     {
-        await engineStart.PublishAsync(new(), AsyncPublishStrategy.Sequential, token);
+        await eventBus.PublishAsync(new EngineStartedEvent(), token);
         
         while (!token.IsCancellationRequested) await jobManager.Update(token);
         
@@ -118,7 +118,7 @@ internal sealed class EngineStartupHostedService(
 
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
-        await engineStop.PublishAsync(new(), AsyncPublishStrategy.Sequential, cancellationToken);
+        await eventBus.PublishAsync(new EngineStoppingEvent(), cancellationToken);
         await base.StopAsync(cancellationToken);
     }
 }
