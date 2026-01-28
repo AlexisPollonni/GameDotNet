@@ -36,6 +36,10 @@
     <PackageReference Include="Injectio" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" />
     <PackageReference Include="ReactiveUI.Fody" />
+    <PackageReference Include="ServiceScan.SourceGenerator">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Silk.NET.Windowing.Sdl" />
     <PackageReference Include="Simple.Avalonia.Hosting" />
   </ItemGroup>

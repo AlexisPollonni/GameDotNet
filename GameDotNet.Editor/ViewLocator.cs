@@ -1,23 +1,10 @@
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using GameDotNet.Editor.ViewModels;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace GameDotNet.Editor;
 
-public static class ViewLocatorHelpers
-{
-    public static IServiceCollection AddView<TViewModel, TView>(this IServiceCollection services)
-        where TView : Control, new()
-        where TViewModel : ViewModelBase
-    {
-        services.AddSingleton(new ViewLocator.ViewLocationDescriptor(typeof(TViewModel), () => new TView()));
-        return services;
-    }
-}
-
 // From  https://github.com/AvaloniaUI/Avalonia.Samples
-public class ViewLocator : IDataTemplate
+internal sealed class ViewLocator : IDataTemplate
 {
     private readonly Dictionary<Type, Func<Control>> _dic;
 
@@ -30,5 +17,5 @@ public class ViewLocator : IDataTemplate
 
     public bool Match(object? param) => param is not null && _dic.ContainsKey(param.GetType());
 
-    public record ViewLocationDescriptor(Type ViewModel, Func<Control> Factory);
+    public sealed record ViewLocationDescriptor(Type ViewModel, Func<Control> Factory);
 }

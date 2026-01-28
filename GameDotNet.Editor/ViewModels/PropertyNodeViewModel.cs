@@ -10,7 +10,9 @@ using ReactiveUI.Fody.Helpers;
 
 namespace GameDotNet.Editor.ViewModels;
 
-public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<PropertyNodeViewModel>
+[RegisterTransient(Registration =
+    RegistrationStrategy.Self)] //NOTE: Transient might cause issues with disposal in the container, to investigate
+internal sealed class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<PropertyNodeViewModel>
 {
     public PropertyNodeViewModel? Parent { get; set; }
     public string? Name { get; set; }
@@ -25,8 +27,7 @@ public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<Prop
     [Reactive] public bool IsExpanded { get; set; }
     public bool IsVisible => Parent?.IsExpanded ?? true;
 
-    [Reactive]
-    public bool IsReadonly { get; set; }
+    [Reactive] public bool IsReadonly { get; set; }
     public bool IsDirty { get; set; } = true;
     public ObservableCollectionExtended<PropertyNodeViewModel> Children { get; } = [];
     public SourceList<PropertyNodeViewModel> ChildPropertyNodes { get; }
@@ -52,19 +53,21 @@ public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<Prop
     }
 
 
-    private readonly PropertyNodeCache _cache;
-
-    private object? _value;
-    private IDisposable _subscription;
-    private SourceList<PropertyNodeViewModel>? _childItemNodes;
-
-    internal PropertyNodeViewModel(PropertyNodeCache cache)
+    public PropertyNodeViewModel(PropertyNodeCache cache)
     {
         _cache = cache;
         ChildPropertyNodes = new();
 
         _subscription = ChildPropertyNodes.Connect().Bind(Children).Subscribe();
     }
+
+    private readonly PropertyNodeCache _cache;
+
+    private object? _value;
+
+    private IDisposable _subscription;
+
+    private SourceList<PropertyNodeViewModel>? _childItemNodes;
 
     internal IEnumerable<PropertyNodeCache.PropertyCacheEntry> PropertyTypeEntries => _cache.GetDefaultEntries(Type);
 
@@ -92,7 +95,7 @@ public class PropertyNodeViewModel : ViewModelBase, IResettable, IEquatable<Prop
         _subscription.Dispose();
         _childItemNodes?.Dispose();
         ChildPropertyNodes.Dispose();
-        
+
         base.Dispose(disposing);
     }
 

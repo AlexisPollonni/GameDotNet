@@ -17,6 +17,7 @@ using EntityNode = DynamicData.Node<GameDotNet.Editor.ViewModels.EntityEntryView
 namespace GameDotNet.Editor.ViewModels;
 
 [AutoConstruct]
+[RegisterSingleton(Registration = RegistrationStrategy.Self)]
 public sealed partial class EntityTreeViewModel : ViewModelBase, IAsyncDisposable
 {
     [Reactive] public ObservableCollection<EntityNode> SelectedItems { get; set; } = [];

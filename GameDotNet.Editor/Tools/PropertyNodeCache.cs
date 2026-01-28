@@ -6,6 +6,7 @@ using ReactiveUI;
 
 namespace GameDotNet.Editor.Tools;
 
+[RegisterSingleton(Registration = RegistrationStrategy.Self)]
 internal class PropertyNodeCache
 {
     private readonly ConcurrentDictionary<Type, PropertyCacheEntry[]> _typeToPropertyCache = [];

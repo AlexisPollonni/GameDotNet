@@ -37,9 +37,9 @@ class Program
                .AddEngineInstrumentation()
                .AddAvaloniaLogger(LogEventLevel.Warning, LogArea.Property, LogArea.Control, LogArea.Visual, LogArea.Layout, LogArea.Binding, LogArea.Platform, LogArea.Win32Platform)
                .AddTransient<ViewLocator>()
-               .AddEditorViews()
                .AddGameDotNetGraphicsAvalonia()
                .AddGameDotNetEditor()
+               .AddEditorViews()
                
                .AddViewerLogging();
         

@@ -6,7 +6,8 @@ using Microsoft.Extensions.Logging;
 
 namespace GameDotNet.Editor.ViewModels;
 
-public sealed class LogViewerViewModel : ViewModelBase, IDisposable
+[RegisterSingleton(Registration = RegistrationStrategy.Self)]
+public sealed class LogViewerViewModel : ViewModelBase
 {
     public ReadOnlyObservableCollection<LogEntryViewModel> LogEntries { get; set; }
     

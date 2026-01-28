@@ -1,5 +1,6 @@
 ﻿namespace GameDotNet.Editor.ViewModels;
 
+[RegisterSingleton(Registration = RegistrationStrategy.Self)]
 internal class MainWindowViewModel(EditorTabViewPortViewModel editorViewPort, EntityTreeViewModel treeViewModel, LogViewerViewModel logViewModel, EntityInspectorViewModel inspectorViewModel) : ViewModelBase
 {
     public EditorTabViewPortViewModel EditorViewPort { get; } = editorViewPort;
