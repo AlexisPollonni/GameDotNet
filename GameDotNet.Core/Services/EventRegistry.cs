@@ -103,7 +103,7 @@ internal class EventRegistry(
     {
         ArgumentNullException.ThrowIfNull(handler);
 
-        var task = scheduler.EnqueueWork(QueueSubscriber<TEvent>, new(serviceProvider, null, handler), token);
+        var task = QueueSubscriber(handler, token);
 
         lock (_listenersLock)
         {
@@ -120,7 +120,7 @@ internal class EventRegistry(
         ArgumentNullException.ThrowIfNull(handler);
         ArgumentNullException.ThrowIfNull(key);
 
-        var task = scheduler.EnqueueWork(QueueSubscriber<TKey, TEvent>, new(serviceProvider, key, handler), token);
+        var task = QueueSubscriber(key, handler, token);
 
         lock (_listenersLock)
         {
@@ -130,16 +130,10 @@ internal class EventRegistry(
         return default; // ref struct, no actual state needed
     }
 
-    private static async ValueTask QueueSubscriber<TKey, TEvent>(SubscriptionWorkItem subscriptionWorkItem,
+    private async ValueTask QueueSubscriber<TKey, TEvent>(TKey key, EventRegistrationHandler<TEvent> handler,
         CancellationToken token) where TKey : notnull
     {
-        var provider = subscriptionWorkItem.Provider;
-        var key = subscriptionWorkItem.Key.ShouldBeOfType<TKey>();
-        var handler = subscriptionWorkItem.Handler
-            .ShouldBeOfType<Func<IAsyncEnumerable<TEvent>, CancellationToken, Task>>();
-
-        var subscriber = provider.GetRequiredService<ISingletonAsyncSubscriber<TKey, TEvent>>();
-
+        var subscriber = serviceProvider.GetRequiredService<ISingletonAsyncSubscriber<TKey, TEvent>>();
         var enumerable = subscriber.AsAsyncEnumerable(key);
 
         try
@@ -148,27 +142,22 @@ internal class EventRegistry(
         }
         catch (OperationCanceledException)
         {
-            provider.GetService<ILogger<EventRegistry>>()?.LogDebug(
+            serviceProvider.GetService<ILogger<EventRegistry>>()?.LogDebug(
                 "Event listener for {EventType} with key {Key} was cancelled",
-                typeof(TEvent).Name, subscriptionWorkItem.Key);
+                typeof(TEvent).Name, key);
         }
         catch (Exception ex)
         {
-            provider.GetService<ILogger<EventRegistry>>()?.LogError(ex,
+            serviceProvider.GetService<ILogger<EventRegistry>>()?.LogError(ex,
                 "Event listener for {EventType} with key {Key} faulted",
-                typeof(TEvent).Name, subscriptionWorkItem.Key);
+                typeof(TEvent).Name, key);
         }
     }
 
-    private static async ValueTask QueueSubscriber<TEvent>(SubscriptionWorkItem subscriptionWorkItem,
+    private async ValueTask QueueSubscriber<TEvent>(EventRegistrationHandler<TEvent> handler,
         CancellationToken token)
     {
-        var provider = subscriptionWorkItem.Provider;
-        var handler = subscriptionWorkItem.Handler
-            .ShouldBeOfType<Func<IAsyncEnumerable<TEvent>, CancellationToken, Task>>();
-
-        var subscriber = provider.GetRequiredService<ISingletonAsyncSubscriber<TEvent>>();
-
+        var subscriber = serviceProvider.GetRequiredService<ISingletonAsyncSubscriber<TEvent>>();
         var enumerable = subscriber.AsAsyncEnumerable();
 
         try
@@ -177,13 +166,13 @@ internal class EventRegistry(
         }
         catch (OperationCanceledException)
         {
-            provider.GetService<ILogger<EventRegistry>>()?.LogDebug(
+            serviceProvider.GetService<ILogger<EventRegistry>>()?.LogDebug(
                 "Event listener for {EventType} was cancelled",
                 typeof(TEvent).Name);
         }
         catch (Exception ex)
         {
-            provider.GetService<ILogger<EventRegistry>>()?.LogError(ex,
+            serviceProvider.GetService<ILogger<EventRegistry>>()?.LogError(ex,
                 "Event listener for {EventType} faulted",
                 typeof(TEvent).Name);
         }
