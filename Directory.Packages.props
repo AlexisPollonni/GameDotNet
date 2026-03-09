@@ -56,7 +56,7 @@
     <PackageVersion Include="Serilog.Sinks.File.GZip" Version="1.0.2" />
     <PackageVersion Include="ServiceScan.SourceGenerator" Version="2.3.4" />
     <PackageVersion Include="shaderc.net" Version="0.1.0" />
-    <PackageVersion Include="ShaderSlang.Net" Version="0.1.0-330" />
+    <PackageVersion Include="ShaderSlang.Net" Version="0.1.0-331" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Silk.NET.Core" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Input" Version="2.22.0" />
