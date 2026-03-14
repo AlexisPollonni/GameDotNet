@@ -2,13 +2,13 @@ using System.Collections;
 using System.Collections.ObjectModel;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reflection;
 using System.Windows.Input;
 using Arch.Core;
 using Arch.Core.Extensions;
 using AutoCtor;
-using Avalonia.ReactiveUI;
 using Collections.Pooled;
 using DynamicData;
 using DynamicData.Binding;
@@ -19,6 +19,7 @@ using GameDotNet.Editor.Services;
 using GameDotNet.Editor.Tools;
 using Microsoft.Extensions.ObjectPool;
 using ReactiveUI;
+using ReactiveUI.Avalonia;
 using Shouldly;
 using ZLinq;
 
@@ -31,13 +32,15 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
     public ICommand RefreshCommand { get; private set; }
 
     public ReadOnlyObservableCollection<PropertyNodeViewModel>? Components { get; set; }
-    
+
     private readonly EntityTreeViewModel _entityTreeView;
     private readonly PropertyNodeCache _propertyCache;
     private readonly ObjectPool<PropertyNodeViewModel> _nodePool;
 
     private readonly CancellationTokenSource _cts = new();
-    private readonly SourceCache<PropertyNodeViewModel, ComponentType> _components = new(model => model.Type);
+    private readonly SourceCache<PropertyNodeViewModel, ComponentType> _components = new(model =>
+        model.Type
+    );
     private Entity _selectedEntity = Entity.Null;
     private Signature _loadedSignature = Signature.Null;
 
@@ -54,16 +57,18 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
     public override void OnActivated(CompositeDisposable disposable)
     {
         RefreshCommand = ReactiveCommand.Create(OnRefreshCommand).DisposeWith(disposable);
-        
-        _entityTreeView.SelectedItems
-            .ToObservableChangeSet()
+
+        _entityTreeView
+            .SelectedItems.ToObservableChangeSet()
             .ObserveOn(Scheduler.Default)
             .FirstAsync()
             .DistinctUntilChanged()
             .OnItemRefreshed(node => OnActiveEntityChanged(node.Key))
-            .Subscribe().DisposeWith(disposable);
+            .Subscribe()
+            .DisposeWith(disposable);
 
-        _components.Connect()
+        _components
+            .Connect()
             .ObserveOn(AvaloniaScheduler.Instance)
             .Bind(out var comps)
             .Subscribe()
@@ -80,7 +85,7 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
     private ValueTask OnComponentAdded(EntityComponentAddedEvent args, CancellationToken token)
     {
         var newNode = RebuildNodesFromComponent(args.Entity, args.Type);
-        
+
         _components.AddOrUpdate(newNode);
         _loadedSignature = args.Entity.GetComponentTypes();
         return default;
@@ -120,7 +125,7 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
     private void OnActiveEntityChanged(Entity newEntity)
     {
         _loadedSignature = newEntity.GetComponentTypes();
-        
+
         _components.Edit(updater =>
         {
             updater.Clear();
@@ -130,7 +135,7 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
                 updater.AddOrUpdate(newNode);
             }
         });
-        
+
         _selectedEntity = newEntity;
     }
 
@@ -145,7 +150,7 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
     private PropertyNodeViewModel RebuildNodesFromComponent(Entity entity, ComponentType type)
     {
         var rootNode = CreateNode(entity, type);
-        
+
         RebuildChildrenNodes(rootNode);
 
         return rootNode;
@@ -157,16 +162,16 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
         {
             ReturnNodeToPool(child);
         }
-        
+
         parent.ChildPropertyNodes.Clear();
         parent.ChildItemNodes?.Clear();
 
         using var queue = new PooledQueue<PropertyNodeViewModel>([parent]);
-        
+
         while (queue.Count > 0)
         {
             var current = queue.Dequeue();
-            
+
             queue.EnqueueRange(RebuildNodeProperties(current));
             queue.EnqueueRange(RebuildNodeCollectionItems(current));
         }
@@ -175,8 +180,9 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
     private IEnumerable<PropertyNodeViewModel> RebuildNodeProperties(PropertyNodeViewModel node)
     {
         node.ChildPropertyNodes.Clear();
-        if (node.Value is null) return [];
-       
+        if (node.Value is null)
+            return [];
+
         foreach (var entry in node.PropertyTypeEntries)
         {
             var childNode = CreateNode(node, entry.Info).ShouldNotBeNull();
@@ -187,22 +193,28 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
         return node.ChildPropertyNodes.Items;
     }
 
-    private IEnumerable<PropertyNodeViewModel> RebuildNodeCollectionItems(PropertyNodeViewModel node)
+    private IEnumerable<PropertyNodeViewModel> RebuildNodeCollectionItems(
+        PropertyNodeViewModel node
+    )
     {
         node.ChildItemNodes?.Clear();
         var childrenItems = TryGetChildrenFromCollectionNode(node);
-        if (childrenItems is null) return [];
-        
+        if (childrenItems is null)
+            return [];
+
         node.ChildItemNodes ??= new();
         node.ChildItemNodes.AddRange(childrenItems);
 
         return node.ChildItemNodes.Items;
     }
 
-    private IEnumerable<PropertyNodeViewModel>? TryGetChildrenFromCollectionNode(PropertyNodeViewModel node)
+    private IEnumerable<PropertyNodeViewModel>? TryGetChildrenFromCollectionNode(
+        PropertyNodeViewModel node
+    )
     {
         var nodeValue = node.Value;
-        if (nodeValue is not IEnumerable source) return null;
+        if (nodeValue is not IEnumerable source)
+            return null;
 
         IEnumerable<PropertyNodeViewModel> enumerable;
 
@@ -213,14 +225,13 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
         }
         else
         {
-            enumerable = source.Cast<object?>()
+            enumerable = source
+                .Cast<object?>()
                 .Select((x, i) => CreateNode(node, i.ToString(), x, true));
         }
 
         return enumerable;
     }
-    
-    
 
     /// <summary>
     /// Updates node value and checks if children need to be rebuilt incrementally
@@ -231,9 +242,11 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
     private bool UpdateNodeIncremental(PropertyNodeViewModel node, object? newValue)
     {
         var oldValue = node.Value;
-        
-        if (oldValue is null && newValue is null) return false;
-        if (ReferenceEquals(oldValue, newValue)) return false;
+
+        if (oldValue is null && newValue is null)
+            return false;
+        if (ReferenceEquals(oldValue, newValue))
+            return false;
 
         var needsStructuralUpdate = RequiresChildrenRebuild(oldValue, newValue);
 
@@ -242,17 +255,17 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
             RebuildChildrenNodes(node);
         }
 
-        if(oldValue is null || !oldValue.Equals(newValue))
+        if (oldValue is null || !oldValue.Equals(newValue))
         {
             node.Value = newValue;
         }
         return needsStructuralUpdate;
     }
-    
+
     private void UpdateNodeAndChildren(PropertyNodeViewModel node, object? newValue)
     {
         var queue = new PooledQueue<(PropertyNodeViewModel, object?)>([(node, newValue)]);
-        
+
         while (queue.Count > 0)
         {
             var (currentNode, currentNewValue) = queue.Dequeue();
@@ -278,12 +291,15 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
             foreach (var propEntry in currentNode.PropertyTypeEntries)
             {
                 var childToQueue = currentNode.ChildPropertyNodes.Items.FirstOrDefault(childNode =>
-                    childNode.Name == propEntry.Info.Name &&
-                    childNode.Type == propEntry.Info.PropertyType);
+                    childNode.Name == propEntry.Info.Name
+                    && childNode.Type == propEntry.Info.PropertyType
+                );
 
                 if (childToQueue is null)
                 {
-                    currentNode.ChildPropertyNodes.Add(CreateNode(currentNode, propEntry.Info).ShouldNotBeNull());
+                    currentNode.ChildPropertyNodes.Add(
+                        CreateNode(currentNode, propEntry.Info).ShouldNotBeNull()
+                    );
                     continue;
                 }
 
@@ -291,38 +307,47 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
                 queue.Enqueue((childToQueue, childNewValue));
             }
 
-            if (currentNewValue is not ICollection newValueCollection) continue;
+            if (currentNewValue is not ICollection newValueCollection)
+                continue;
             //Iterate over all collection items and queues their values for update
             if (currentNode.ChildItemNodes is null)
             {
                 RebuildNodeCollectionItems(currentNode);
                 continue;
             }
-                
+
             var newItems = newValueCollection.AsValueEnumerable<object?>();
             var currentChildItems = currentNode.ChildItemNodes.Items.AsValueEnumerable();
-                
-            foreach (var childItemsToQueueForUpdate in currentChildItems.Zip(newItems, (childItemNode, childItemValue) => (childItemNode, childItemValue)))
+
+            foreach (
+                var childItemsToQueueForUpdate in currentChildItems.Zip(
+                    newItems,
+                    (childItemNode, childItemValue) => (childItemNode, childItemValue)
+                )
+            )
             {
                 queue.Enqueue(childItemsToQueueForUpdate);
             }
         }
     }
-    
+
     private bool RequiresChildrenRebuild(object? oldValue, object? newValue)
     {
-        if (oldValue is null && newValue is null) return false;
-        if (oldValue is null || newValue is null) return true;
+        if (oldValue is null && newValue is null)
+            return false;
+        if (oldValue is null || newValue is null)
+            return true;
 
         var oldType = oldValue.GetType();
         var newType = newValue.GetType();
 
-        if (oldType != newType) return true;
+        if (oldType != newType)
+            return true;
 
         if (oldValue is ICollection oldCol && newValue is ICollection newCol)
             return oldCol.Count != newCol.Count;
-        
-        if(oldValue is IEnumerable || newValue is IEnumerable)
+
+        if (oldValue is IEnumerable || newValue is IEnumerable)
             return true; // different enumerables require rebuild
 
         return false;
@@ -333,19 +358,24 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
         // BFS to return all descendants
         using var queue = new PooledQueue<PropertyNodeViewModel>();
         queue.Enqueue(node);
-    
+
         while (queue.Count > 0)
         {
             var current = queue.Dequeue();
-            
+
             queue.EnqueueRange(current.Children);
-        
+
             _nodePool.Return(current);
         }
     }
 
-
-    private PropertyNodeViewModel CreateNode(PropertyNodeViewModel? parent, string? name, Type type, object? value, bool isReadonly = false)
+    private PropertyNodeViewModel CreateNode(
+        PropertyNodeViewModel? parent,
+        string? name,
+        Type type,
+        object? value,
+        bool isReadonly = false
+    )
     {
         var n = _nodePool.Get();
 
@@ -359,13 +389,18 @@ internal sealed partial class EntityInspectorViewModel : ViewModelBase
         return n;
     }
 
-    private PropertyNodeViewModel CreateNode(PropertyNodeViewModel? parent, string? name, object? value, bool isReadonly = false) =>
-        CreateNode(parent, name, value?.GetType() ?? typeof(object), value, isReadonly);
+    private PropertyNodeViewModel CreateNode(
+        PropertyNodeViewModel? parent,
+        string? name,
+        object? value,
+        bool isReadonly = false
+    ) => CreateNode(parent, name, value?.GetType() ?? typeof(object), value, isReadonly);
 
     private PropertyNodeViewModel? CreateNode(PropertyNodeViewModel parent, PropertyInfo info)
     {
-        if(parent.Value is null) return null;
-        
+        if (parent.Value is null)
+            return null;
+
         var entry = _propertyCache.GetEntryFromInfo(info);
 
         var value = entry.Getter?.Invoke(parent.Value);

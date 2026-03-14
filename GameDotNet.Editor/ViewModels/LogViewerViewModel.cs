@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
 using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using Avalonia.ReactiveUI;
 using DynamicData;
 using Microsoft.Extensions.Logging;
+using ReactiveUI.Avalonia;
 
 namespace GameDotNet.Editor.ViewModels;
 
@@ -11,14 +12,15 @@ namespace GameDotNet.Editor.ViewModels;
 public sealed class LogViewerViewModel : ViewModelBase
 {
     public ReadOnlyObservableCollection<LogEntryViewModel>? LogEntries { get; set; }
-    
+
     private readonly SourceList<LogEntryViewModel> _logEventCache = new();
 
     public override void OnActivated(CompositeDisposable disposable)
     {
         base.OnActivated(disposable);
-        
-        _logEventCache.Connect()
+
+        _logEventCache
+            .Connect()
             .ObserveOn(AvaloniaScheduler.Instance)
             .Bind(out var collection)
             .Subscribe()
@@ -35,7 +37,7 @@ public sealed class LogViewerViewModel : ViewModelBase
     protected override void Dispose(bool disposing)
     {
         _logEventCache.Dispose();
-        
+
         base.Dispose(disposing);
     }
 }

@@ -25,7 +25,6 @@
     <PackageReference Include="Avalonia.Desktop" />
     <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" />
-    <PackageReference Include="Avalonia.ReactiveUI" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
     <PackageReference Include="DependencyPropertyGenerator">
       <PrivateAssets>all</PrivateAssets>
@@ -34,16 +33,18 @@
     <PackageReference Include="FluentAvaloniaUI" />
     <PackageReference Include="Injectio" />
     <PackageReference Include="Microsoft.Extensions.ObjectPool" />
+    <PackageReference Include="ReactiveUI.Avalonia" />
+    <PackageReference Include="ReactiveUI.Avalonia.Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="ReactiveUI.Fody" />
     <PackageReference Include="ServiceScan.SourceGenerator">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Silk.NET.Windowing.Sdl" />
     <PackageReference Include="Simple.Avalonia.Hosting" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GameDotNet.Graphics.Avalonia\GameDotNet.Graphics.Avalonia.csproj" />
+    <ProjectReference Include="..\GameDotNet.Graphics.Vulkan\GameDotNet.Graphics.Vulkan.csproj" />
     <ProjectReference Include="..\GameDotNet.Hosting\GameDotNet.Hosting.csproj" />
   </ItemGroup>
   <ItemGroup>

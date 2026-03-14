@@ -1,4 +1,4 @@
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 using Silk.NET.Vulkan;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
@@ -20,7 +20,8 @@ public class VulkanPhysDevice
 
     public PhysicalDeviceProperties GetProperties() => _api.GetPhysicalDeviceProperties(_handle);
 
-    public PhysicalDeviceMemoryProperties GetMemoryProperties() => _api.GetPhysicalDeviceMemoryProperties(_handle);
+    public PhysicalDeviceMemoryProperties GetMemoryProperties() =>
+        _api.GetPhysicalDeviceMemoryProperties(_handle);
 
     public unsafe IReadOnlyList<QueueFamilyProperties> GetQueueFamilyProperties()
     {

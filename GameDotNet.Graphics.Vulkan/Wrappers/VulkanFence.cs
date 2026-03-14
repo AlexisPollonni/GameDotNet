@@ -12,15 +12,20 @@ public sealed class VulkanFence : IDisposable
     private readonly VulkanDevice _device;
     private readonly IVulkanAllocCallback _callbacks;
 
-    public unsafe VulkanFence(Vk api, VulkanDevice device, FenceCreateFlags flags, IVulkanAllocCallback callbacks)
+    public unsafe VulkanFence(
+        Vk api,
+        VulkanDevice device,
+        FenceCreateFlags flags,
+        IVulkanAllocCallback callbacks
+    )
     {
         _api = api;
         _device = device;
         _callbacks = callbacks;
 
         var infos = new FenceCreateInfo(flags: flags);
-        api.CreateFence(device, infos, callbacks.Handle, out var fence)
-           .ThrowOnError("Couldn't create fence for device");
+        api.CreateFence(device, in infos, in callbacks.Handle, out var fence)
+            .ThrowOnError("Couldn't create fence for device");
 
         Handle = fence;
     }
@@ -29,17 +34,17 @@ public sealed class VulkanFence : IDisposable
 
     public void Wait(ulong timeout = ulong.MaxValue)
     {
-        _api.WaitForFences(_device, 1, Handle, true, timeout)
+        _api.WaitForFences(_device, 1, [Handle], true, timeout)
             .LogWarning("Vulkan fence wait failure");
     }
 
     public void Reset()
     {
-        _api.ResetFences(_device, 1, Handle).ThrowOnError("Failed to reset fence");
+        _api.ResetFences(_device, 1, [Handle]).ThrowOnError("Failed to reset fence");
     }
 
     public void Dispose()
     {
-        _api.DestroyFence(_device, Handle, _callbacks.Handle);
+        _api.DestroyFence(_device, Handle, in _callbacks.Handle);
     }
 }

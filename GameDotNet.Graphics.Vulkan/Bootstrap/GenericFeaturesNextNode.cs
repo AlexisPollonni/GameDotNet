@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 using Microsoft.Toolkit.HighPerformance;
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
@@ -29,7 +29,8 @@ public unsafe struct GenericFeaturesNextNode : IStructuredType
         FieldsSpan.AsBytes().Fill(byte.MaxValue);
     }
 
-    public static GenericFeaturesNextNode FromFeature<T>(ref T feature) where T : unmanaged, IStructuredType
+    public static GenericFeaturesNextNode FromFeature<T>(ref T feature)
+        where T : unmanaged, IStructuredType
     {
         var node = new GenericFeaturesNextNode();
         var nSpan = node.AsSpan().AsBytes();
@@ -41,7 +42,10 @@ public unsafe struct GenericFeaturesNextNode : IStructuredType
 
     public StructureType StructureType() => sType;
 
-    public static bool Match(in GenericFeaturesNextNode requested, in GenericFeaturesNextNode supported)
+    public static bool Match(
+        in GenericFeaturesNextNode requested,
+        in GenericFeaturesNextNode supported
+    )
     {
         if (requested.sType != supported.sType)
         {

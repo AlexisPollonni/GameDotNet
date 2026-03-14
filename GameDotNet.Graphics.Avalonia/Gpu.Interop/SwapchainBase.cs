@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Rendering.Composition;
+using GameDotNet.Core.Tooling;
 using Nito.Disposables;
 
 namespace GameDotNet.Graphics.Avalonia.Gpu.Interop;
@@ -7,26 +8,25 @@ namespace GameDotNet.Graphics.Avalonia.Gpu.Interop;
 /// <summary>
 /// A helper class for composition-backed swapchains, should not be a public API yet
 /// </summary>
-internal abstract class SwapchainBase<TImage> : IAsyncDisposable where TImage : class, ISwapchainImage
+public abstract class SwapchainBase(
+    ICompositionGpuInterop interop,
+    CompositionDrawingSurface target
+) : SingleNonblockingAsyncDisposable<EmptyStruct>(default)
 {
-    protected ICompositionGpuInterop Interop { get; }
-    protected CompositionDrawingSurface Target { get; }
-    private readonly List<TImage> _pendingImages = new();
+    protected ICompositionGpuInterop Interop { get; } = interop;
+    protected CompositionDrawingSurface Target { get; } = target;
+    private readonly List<ISwapchainImage> _pendingImages = [];
 
-    public SwapchainBase(ICompositionGpuInterop interop, CompositionDrawingSurface target)
+    private static bool IsBroken(ISwapchainImage image) => image.LastPresent?.IsFaulted == true;
+
+    private static bool IsReady(ISwapchainImage image) =>
+        image.LastPresent == null || image.LastPresent.Status == TaskStatus.RanToCompletion;
+
+    private ISwapchainImage? CleanupAndFindNextImage(PixelSize size)
     {
-        Interop = interop;
-        Target = target;
-    }
-
-    static bool IsBroken(TImage image) => image.LastPresent?.IsFaulted == true;
-    static bool IsReady(TImage image) => image.LastPresent == null || image.LastPresent.Status == TaskStatus.RanToCompletion;
-
-    TImage? CleanupAndFindNextImage(PixelSize size)
-    {
-        TImage? firstFound = null;
+        ISwapchainImage? firstFound = null;
         var foundMultiple = false;
-        
+
         for (var c = _pendingImages.Count - 1; c > -1; c--)
         {
             var image = _pendingImages[c];
@@ -45,7 +45,6 @@ internal abstract class SwapchainBase<TImage> : IAsyncDisposable where TImage : 
                 else
                     foundMultiple = true;
             }
-
         }
 
         // We are making sure that there was at least one image of the same size in flight
@@ -53,12 +52,14 @@ internal abstract class SwapchainBase<TImage> : IAsyncDisposable where TImage : 
         return foundMultiple ? firstFound : null;
     }
 
-    protected abstract TImage CreateImage(PixelSize size);
+    protected abstract ISwapchainImage CreateImage(PixelSize size);
 
-    protected IDisposable BeginDrawCore(PixelSize size, out TImage image)
+    public abstract IDisposable BeginDraw(PixelSize size, out ISwapchainImage image);
+
+    protected IDisposable BeginDrawCore(PixelSize size, out ISwapchainImage image)
     {
         var img = CleanupAndFindNextImage(size) ?? CreateImage(size);
-        
+
         img.BeginDraw();
         _pendingImages.Remove(img);
         image = img;
@@ -68,8 +69,8 @@ internal abstract class SwapchainBase<TImage> : IAsyncDisposable where TImage : 
             _pendingImages.Add(img);
         });
     }
-    
-    public async ValueTask DisposeAsync()
+
+    protected override async ValueTask DisposeAsync(EmptyStruct context)
     {
         foreach (var img in _pendingImages)
             await img.DisposeAsync();

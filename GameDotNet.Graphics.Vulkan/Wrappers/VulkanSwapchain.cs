@@ -1,4 +1,4 @@
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Graphics.Vulkan.Tools;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.KHR;
@@ -74,7 +74,7 @@ public sealed class VulkanSwapchain : IDisposable
         var images = GetImages();
         var imageViews = new ImageView[ImageCount];
 
-        foreach (var (image, i) in images.WithIndex())
+        foreach (var (i, image) in images.Index())
         {
             var createInfo = new ImageViewCreateInfo
             {

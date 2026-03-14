@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using dotVariant;
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Silk.NET.Core;
@@ -14,8 +14,11 @@ public class PhysicalDeviceSelector
     private readonly VulkanInstance _instance;
     private readonly Vk _vk;
 
-    public PhysicalDeviceSelector(VulkanInstance instance, VulkanSurface? surface = null,
-                                  SelectionCriteria? criteria = default)
+    public PhysicalDeviceSelector(
+        VulkanInstance instance,
+        VulkanSurface? surface = null,
+        SelectionCriteria? criteria = default
+    )
     {
         Surface = surface;
         Criteria = criteria ?? new SelectionCriteria();
@@ -29,8 +32,11 @@ public class PhysicalDeviceSelector
 
     public SelectedPhysDevice Select()
     {
-        if (!_instance.IsHeadless && !Criteria.DeferSurfaceInit &&
-            (Surface is null || Surface.AsSurfaceKhr().Handle is 0))
+        if (
+            !_instance.IsHeadless
+            && !Criteria.DeferSurfaceInit
+            && (Surface is null || Surface.AsSurfaceKhr().Handle is 0)
+        )
             throw new ArgumentException("No initialized vulkan surface provided.");
 
         var devices = _instance.GetPhysicalDevices();
@@ -38,8 +44,9 @@ public class PhysicalDeviceSelector
         if (devices.Count is 0)
             throw new PlatformException("Couldn't find any physical devices");
 
-        var physDeviceDescriptions =
-            devices.Select(device => PopulateDeviceDetails(device, Criteria.ExtendedFeaturesChain)).ToArray();
+        var physDeviceDescriptions = devices
+            .Select(device => PopulateDeviceDetails(device, Criteria.ExtendedFeaturesChain))
+            .ToArray();
         PhysicalDeviceDesc? selectedDevice = null;
 
         if (Criteria.UseFirstGpuUnconditionally)
@@ -78,25 +85,27 @@ public class PhysicalDeviceSelector
             QueueFamilies = selectedDevice.Value.QueueFamilies.ToList(),
             DeferSurfaceInit = Criteria.DeferSurfaceInit,
             ExtendedFeaturesChain = Criteria.ExtendedFeaturesChain,
-            ExtensionsToEnable = Criteria.RequiredExtensions
-                                         .Concat(CheckDeviceExtSupport(selectedDevice.Value.Device,
-                                                                       Criteria.DesiredExtensions))
-                                         .ToList()
+            ExtensionsToEnable = Criteria
+                .RequiredExtensions.Concat(
+                    CheckDeviceExtSupport(selectedDevice.Value.Device, Criteria.DesiredExtensions)
+                )
+                .ToList(),
         };
     }
 
-    private unsafe PhysicalDeviceDesc PopulateDeviceDetails(in PhysicalDevice device,
-                                                            IEnumerable<GenericFeaturesNextNode>
-                                                                srcExtendedFeaturesChain)
+    private unsafe PhysicalDeviceDesc PopulateDeviceDetails(
+        in PhysicalDevice device,
+        IEnumerable<GenericFeaturesNextNode> srcExtendedFeaturesChain
+    )
     {
         var physDeviceIdProperties = new PhysicalDeviceIDProperties
         {
-            SType = StructureType.PhysicalDeviceIDProperties
+            SType = StructureType.PhysicalDeviceIDProperties,
         };
         var physDeviceProperties2 = new PhysicalDeviceProperties2
         {
             SType = StructureType.PhysicalDeviceProperties2,
-            PNext = &physDeviceIdProperties
+            PNext = &physDeviceIdProperties,
         };
 
         uint familyCount = 0;
@@ -110,9 +119,11 @@ public class PhysicalDeviceSelector
         _vk.GetPhysicalDeviceFeatures(device, out var deviceFeatures);
         _vk.GetPhysicalDeviceMemoryProperties(device, out var deviceMemoryProperties);
 
-
         var fillChain = srcExtendedFeaturesChain.ToArray();
-        if (fillChain.Length > 0 && (_instance.VkVersion >= Vk.Version11 || _instance.SupportsProperties2Ext))
+        if (
+            fillChain.Length > 0
+            && (_instance.VkVersion >= Vk.Version11 || _instance.SupportsProperties2Ext)
+        )
         {
             GenericFeaturesNextNode* prev = null;
             foreach (var extension in fillChain)
@@ -136,17 +147,24 @@ public class PhysicalDeviceSelector
         }
         else if (_instance.SupportsProperties2Ext)
         {
-            _vk.TryGetInstanceExtension(_instance.Instance, out KhrGetPhysicalDeviceProperties2 ext);
+            _vk.TryGetInstanceExtension(
+                _instance.Instance,
+                out KhrGetPhysicalDeviceProperties2 ext
+            );
             ext.GetPhysicalDeviceFeatures2(device, out localFeatures);
         }
 
         return new()
         {
-            Device = device, DeviceFeatures = deviceFeatures, DeviceFeatures2 = localFeatures,
+            Device = device,
+            DeviceFeatures = deviceFeatures,
+            DeviceFeatures2 = localFeatures,
             DeviceIdProperties = physDeviceIdProperties,
-            DeviceProperties = deviceProperties, DeviceProperties2 = physDeviceProperties2,
+            DeviceProperties = deviceProperties,
+            DeviceProperties2 = physDeviceProperties2,
             MemProperties = deviceMemoryProperties,
-            QueueFamilies = familyProperties, ExtendedFeaturesChain = fillChain
+            QueueFamilies = familyProperties,
+            ExtendedFeaturesChain = fillChain,
         };
     }
 
@@ -178,32 +196,57 @@ public class PhysicalDeviceSelector
         if (Criteria.DesiredVersion > dsc.DeviceProperties.ApiVersion)
             suitable = Suitable.Partial;
 
-        var dedicatedCompute =
-            QueueTools.GetDedicatedQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
-        var dedicatedTransfer =
-            QueueTools.GetDedicatedQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
+        var dedicatedCompute = QueueTools.GetDedicatedQueueFamilyIndex(
+            dsc.QueueFamilies,
+            QueueFlags.ComputeBit,
+            QueueFlags.TransferBit
+        );
+        var dedicatedTransfer = QueueTools.GetDedicatedQueueFamilyIndex(
+            dsc.QueueFamilies,
+            QueueFlags.TransferBit,
+            QueueFlags.ComputeBit
+        );
 
-        var separateCompute =
-            QueueTools.GetSeparateQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.ComputeBit, QueueFlags.TransferBit);
-        var separateTransfer =
-            QueueTools.GetSeparateQueueFamilyIndex(dsc.QueueFamilies, QueueFlags.TransferBit, QueueFlags.ComputeBit);
+        var separateCompute = QueueTools.GetSeparateQueueFamilyIndex(
+            dsc.QueueFamilies,
+            QueueFlags.ComputeBit,
+            QueueFlags.TransferBit
+        );
+        var separateTransfer = QueueTools.GetSeparateQueueFamilyIndex(
+            dsc.QueueFamilies,
+            QueueFlags.TransferBit,
+            QueueFlags.ComputeBit
+        );
 
         var presentQueue = Surface is null
-                               ? null
-                               : QueueTools.GetPresentQueueFamilyIndex(_instance, dsc.Device, Surface,
-                                                                       dsc.QueueFamilies);
+            ? null
+            : QueueTools.GetPresentQueueFamilyIndex(
+                _instance,
+                dsc.Device,
+                Surface,
+                dsc.QueueFamilies
+            );
 
-        if (Criteria.RequireDedicatedComputeQueue && dedicatedCompute is null) return Suitable.No;
-        if (Criteria.RequireDedicatedTransferQueue && dedicatedTransfer is null) return Suitable.No;
-        if (Criteria.RequireSeparateComputeQueue && separateCompute is null) return Suitable.No;
-        if (Criteria.RequireSeparateTransferQueue && separateTransfer is null) return Suitable.No;
-        if (Criteria.RequirePresent && presentQueue is null && !Criteria.DeferSurfaceInit) return Suitable.No;
+        if (Criteria.RequireDedicatedComputeQueue && dedicatedCompute is null)
+            return Suitable.No;
+        if (Criteria.RequireDedicatedTransferQueue && dedicatedTransfer is null)
+            return Suitable.No;
+        if (Criteria.RequireSeparateComputeQueue && separateCompute is null)
+            return Suitable.No;
+        if (Criteria.RequireSeparateTransferQueue && separateTransfer is null)
+            return Suitable.No;
+        if (Criteria.RequirePresent && presentQueue is null && !Criteria.DeferSurfaceInit)
+            return Suitable.No;
 
-        var requiredExtSupported = CheckDeviceExtSupport(dsc.Device, Criteria.RequiredExtensions).ToArray();
-        if (!requiredExtSupported.SequenceEqual(Criteria.RequiredExtensions)) return Suitable.No;
+        var requiredExtSupported = CheckDeviceExtSupport(dsc.Device, Criteria.RequiredExtensions)
+            .ToArray();
+        if (!requiredExtSupported.SequenceEqual(Criteria.RequiredExtensions))
+            return Suitable.No;
 
-        var desiredExtSupported = CheckDeviceExtSupport(dsc.Device, Criteria.DesiredExtensions).ToArray();
-        if (!desiredExtSupported.SequenceEqual(Criteria.DesiredExtensions)) suitable = Suitable.Partial;
+        var desiredExtSupported = CheckDeviceExtSupport(dsc.Device, Criteria.DesiredExtensions)
+            .ToArray();
+        if (!desiredExtSupported.SequenceEqual(Criteria.DesiredExtensions))
+            suitable = Suitable.Partial;
 
         var swapChainAdequate = false;
         if (Criteria.DeferSurfaceInit)
@@ -214,32 +257,47 @@ public class PhysicalDeviceSelector
         {
             if (_vk.TryGetInstanceExtension(_instance.Instance, out KhrSurface surfaceExt))
             {
-                unsafe
-                {
-                    uint formatCounts = 0;
-                    surfaceExt.GetPhysicalDeviceSurfaceFormats(dsc.Device, Surface!, ref formatCounts, null);
+                uint formatCounts = 0;
+                surfaceExt.GetPhysicalDeviceSurfaceFormats(
+                    dsc.Device,
+                    Surface!,
+                    ref formatCounts,
+                    null
+                );
 
-                    uint presentModeCounts = 0;
-                    surfaceExt.GetPhysicalDeviceSurfacePresentModes(dsc.Device, Surface!, ref presentModeCounts, null);
+                uint presentModeCounts = 0;
+                surfaceExt.GetPhysicalDeviceSurfacePresentModes(
+                    dsc.Device,
+                    Surface!,
+                    ref presentModeCounts,
+                    null
+                );
 
-                    swapChainAdequate = formatCounts > 0 && presentModeCounts > 0;
-                }
+                swapChainAdequate = formatCounts > 0 && presentModeCounts > 0;
             }
         }
 
-        if (Criteria.RequirePresent && !swapChainAdequate) return Suitable.No;
+        if (Criteria.RequirePresent && !swapChainAdequate)
+            return Suitable.No;
 
         if (dsc.DeviceProperties.DeviceType != Criteria.PreferredType)
         {
             if (Criteria.AllowAnyType)
                 suitable = Suitable.Partial;
-            else return Suitable.No;
+            else
+                return Suitable.No;
         }
 
-        var requiredFeaturesSupported = Criteria.RequiredFeatures is null ||
-                                        SupportsFeature(dsc.DeviceFeatures, Criteria.RequiredFeatures.Value,
-                                                        dsc.ExtendedFeaturesChain, Criteria.ExtendedFeaturesChain);
-        if (!requiredFeaturesSupported) return Suitable.No;
+        var requiredFeaturesSupported =
+            Criteria.RequiredFeatures is null
+            || SupportsFeature(
+                dsc.DeviceFeatures,
+                Criteria.RequiredFeatures.Value,
+                dsc.ExtendedFeaturesChain,
+                Criteria.ExtendedFeaturesChain
+            );
+        if (!requiredFeaturesSupported)
+            return Suitable.No;
 
         var hasRequiredMemory = false;
         var hasPreferredMemory = false;
@@ -252,87 +310,169 @@ public class PhysicalDeviceSelector
                 hasPreferredMemory = true;
         }
 
-        if (!hasRequiredMemory) return Suitable.No;
+        if (!hasRequiredMemory)
+            return Suitable.No;
         return !hasPreferredMemory ? Suitable.Partial : suitable;
     }
 
-    private IEnumerable<string> CheckDeviceExtSupport(PhysicalDevice device, IEnumerable<string> extensions)
+    private IEnumerable<string> CheckDeviceExtSupport(
+        PhysicalDevice device,
+        IEnumerable<string> extensions
+    )
     {
-        return extensions.Where(extension => _vk.IsDeviceExtensionPresent(device, extension)).ToList();
+        return extensions
+            .Where(extension => _vk.IsDeviceExtensionPresent(device, extension))
+            .ToList();
     }
 
-    private static bool SupportsFeature(PhysicalDeviceFeatures supported, PhysicalDeviceFeatures requested,
-                                        IList<GenericFeaturesNextNode> extensionSupported,
-                                        IList<GenericFeaturesNextNode> extensionRequested)
+    private static bool SupportsFeature(
+        PhysicalDeviceFeatures supported,
+        PhysicalDeviceFeatures requested,
+        IList<GenericFeaturesNextNode> extensionSupported,
+        IList<GenericFeaturesNextNode> extensionRequested
+    )
     {
-        if (requested.RobustBufferAccess && !supported.RobustBufferAccess) return false;
-        if (requested.FullDrawIndexUint32 && !supported.FullDrawIndexUint32) return false;
-        if (requested.ImageCubeArray && !supported.ImageCubeArray) return false;
-        if (requested.IndependentBlend && !supported.IndependentBlend) return false;
-        if (requested.GeometryShader && !supported.GeometryShader) return false;
-        if (requested.TessellationShader && !supported.TessellationShader) return false;
-        if (requested.SampleRateShading && !supported.SampleRateShading) return false;
-        if (requested.DualSrcBlend && !supported.DualSrcBlend) return false;
-        if (requested.LogicOp && !supported.LogicOp) return false;
-        if (requested.MultiDrawIndirect && !supported.MultiDrawIndirect) return false;
-        if (requested.DrawIndirectFirstInstance && !supported.DrawIndirectFirstInstance) return false;
-        if (requested.DepthClamp && !supported.DepthClamp) return false;
-        if (requested.DepthBiasClamp && !supported.DepthBiasClamp) return false;
-        if (requested.FillModeNonSolid && !supported.FillModeNonSolid) return false;
-        if (requested.DepthBounds && !supported.DepthBounds) return false;
-        if (requested.WideLines && !supported.WideLines) return false;
-        if (requested.LargePoints && !supported.LargePoints) return false;
-        if (requested.AlphaToOne && !supported.AlphaToOne) return false;
-        if (requested.MultiViewport && !supported.MultiViewport) return false;
-        if (requested.SamplerAnisotropy && !supported.SamplerAnisotropy) return false;
-        if (requested.TextureCompressionEtc2 && !supported.TextureCompressionEtc2) return false;
-        if (requested.TextureCompressionAstcLdr && !supported.TextureCompressionAstcLdr) return false;
-        if (requested.TextureCompressionBC && !supported.TextureCompressionBC) return false;
-        if (requested.OcclusionQueryPrecise && !supported.OcclusionQueryPrecise) return false;
-        if (requested.PipelineStatisticsQuery && !supported.PipelineStatisticsQuery) return false;
-        if (requested.VertexPipelineStoresAndAtomics && !supported.VertexPipelineStoresAndAtomics) return false;
-        if (requested.FragmentStoresAndAtomics && !supported.FragmentStoresAndAtomics) return false;
-        if (requested.ShaderTessellationAndGeometryPointSize &&
-            !supported.ShaderTessellationAndGeometryPointSize) return false;
-        if (requested.ShaderImageGatherExtended && !supported.ShaderImageGatherExtended) return false;
-        if (requested.ShaderStorageImageExtendedFormats && !supported.ShaderStorageImageExtendedFormats) return false;
-        if (requested.ShaderStorageImageMultisample && !supported.ShaderStorageImageMultisample) return false;
-        if (requested.ShaderStorageImageReadWithoutFormat && !supported.ShaderStorageImageReadWithoutFormat)
+        if (requested.RobustBufferAccess && !supported.RobustBufferAccess)
             return false;
-        if (requested.ShaderStorageImageWriteWithoutFormat &&
-            !supported.ShaderStorageImageWriteWithoutFormat) return false;
-        if (requested.ShaderUniformBufferArrayDynamicIndexing &&
-            !supported.ShaderUniformBufferArrayDynamicIndexing) return false;
-        if (requested.ShaderSampledImageArrayDynamicIndexing &&
-            !supported.ShaderSampledImageArrayDynamicIndexing) return false;
-        if (requested.ShaderStorageBufferArrayDynamicIndexing &&
-            !supported.ShaderStorageBufferArrayDynamicIndexing) return false;
-        if (requested.ShaderStorageImageArrayDynamicIndexing &&
-            !supported.ShaderStorageImageArrayDynamicIndexing) return false;
-        if (requested.ShaderClipDistance && !supported.ShaderClipDistance) return false;
-        if (requested.ShaderCullDistance && !supported.ShaderCullDistance) return false;
-        if (requested.ShaderFloat64 && !supported.ShaderFloat64) return false;
-        if (requested.ShaderInt64 && !supported.ShaderInt64) return false;
-        if (requested.ShaderInt16 && !supported.ShaderInt16) return false;
-        if (requested.ShaderResourceResidency && !supported.ShaderResourceResidency) return false;
-        if (requested.ShaderResourceMinLod && !supported.ShaderResourceMinLod) return false;
-        if (requested.SparseBinding && !supported.SparseBinding) return false;
-        if (requested.SparseResidencyBuffer && !supported.SparseResidencyBuffer) return false;
-        if (requested.SparseResidencyImage2D && !supported.SparseResidencyImage2D) return false;
-        if (requested.SparseResidencyImage3D && !supported.SparseResidencyImage3D) return false;
-        if (requested.SparseResidency2Samples && !supported.SparseResidency2Samples) return false;
-        if (requested.SparseResidency4Samples && !supported.SparseResidency4Samples) return false;
-        if (requested.SparseResidency8Samples && !supported.SparseResidency8Samples) return false;
-        if (requested.SparseResidency16Samples && !supported.SparseResidency16Samples) return false;
-        if (requested.SparseResidencyAliased && !supported.SparseResidencyAliased) return false;
-        if (requested.VariableMultisampleRate && !supported.VariableMultisampleRate) return false;
-        if (requested.InheritedQueries && !supported.InheritedQueries) return false;
+        if (requested.FullDrawIndexUint32 && !supported.FullDrawIndexUint32)
+            return false;
+        if (requested.ImageCubeArray && !supported.ImageCubeArray)
+            return false;
+        if (requested.IndependentBlend && !supported.IndependentBlend)
+            return false;
+        if (requested.GeometryShader && !supported.GeometryShader)
+            return false;
+        if (requested.TessellationShader && !supported.TessellationShader)
+            return false;
+        if (requested.SampleRateShading && !supported.SampleRateShading)
+            return false;
+        if (requested.DualSrcBlend && !supported.DualSrcBlend)
+            return false;
+        if (requested.LogicOp && !supported.LogicOp)
+            return false;
+        if (requested.MultiDrawIndirect && !supported.MultiDrawIndirect)
+            return false;
+        if (requested.DrawIndirectFirstInstance && !supported.DrawIndirectFirstInstance)
+            return false;
+        if (requested.DepthClamp && !supported.DepthClamp)
+            return false;
+        if (requested.DepthBiasClamp && !supported.DepthBiasClamp)
+            return false;
+        if (requested.FillModeNonSolid && !supported.FillModeNonSolid)
+            return false;
+        if (requested.DepthBounds && !supported.DepthBounds)
+            return false;
+        if (requested.WideLines && !supported.WideLines)
+            return false;
+        if (requested.LargePoints && !supported.LargePoints)
+            return false;
+        if (requested.AlphaToOne && !supported.AlphaToOne)
+            return false;
+        if (requested.MultiViewport && !supported.MultiViewport)
+            return false;
+        if (requested.SamplerAnisotropy && !supported.SamplerAnisotropy)
+            return false;
+        if (requested.TextureCompressionEtc2 && !supported.TextureCompressionEtc2)
+            return false;
+        if (requested.TextureCompressionAstcLdr && !supported.TextureCompressionAstcLdr)
+            return false;
+        if (requested.TextureCompressionBC && !supported.TextureCompressionBC)
+            return false;
+        if (requested.OcclusionQueryPrecise && !supported.OcclusionQueryPrecise)
+            return false;
+        if (requested.PipelineStatisticsQuery && !supported.PipelineStatisticsQuery)
+            return false;
+        if (requested.VertexPipelineStoresAndAtomics && !supported.VertexPipelineStoresAndAtomics)
+            return false;
+        if (requested.FragmentStoresAndAtomics && !supported.FragmentStoresAndAtomics)
+            return false;
+        if (
+            requested.ShaderTessellationAndGeometryPointSize
+            && !supported.ShaderTessellationAndGeometryPointSize
+        )
+            return false;
+        if (requested.ShaderImageGatherExtended && !supported.ShaderImageGatherExtended)
+            return false;
+        if (
+            requested.ShaderStorageImageExtendedFormats
+            && !supported.ShaderStorageImageExtendedFormats
+        )
+            return false;
+        if (requested.ShaderStorageImageMultisample && !supported.ShaderStorageImageMultisample)
+            return false;
+        if (
+            requested.ShaderStorageImageReadWithoutFormat
+            && !supported.ShaderStorageImageReadWithoutFormat
+        )
+            return false;
+        if (
+            requested.ShaderStorageImageWriteWithoutFormat
+            && !supported.ShaderStorageImageWriteWithoutFormat
+        )
+            return false;
+        if (
+            requested.ShaderUniformBufferArrayDynamicIndexing
+            && !supported.ShaderUniformBufferArrayDynamicIndexing
+        )
+            return false;
+        if (
+            requested.ShaderSampledImageArrayDynamicIndexing
+            && !supported.ShaderSampledImageArrayDynamicIndexing
+        )
+            return false;
+        if (
+            requested.ShaderStorageBufferArrayDynamicIndexing
+            && !supported.ShaderStorageBufferArrayDynamicIndexing
+        )
+            return false;
+        if (
+            requested.ShaderStorageImageArrayDynamicIndexing
+            && !supported.ShaderStorageImageArrayDynamicIndexing
+        )
+            return false;
+        if (requested.ShaderClipDistance && !supported.ShaderClipDistance)
+            return false;
+        if (requested.ShaderCullDistance && !supported.ShaderCullDistance)
+            return false;
+        if (requested.ShaderFloat64 && !supported.ShaderFloat64)
+            return false;
+        if (requested.ShaderInt64 && !supported.ShaderInt64)
+            return false;
+        if (requested.ShaderInt16 && !supported.ShaderInt16)
+            return false;
+        if (requested.ShaderResourceResidency && !supported.ShaderResourceResidency)
+            return false;
+        if (requested.ShaderResourceMinLod && !supported.ShaderResourceMinLod)
+            return false;
+        if (requested.SparseBinding && !supported.SparseBinding)
+            return false;
+        if (requested.SparseResidencyBuffer && !supported.SparseResidencyBuffer)
+            return false;
+        if (requested.SparseResidencyImage2D && !supported.SparseResidencyImage2D)
+            return false;
+        if (requested.SparseResidencyImage3D && !supported.SparseResidencyImage3D)
+            return false;
+        if (requested.SparseResidency2Samples && !supported.SparseResidency2Samples)
+            return false;
+        if (requested.SparseResidency4Samples && !supported.SparseResidency4Samples)
+            return false;
+        if (requested.SparseResidency8Samples && !supported.SparseResidency8Samples)
+            return false;
+        if (requested.SparseResidency16Samples && !supported.SparseResidency16Samples)
+            return false;
+        if (requested.SparseResidencyAliased && !supported.SparseResidencyAliased)
+            return false;
+        if (requested.VariableMultisampleRate && !supported.VariableMultisampleRate)
+            return false;
+        if (requested.InheritedQueries && !supported.InheritedQueries)
+            return false;
 
         // ReSharper disable once LoopCanBeConvertedToQuery
         for (var i = 0; i < extensionRequested.Count; i++)
         {
             var res = GenericFeaturesNextNode.Match(extensionRequested[i], extensionSupported[i]);
-            if (!res) return false;
+            if (!res)
+                return false;
         }
 
         return true;
@@ -342,7 +482,7 @@ public class PhysicalDeviceSelector
     {
         Yes,
         Partial,
-        No
+        No,
     }
 
     public class SelectionCriteria
@@ -393,8 +533,10 @@ public class PhysicalDeviceSelector
 internal readonly partial struct PhysicalDeviceFeatures2Variant
 {
     [SuppressMessage("ReSharper", "PartialMethodWithSinglePart")]
-    static partial void VariantOf(PhysicalDeviceFeatures2 deviceFeatures2,
-                                  PhysicalDeviceFeatures2KHR deviceFeatures2Khr);
+    static partial void VariantOf(
+        PhysicalDeviceFeatures2 deviceFeatures2,
+        PhysicalDeviceFeatures2KHR deviceFeatures2Khr
+    );
 }
 
 internal struct PhysicalDeviceDesc

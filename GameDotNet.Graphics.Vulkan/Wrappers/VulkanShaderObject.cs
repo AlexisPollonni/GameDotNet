@@ -1,127 +1,88 @@
-using GameDotNet.Core.Tools.Extensions;
-using GameDotNet.Graphics.Abstractions;
+using GameDotNet.Core.Tooling;
+using GameDotNet.Graphics.Models;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
-using Microsoft.Toolkit.HighPerformance;
-using Silk.NET.Core.Native;
+using Nito.Disposables;
 using Silk.NET.Vulkan;
-using SpirvReflectSharp;
-using ShaderModule = Silk.NET.Vulkan.ShaderModule;
+using SlangShaderSharp;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public sealed class VulkanShader : IDisposable
+public sealed class VulkanShaderObject(
+    IVulkanContext context,
+    IEntryPoint entryPoint,
+    ShaderEXT compiledShader
+) : SingleNonblockingDisposable<EmptyStruct>(default)
 {
-    public ShaderStageFlags ShaderStage => (ShaderStageFlags)_reflectModule.ShaderStage;
+    public ShaderStageFlags ShaderStage => ShaderStageFlags.All; //TODO: get from refl
 
-    private readonly Vk _vk;
-    private readonly VulkanDevice _device;
-
-    private readonly GlobalMemory _entryPointMem;
-    private readonly ShaderStageFlags _stage;
-    private readonly ShaderModule _module;
-    private readonly SpirvReflectSharp.ShaderModule _reflectModule;
-
-    public VulkanShader(Vk vk, VulkanDevice device, SpirVShader bytecode)
-    : this(vk, device, StageToShaderStageFlags(bytecode.Description.Stage), bytecode.Code.AsMemory().AsBytes().Span, bytecode.Description.EntryPoint)
-    { }
-    
-    public VulkanShader(Vk vk, VulkanDevice device, ShaderStageFlags stage, ReadOnlySpan<byte> bytecode,
-                        string? entryPoint = null)
-    {
-        _vk = vk;
-        _stage = stage;
-        _device = device;
-
-        _module = CreateShaderModule(bytecode);
-        _reflectModule = SpirvReflect.ReflectCreateShaderModule(bytecode);
-
-        _entryPointMem = (entryPoint ?? _reflectModule.EntryPointName).ToGlobalMemory();
-    }
+    private readonly IEntryPoint _entryPoint = entryPoint;
 
     public VertexInputDescription GetVertexDescription()
     {
-        if (!_reflectModule.ShaderStage.HasFlag(Silk.NET.SPIRV.Reflect.ShaderStageFlagBits.VertexBit))
-            throw new InvalidOperationException("Not a vertex shader, can't get vertex description");
-
-        //we will have just 1 vertex buffer binding, with a per-vertex rate
-        var bindingDesc = new VertexInputBindingDescription(0, 0, VertexInputRate.Vertex);
-
-        var inputs = _reflectModule.EnumerateInputVariables();
-
-        var attrDescList = inputs
-                           .Select(reflVar =>
-                                       new VertexInputAttributeDescription(reflVar.Location, bindingDesc.Binding,
-                                                                           (Format)reflVar.Format, 0))
-                           .OrderBy(desc => desc.Location)
-                           .Select(attribute =>
-                           {
-                               var formatSize = FormatSize(attribute.Format);
-                               var attribute2 = attribute with { Offset = bindingDesc.Stride };
-                               bindingDesc.Stride += formatSize;
-                               return attribute2;
-                           })
-                           .ToList();
-
-        return new()
-        {
-            Bindings = new() { bindingDesc },
-            Attributes = attrDescList
-        };
+        return new();
+        // if (
+        //     !_reflectModule.ShaderStage.HasFlag(
+        //         Silk.NET.SPIRV.Reflect.ShaderStageFlagBits.VertexBit
+        //     )
+        // )
+        //     throw new InvalidOperationException(
+        //         "Not a vertex shader, can't get vertex description"
+        //     );
+        //
+        // //we will have just 1 vertex buffer binding, with a per-vertex rate
+        // var bindingDesc = new VertexInputBindingDescription(0, 0, VertexInputRate.Vertex);
+        //
+        // var inputs = _reflectModule.EnumerateInputVariables();
+        //
+        // var attrDescList = inputs
+        //     .Select(reflVar => new VertexInputAttributeDescription(
+        //         reflVar.Location,
+        //         bindingDesc.Binding,
+        //         (Format)reflVar.Format,
+        //         0
+        //     ))
+        //     .OrderBy(desc => desc.Location)
+        //     .Select(attribute =>
+        //     {
+        //         var formatSize = FormatSize(attribute.Format);
+        //         var attribute2 = attribute with { Offset = bindingDesc.Stride };
+        //         bindingDesc.Stride += formatSize;
+        //         return attribute2;
+        //     })
+        //     .ToList();
+        //
+        // return new()
+        // {
+        //     Bindings = new() { bindingDesc },
+        //     Attributes = attrDescList,
+        // };
     }
 
     public IEnumerable<PushConstantRange> GetPushConstantRanges()
     {
-        return _reflectModule.EnumeratePushConstants()
-                             .OrderBy(block => block.Offset)
-                             .Select(constant => new PushConstantRange(ShaderStage, constant.Offset, constant.Size));
+        // return _reflectModule
+        //     .EnumeratePushConstants()
+        //     .OrderBy(block => block.Offset)
+        //     .Select(constant => new PushConstantRange(ShaderStage, constant.Offset, constant.Size));
+        return [];
     }
 
-    internal unsafe PipelineShaderStageCreateInfo GetPipelineShaderInfo() =>
-        new(stage: _stage, module: _module, pName: _entryPointMem.AsPtr<byte>());
-
-    private unsafe ShaderModule CreateShaderModule(ReadOnlySpan<byte> code)
+    protected override void Dispose(EmptyStruct context1)
     {
-        ShaderModule module;
-        fixed (uint* pBytecode = code.Cast<byte, uint>())
+        context.Device.DestroyShaderObject(compiledShader);
+    }
+
+    private static ShaderStageFlags StageToShaderStageFlags(ShaderStage stage) =>
+        stage.Value switch
         {
-            var shaderModuleInfo = new ShaderModuleCreateInfo(codeSize: (nuint?)code.Length, pCode: pBytecode);
+            Models.ShaderStage.VertexValue => ShaderStageFlags.VertexBit,
+            Models.ShaderStage.GeometryValue => ShaderStageFlags.GeometryBit,
+            Models.ShaderStage.FragmentValue => ShaderStageFlags.FragmentBit,
+            Models.ShaderStage.ComputeValue => ShaderStageFlags.ComputeBit,
+            _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null),
+        };
 
-            _vk.CreateShaderModule(_device, shaderModuleInfo, null, out module).ThrowOnError();
-        }
-
-        return module;
-    }
-
-    private unsafe void ReleaseUnmanagedResources()
-    {
-        _vk.DestroyShaderModule(_device, _module, null);
-    }
-
-    public void Dispose()
-    {
-        ReleaseUnmanagedResources();
-
-        _entryPointMem.Dispose();
-        _reflectModule.Dispose();
-
-        GC.SuppressFinalize(this);
-    }
-
-    ~VulkanShader()
-    {
-        ReleaseUnmanagedResources();
-    }
-
-    private static ShaderStageFlags StageToShaderStageFlags(ShaderStage stage) => stage switch
-    {
-        Abstractions.ShaderStage.Vertex => ShaderStageFlags.VertexBit,
-        Abstractions.ShaderStage.Geometry => ShaderStageFlags.GeometryBit,
-        Abstractions.ShaderStage.Fragment => ShaderStageFlags.FragmentBit,
-        Abstractions.ShaderStage.Compute => ShaderStageFlags.ComputeBit,
-        _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null)
-    };
-    
     /// <summary>
     /// Returns the size in bytes of the provided VkFormat.
     /// As this is only intended for vertex attribute formats, not all VkFormats are
@@ -129,8 +90,8 @@ public sealed class VulkanShader : IDisposable
     /// </summary>
     /// <param name="format"></param>
     /// <returns></returns>
-    private static uint FormatSize(Format format)
-        => format switch
+    private static uint FormatSize(Format format) =>
+        format switch
         {
             Format.Undefined => 0,
             Format.R4G4UnormPack8 => 1,
@@ -256,6 +217,6 @@ public sealed class VulkanShader : IDisposable
             Format.R64G64B64A64Sfloat => 32,
             Format.B10G11R11UfloatPack32 => 4,
             Format.E5B9G9R9UfloatPack32 => 4,
-            _ => 0
+            _ => 0,
         };
 }

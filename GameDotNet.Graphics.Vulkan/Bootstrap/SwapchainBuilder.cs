@@ -1,4 +1,4 @@
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Silk.NET.Vulkan;
@@ -16,7 +16,12 @@ public class SwapchainBuilder
     private readonly VulkanPhysDevice _physDevice;
     private readonly Vk _vk;
 
-    public SwapchainBuilder(VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device, Info info)
+    public SwapchainBuilder(
+        VulkanInstance instance,
+        VulkanPhysDevice physDevice,
+        VulkanDevice device,
+        Info info
+    )
     {
         _vk = instance.Vk;
         _instance = instance;
@@ -24,15 +29,18 @@ public class SwapchainBuilder
         _device = device;
         _info = info;
 
-        _info.GraphicsQueue ??= device.QueuesManager.GetFirstGraphic()
-                                ?? throw new ArgumentException("Couldn't find graphics queue of Vulkan device");
-        _info.PresentQueue ??= device.QueuesManager.GetFirstPresent(info.Surface)
-                               ?? throw new ArgumentException("Couldn't find present queue of Vulkan device");
+        _info.GraphicsQueue ??=
+            device.QueuesManager.GetFirstGraphic()
+            ?? throw new ArgumentException("Couldn't find graphics queue of Vulkan device");
+        _info.PresentQueue ??=
+            device.QueuesManager.GetFirstPresent(info.Surface)
+            ?? throw new ArgumentException("Couldn't find present queue of Vulkan device");
 
         if (!instance.Vk.TryGetDeviceExtension(instance, _device, out _extension))
         {
-            throw new
-                InvalidOperationException("Can't create Vulkan Swapchain, VK_KHR_swapchain extension not available");
+            throw new InvalidOperationException(
+                "Can't create Vulkan Swapchain, VK_KHR_swapchain extension not available"
+            );
         }
     }
 
@@ -42,22 +50,35 @@ public class SwapchainBuilder
             throw new ArgumentException("Surface is not initialized", nameof(_info.Surface));
 
         var desiredFormats = _info.DesiredFormats;
-        if (desiredFormats.Count is 0) desiredFormats = Info.DefaultFormats.ToList();
+        if (desiredFormats.Count is 0)
+            desiredFormats = Info.DefaultFormats.ToList();
         var desiredPresentModes = _info.DesiredPresentModes;
-        if (desiredPresentModes.Count is 0) desiredPresentModes = Info.DefaultPresentModes.ToList();
+        if (desiredPresentModes.Count is 0)
+            desiredPresentModes = Info.DefaultPresentModes.ToList();
 
         var surfaceSupport = QuerySurfaceSupportDetails(_physDevice, _info.Surface);
 
         var imageCount = surfaceSupport.Capabilities.MinImageCount + 1;
-        if (surfaceSupport.Capabilities.MaxImageCount > 0 && imageCount > surfaceSupport.Capabilities.MaxImageCount)
+        if (
+            surfaceSupport.Capabilities.MaxImageCount > 0
+            && imageCount > surfaceSupport.Capabilities.MaxImageCount
+        )
         {
             imageCount = surfaceSupport.Capabilities.MaxImageCount;
         }
 
-        var surfaceFormat = FindSurfaceFormat(_physDevice, _info.DesiredFormats, surfaceSupport.Formats,
-                                              _info.FormatFeatureFlags);
+        var surfaceFormat = FindSurfaceFormat(
+            _physDevice,
+            _info.DesiredFormats,
+            surfaceSupport.Formats,
+            _info.FormatFeatureFlags
+        );
 
-        var extent = FindExtent(surfaceSupport.Capabilities, _info.DesiredWidth, _info.DesiredHeight);
+        var extent = FindExtent(
+            surfaceSupport.Capabilities,
+            _info.DesiredWidth,
+            _info.DesiredHeight
+        );
 
         var imageArrayLayers = _info.ArrayLayerCount;
         if (surfaceSupport.Capabilities.MaxImageArrayLayers < _info.ArrayLayerCount)
@@ -66,7 +87,10 @@ public class SwapchainBuilder
             imageArrayLayers = 1;
 
         var queueFamilyIndices = new[]
-            { (uint)_info.GraphicsQueue!.FamilyIndex, (uint)_info.PresentQueue!.FamilyIndex };
+        {
+            (uint)_info.GraphicsQueue!.FamilyIndex,
+            (uint)_info.PresentQueue!.FamilyIndex,
+        };
         var presentMode = FindPresentMode(surfaceSupport.PresentModes, _info.DesiredPresentModes);
 
         var preTransform = _info.PreTransform;
@@ -86,9 +110,10 @@ public class SwapchainBuilder
             ImageUsage = _info.ImageUsageFlags,
             PreTransform = preTransform,
             PresentMode = presentMode,
-            Clipped = _info.Clipped
+            Clipped = _info.Clipped,
         };
-        if (_info.OldSwapchain is not null) swapchainCreateInfo.OldSwapchain = _info.OldSwapchain;
+        if (_info.OldSwapchain is not null)
+            swapchainCreateInfo.OldSwapchain = _info.OldSwapchain;
         if (_info.GraphicsQueue.FamilyIndex != _info.PresentQueue.FamilyIndex)
         {
             unsafe
@@ -98,23 +123,29 @@ public class SwapchainBuilder
                 swapchainCreateInfo.PQueueFamilyIndices = queueFamilyIndices.AsPtr();
             }
         }
-        else swapchainCreateInfo.ImageSharingMode = SharingMode.Exclusive;
+        else
+            swapchainCreateInfo.ImageSharingMode = SharingMode.Exclusive;
 
         SwapchainKHR swapchain;
         unsafe
         {
             var res = _extension.CreateSwapchain(_device, swapchainCreateInfo, null, out swapchain);
 
-            if (res is not Result.Success) throw new VulkanException(res);
+            if (res is not Result.Success)
+                throw new VulkanException(res);
         }
 
         return new(_instance, _device, swapchain)
         {
-            Extent = extent, ImageFormat = surfaceFormat.Format
+            Extent = extent,
+            ImageFormat = surfaceFormat.Format,
         };
     }
 
-    private static SurfaceSupportDetails QuerySurfaceSupportDetails(VulkanPhysDevice device, VulkanSurface surface)
+    private static SurfaceSupportDetails QuerySurfaceSupportDetails(
+        VulkanPhysDevice device,
+        VulkanSurface surface
+    )
     {
         var capabilities = surface.GetCapabilities(device);
         var formats = surface.GetSurfaceFormats(device);
@@ -123,17 +154,22 @@ public class SwapchainBuilder
         return new(capabilities, formats, presentModes);
     }
 
-    private SurfaceFormatKHR FindSurfaceFormat(VulkanPhysDevice device,
-                                               IReadOnlyList<SurfaceFormatKHR> availableFormats,
-                                               IReadOnlyList<SurfaceFormatKHR> desiredFormats,
-                                               FormatFeatureFlags featureFlags)
+    private SurfaceFormatKHR FindSurfaceFormat(
+        VulkanPhysDevice device,
+        IReadOnlyList<SurfaceFormatKHR> availableFormats,
+        IReadOnlyList<SurfaceFormatKHR> desiredFormats,
+        FormatFeatureFlags featureFlags
+    )
     {
         foreach (var desired in desiredFormats)
         {
             foreach (var available in availableFormats)
             {
                 //Finds the first format that is desired or available
-                if (desired.Format != available.Format || desired.ColorSpace != available.ColorSpace)
+                if (
+                    desired.Format != available.Format
+                    || desired.ColorSpace != available.ColorSpace
+                )
                     continue;
 
                 _vk.GetPhysicalDeviceFormatProperties(device, desired.Format, out var properties);
@@ -148,22 +184,32 @@ public class SwapchainBuilder
         return availableFormats[0];
     }
 
-    private static Extent2D FindExtent(SurfaceCapabilitiesKHR capabilities, uint desiredWidth, uint desiredHeight)
+    private static Extent2D FindExtent(
+        SurfaceCapabilitiesKHR capabilities,
+        uint desiredWidth,
+        uint desiredHeight
+    )
     {
         if (capabilities.CurrentExtent.Width != uint.MaxValue)
             return capabilities.CurrentExtent;
 
         return new()
         {
-            Width = Math.Max(capabilities.MinImageExtent.Width,
-                             Math.Min(capabilities.MaxImageExtent.Width, desiredWidth)),
-            Height = Math.Max(capabilities.MinImageExtent.Height,
-                              Math.Min(capabilities.MaxImageExtent.Height, desiredHeight))
+            Width = Math.Max(
+                capabilities.MinImageExtent.Width,
+                Math.Min(capabilities.MaxImageExtent.Width, desiredWidth)
+            ),
+            Height = Math.Max(
+                capabilities.MinImageExtent.Height,
+                Math.Min(capabilities.MaxImageExtent.Height, desiredHeight)
+            ),
         };
     }
 
-    private static PresentModeKHR FindPresentMode(IReadOnlyList<PresentModeKHR> availablePresentModes,
-                                                  IReadOnlyList<PresentModeKHR> desiredPresentModes)
+    private static PresentModeKHR FindPresentMode(
+        IReadOnlyList<PresentModeKHR> availablePresentModes,
+        IReadOnlyList<PresentModeKHR> desiredPresentModes
+    )
     {
         foreach (var desired in desiredPresentModes)
         {
@@ -183,8 +229,11 @@ public class SwapchainBuilder
         public readonly IReadOnlyList<SurfaceFormatKHR> Formats;
         public readonly IReadOnlyList<PresentModeKHR> PresentModes;
 
-        public SurfaceSupportDetails(SurfaceCapabilitiesKHR capabilities, IReadOnlyList<SurfaceFormatKHR> formats,
-                                     IReadOnlyList<PresentModeKHR> presentModes)
+        public SurfaceSupportDetails(
+            SurfaceCapabilitiesKHR capabilities,
+            IReadOnlyList<SurfaceFormatKHR> formats,
+            IReadOnlyList<PresentModeKHR> presentModes
+        )
         {
             Capabilities = capabilities;
             Formats = formats;
@@ -207,7 +256,6 @@ public class SwapchainBuilder
         public uint DesiredHeight = 256;
         public List<PresentModeKHR> DesiredPresentModes = DefaultPresentModes.ToList();
 
-
         public uint DesiredWidth = 256;
         public FormatFeatureFlags FormatFeatureFlags = FormatFeatureFlags.SampledImageBit;
 
@@ -216,15 +264,14 @@ public class SwapchainBuilder
         public VulkanSwapchain? OldSwapchain;
         public SurfaceTransformFlagsKHR PreTransform = 0;
 
-        public static IEnumerable<SurfaceFormatKHR> DefaultFormats { get; } = new SurfaceFormatKHR[]
-        {
-            new(Format.B8G8R8A8Srgb, ColorSpaceKHR.PaceSrgbNonlinearKhr),
-            new(Format.R8G8B8A8Srgb, ColorSpaceKHR.PaceSrgbNonlinearKhr)
-        };
+        public static IEnumerable<SurfaceFormatKHR> DefaultFormats { get; } =
+            new SurfaceFormatKHR[]
+            {
+                new(Format.B8G8R8A8Srgb, ColorSpaceKHR.PaceSrgbNonlinearKhr),
+                new(Format.R8G8B8A8Srgb, ColorSpaceKHR.PaceSrgbNonlinearKhr),
+            };
 
-        public static IEnumerable<PresentModeKHR> DefaultPresentModes { get; } = new[]
-        {
-            PresentModeKHR.MailboxKhr, PresentModeKHR.FifoKhr
-        };
+        public static IEnumerable<PresentModeKHR> DefaultPresentModes { get; } =
+            new[] { PresentModeKHR.MailboxKhr, PresentModeKHR.FifoKhr };
     }
 }

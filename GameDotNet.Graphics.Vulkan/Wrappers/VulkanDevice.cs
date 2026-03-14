@@ -1,35 +1,28 @@
-using GameDotNet.Graphics.Vulkan.Tools.Allocators;
+using GameDotNet.Core.Tooling;
+using GameDotNet.Graphics.Vulkan.Abstractions;
+using Nito.Disposables;
 using Silk.NET.Vulkan;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public sealed class VulkanDevice : IDisposable
+public sealed class VulkanDevice : SingleNonblockingDisposable<EmptyStruct>, IVulkanWrapper<Device>
 {
+    public Device Underlying { get; }
+    public IVulkanContext Context { get; }
     public DeviceQueuesManager QueuesManager { get; }
 
-    private readonly Device _device;
-    private readonly VulkanInstance _instance;
-    private readonly IVulkanAllocCallback _allocationCallbacks;
-
-    public VulkanDevice(VulkanInstance instance, VulkanPhysDevice physDevice, Device device,
-                        IVulkanAllocCallback callbacks)
+    public VulkanDevice(IVulkanContext context, Device device)
+        : base(default)
     {
-        QueuesManager = new(instance, physDevice, this);
-
-        _instance = instance;
-        _device = device;
-        _allocationCallbacks = callbacks;
+        QueuesManager = new(context.Instance, context.PhysDevice.Device, this);
+        Context = context;
+        Underlying = device;
     }
 
-    public void Dispose()
-    {
-        ReleaseUnmanagedResources();
-    }
+    public static implicit operator Device(VulkanDevice device) => device.Underlying;
 
-    public static implicit operator Device(VulkanDevice device) => device._device;
-
-    private void ReleaseUnmanagedResources()
+    protected override void Dispose(EmptyStruct context)
     {
-        _instance.Vk.DestroyDevice(_device, _allocationCallbacks.Handle);
+        Context.Api.DestroyDevice(Underlying, in Context.Callbacks.Handle);
     }
 }

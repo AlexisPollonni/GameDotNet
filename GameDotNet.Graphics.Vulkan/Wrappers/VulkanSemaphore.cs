@@ -1,4 +1,3 @@
-using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using Silk.NET.Vulkan;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
@@ -9,24 +8,21 @@ public sealed class VulkanSemaphore : IDisposable
 {
     public Semaphore Handle { get; }
 
+    private readonly IVulkanContext _context;
 
-    private readonly Vk _api;
-    private readonly VulkanDevice _device;
-    private readonly IVulkanAllocCallback _callbacks;
+    public VulkanSemaphore(IVulkanContext context)
+        : this(
+            context,
+            new() { SType = StructureType.SemaphoreCreateInfo, Flags = SemaphoreCreateFlags.None }
+        ) { }
 
-    public VulkanSemaphore(Vk api, VulkanDevice device, IVulkanAllocCallback callbacks)
+    public VulkanSemaphore(IVulkanContext context, in SemaphoreCreateInfo info)
     {
-        _api = api;
-        _device = device;
-        _callbacks = callbacks;
+        _context = context;
 
-        var info = new SemaphoreCreateInfo
-        {
-            SType = StructureType.SemaphoreCreateInfo,
-            Flags = SemaphoreCreateFlags.None
-        };
-        api.CreateSemaphore(device, info, callbacks.Handle, out var sem)
-           .ThrowOnError("Unable to create semaphore");
+        context
+            .Api.CreateSemaphore(context.Device, in info, in context.Callbacks.Handle, out var sem)
+            .ThrowOnError("Unable to create semaphore");
 
         Handle = sem;
     }
@@ -35,6 +31,6 @@ public sealed class VulkanSemaphore : IDisposable
 
     public void Dispose()
     {
-        _api.DestroySemaphore(_device, Handle, _callbacks.Handle);
+        _context.Api.DestroySemaphore(_context.Device, Handle, in _context.Callbacks.Handle);
     }
 }

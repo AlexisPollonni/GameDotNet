@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using GameDotNet.Graphics.Vulkan.MemoryAllocation.Defragmentation;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation.Metadata;
 using Silk.NET.Vulkan;
 
@@ -12,7 +13,8 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         private readonly List<VulkanMemoryBlock> _blocks = new();
         private readonly ReaderWriterLockSlim _mutex = new(LockRecursionPolicy.NoRecursion);
 
-        private readonly int _minBlockCount, _maxBlockCount;
+        private readonly int _minBlockCount,
+            _maxBlockCount;
         private readonly bool _explicitBlockSize;
 
         private readonly Func<long, IBlockMetadata> _metaObjectCreate;
@@ -21,10 +23,19 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         private bool _hasEmptyBlock;
         private uint _nextBlockId;
 
-        public BlockList(VulkanMemoryAllocator allocator, VulkanMemoryPool? pool, int memoryTypeIndex,
-                         long preferredBlockSize, int minBlockCount, int maxBlockCount, long bufferImageGranularity,
-                         int frameInUseCount, bool explicitBlockSize, Func<long, IBlockMetadata> algorithm,
-                         IChain<MemoryAllocateInfo>? memoryAllocateNext = null)
+        public BlockList(
+            VulkanMemoryAllocator allocator,
+            VulkanMemoryPool? pool,
+            int memoryTypeIndex,
+            long preferredBlockSize,
+            int minBlockCount,
+            int maxBlockCount,
+            long bufferImageGranularity,
+            int frameInUseCount,
+            bool explicitBlockSize,
+            Func<long, IBlockMetadata> algorithm,
+            IChain<MemoryAllocateInfo>? memoryAllocateNext = null
+        )
         {
             Allocator = allocator;
             ParentPool = pool;
@@ -142,8 +153,13 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             }
         }
 
-        public Allocation Allocate(int currentFrame, long size, long alignment, in AllocationCreateInfo allocInfo,
-                                   SuballocationType suballocType)
+        public Allocation Allocate(
+            int currentFrame,
+            long size,
+            long alignment,
+            in AllocationCreateInfo allocInfo,
+            SuballocationType suballocType
+        )
         {
             _mutex.EnterWriteLock();
 
@@ -249,7 +265,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         }
 
         /// <summary>
-        /// 
+        ///
         /// </summary>
         /// <param name="currentFrame"></param>
         /// <returns>
@@ -267,7 +283,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 {
                     Debug.Assert(block != null);
 
-                    lostAllocationCount += block.MetaData.MakeAllocationsLost(currentFrame, FrameInUseCount);
+                    lostAllocationCount += block.MetaData.MakeAllocationsLost(
+                        currentFrame,
+                        FrameInUseCount
+                    );
                 }
 
                 return lostAllocationCount;
@@ -295,12 +314,18 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             var lastSuballocType = SuballocationType.Free;
 
-            foreach (var metadata in _blocks.Select(block => block.MetaData as BlockMetadata_Generic))
+            foreach (
+                var metadata in _blocks.Select(block => block.MetaData as BlockMetadata_Generic)
+            )
             {
                 Debug.Assert(metadata != null);
 
-                if (metadata.IsBufferImageGranularityConflictPossible(BufferImageGranularity,
-                                                                      ref lastSuballocType))
+                if (
+                    metadata.IsBufferImageGranularityConflictPossible(
+                        BufferImageGranularity,
+                        ref lastSuballocType
+                    )
+                )
                 {
                     return true;
                 }
@@ -332,8 +357,13 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         }
 
         [SkipLocalsInit]
-        private Allocation AllocatePage(int currentFrame, long size, long alignment, in AllocationCreateInfo createInfo,
-                                        SuballocationType suballocType)
+        private Allocation AllocatePage(
+            int currentFrame,
+            long size,
+            long alignment,
+            in AllocationCreateInfo createInfo,
+            SuballocationType suballocType
+        )
         {
             var canMakeOtherLost = (createInfo.Flags & AllocationCreateFlags.CanMakeOtherLost) != 0;
             var mapped = (createInfo.Flags & AllocationCreateFlags.Mapped) != 0;
@@ -345,13 +375,17 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
                 Allocator.GetBudget(heapIndex, out var heapBudget);
 
-                freeMemory = (heapBudget.Usage < heapBudget.Budget) ? (heapBudget.Budget - heapBudget.Usage) : 0;
+                freeMemory =
+                    (heapBudget.Usage < heapBudget.Budget)
+                        ? (heapBudget.Budget - heapBudget.Usage)
+                        : 0;
             }
 
             var canFallbackToDedicated = !IsCustomPool;
-            var canCreateNewBlock = ((createInfo.Flags & AllocationCreateFlags.NeverAllocate) == 0) &&
-                                    (_blocks.Count < _maxBlockCount) &&
-                                    (freeMemory >= size || !canFallbackToDedicated);
+            var canCreateNewBlock =
+                ((createInfo.Flags & AllocationCreateFlags.NeverAllocate) == 0)
+                && (_blocks.Count < _maxBlockCount)
+                && (freeMemory >= size || !canFallbackToDedicated);
 
             var strategy = createInfo.Strategy;
 
@@ -375,23 +409,30 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 case AllocationStrategyFlags.FirstFit:
                     break;
                 default:
-                    throw new AllocationException("Invalid allocation strategy", Result.ErrorFeatureNotPresent);
+                    throw new AllocationException(
+                        "Invalid allocation strategy",
+                        Result.ErrorFeatureNotPresent
+                    );
             }
 
             if (size + 2 * Helpers.DebugMargin > PreferredBlockSize)
             {
-                throw new AllocationException("Allocation size larger than block size", Result.ErrorOutOfDeviceMemory);
+                throw new AllocationException(
+                    "Allocation size larger than block size",
+                    Result.ErrorOutOfDeviceMemory
+                );
             }
 
             var context = new AllocationContext(
-                                                currentFrame,
-                                                FrameInUseCount,
-                                                BufferImageGranularity,
-                                                size,
-                                                alignment,
-                                                strategy,
-                                                suballocType,
-                                                canMakeOtherLost);
+                currentFrame,
+                FrameInUseCount,
+                BufferImageGranularity,
+                size,
+                alignment,
+                strategy,
+                suballocType,
+                canMakeOtherLost
+            );
 
             Allocation? alloc;
 
@@ -403,7 +444,12 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 {
                     foreach (var block in _blocks)
                     {
-                        alloc = AllocateFromBlock(block, in context, allocFlagsCopy, createInfo.UserData);
+                        alloc = AllocateFromBlock(
+                            block,
+                            in context,
+                            allocFlagsCopy,
+                            createInfo.UserData
+                        );
 
                         if (alloc != null)
                         {
@@ -416,7 +462,12 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 {
                     foreach (var curBlock in BlocksInReverse)
                     {
-                        alloc = AllocateFromBlock(curBlock, in context, allocFlagsCopy, createInfo.UserData);
+                        alloc = AllocateFromBlock(
+                            curBlock,
+                            in context,
+                            allocFlagsCopy,
+                            createInfo.UserData
+                        );
 
                         if (alloc != null)
                         {
@@ -442,7 +493,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                     for (var i = 0; i < newBlockSizeShiftMax; ++i)
                     {
                         var smallerNewBlockSize = newBlockSize / 2;
-                        if (smallerNewBlockSize > maxExistingBlockSize && smallerNewBlockSize >= size * 2)
+                        if (
+                            smallerNewBlockSize > maxExistingBlockSize
+                            && smallerNewBlockSize >= size * 2
+                        )
                         {
                             newBlockSize = smallerNewBlockSize;
                             newBlockSizeShift += 1;
@@ -456,9 +510,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
                 var newBlockIndex = 0;
 
-                var res = (newBlockSize <= freeMemory || !canFallbackToDedicated)
-                              ? CreateBlock(newBlockSize, out newBlockIndex)
-                              : Result.ErrorOutOfDeviceMemory;
+                var res =
+                    (newBlockSize <= freeMemory || !canFallbackToDedicated)
+                        ? CreateBlock(newBlockSize, out newBlockIndex)
+                        : Result.ErrorOutOfDeviceMemory;
 
                 if (!_explicitBlockSize)
                 {
@@ -470,9 +525,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                         {
                             newBlockSize = smallerNewBlockSize;
                             newBlockSizeShift += 1;
-                            res = (newBlockSize <= freeMemory || !canFallbackToDedicated)
-                                      ? CreateBlock(newBlockSize, out newBlockIndex)
-                                      : Result.ErrorOutOfDeviceMemory;
+                            res =
+                                (newBlockSize <= freeMemory || !canFallbackToDedicated)
+                                    ? CreateBlock(newBlockSize, out newBlockIndex)
+                                    : Result.ErrorOutOfDeviceMemory;
                         }
                         else
                         {
@@ -485,7 +541,12 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 {
                     var block = _blocks[newBlockIndex];
 
-                    alloc = AllocateFromBlock(block, in context, allocFlagsCopy, createInfo.UserData);
+                    alloc = AllocateFromBlock(
+                        block,
+                        in context,
+                        allocFlagsCopy,
+                        createInfo.UserData
+                    );
 
                     if (alloc != null)
                     {
@@ -495,7 +556,8 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 }
             }
 
-            if (!canMakeOtherLost) throw new AllocationException("Unable to allocate memory");
+            if (!canMakeOtherLost)
+                throw new AllocationException("Unable to allocate memory");
             var tryIndex = 0;
 
             for (; tryIndex < AllocationTryCount; ++tryIndex)
@@ -510,7 +572,12 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 {
                     foreach (var curBlock in _blocks)
                     {
-                        if (!curBlock.MetaData.TryCreateAllocationRequest(in context, out var request))
+                        if (
+                            !curBlock.MetaData.TryCreateAllocationRequest(
+                                in context,
+                                out var request
+                            )
+                        )
                             continue;
                         var currRequestCost = request.CalcCost();
 
@@ -528,12 +595,20 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 {
                     foreach (var curBlock in BlocksInReverse)
                     {
-                        if (!curBlock.MetaData.TryCreateAllocationRequest(in context, out var request))
+                        if (
+                            !curBlock.MetaData.TryCreateAllocationRequest(
+                                in context,
+                                out var request
+                            )
+                        )
                             continue;
                         var curRequestCost = request.CalcCost();
 
-                        if (bestRequestBlock != null && curRequestCost >= bestRequestCost &&
-                            strategy != AllocationStrategyFlags.FirstFit)
+                        if (
+                            bestRequestBlock != null
+                            && curRequestCost >= bestRequestCost
+                            && strategy != AllocationStrategyFlags.FirstFit
+                        )
                             continue;
                         bestRequestBlock = curBlock;
                         bestRequestCost = curRequestCost;
@@ -553,12 +628,22 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                         bestRequestBlock.Map(1);
                     }
 
-                    if (!bestRequestBlock.MetaData.MakeRequestedAllocationsLost(currentFrame, FrameInUseCount,
-                                                                                    ref bestAllocRequest))
+                    if (
+                        !bestRequestBlock.MetaData.MakeRequestedAllocationsLost(
+                            currentFrame,
+                            FrameInUseCount,
+                            ref bestAllocRequest
+                        )
+                    )
                         continue;
                     var talloc = new BlockAllocation(Allocator, Allocator.CurrentFrameIndex);
 
-                    bestRequestBlock.MetaData.Alloc(in bestAllocRequest, suballocType, size, talloc);
+                    bestRequestBlock.MetaData.Alloc(
+                        in bestAllocRequest,
+                        suballocType,
+                        size,
+                        talloc
+                    );
 
                     UpdateHasEmptyBlock();
 
@@ -576,8 +661,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
                     talloc.UserData = createInfo.UserData;
 
-                    Allocator.Budget
-                             .AddAllocation(Allocator.MemoryTypeIndexToHeapIndex(MemoryTypeIndex), size);
+                    Allocator.Budget.AddAllocation(
+                        Allocator.MemoryTypeIndexToHeapIndex(MemoryTypeIndex),
+                        size
+                    );
 
                     //Maybe put memory init and corruption detection here
 
@@ -597,8 +684,12 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             throw new AllocationException("Unable to allocate memory");
         }
 
-        private Allocation? AllocateFromBlock(VulkanMemoryBlock block, in AllocationContext context,
-                                              AllocationCreateFlags flags, object? userData)
+        private Allocation? AllocateFromBlock(
+            VulkanMemoryBlock block,
+            in AllocationContext context,
+            AllocationCreateFlags flags,
+            object? userData
+        )
         {
             Debug.Assert((flags & AllocationCreateFlags.CanMakeOtherLost) == 0);
             var mapped = (flags & AllocationCreateFlags.Mapped) != 0;
@@ -614,12 +705,23 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             var allocation = new BlockAllocation(Allocator, Allocator.CurrentFrameIndex);
 
-            block.MetaData.Alloc(in request, context.SuballocationType, context.AllocationSize, allocation);
+            block.MetaData.Alloc(
+                in request,
+                context.SuballocationType,
+                context.AllocationSize,
+                allocation
+            );
 
-            allocation.InitBlockAllocation(block, request.Offset, context.AllocationAlignment,
-                                           context.AllocationSize, MemoryTypeIndex,
-                                           context.SuballocationType, mapped,
-                                           (flags & AllocationCreateFlags.CanBecomeLost) != 0);
+            allocation.InitBlockAllocation(
+                block,
+                request.Offset,
+                context.AllocationAlignment,
+                context.AllocationSize,
+                MemoryTypeIndex,
+                context.SuballocationType,
+                mapped,
+                (flags & AllocationCreateFlags.CanBecomeLost) != 0
+            );
 
             UpdateHasEmptyBlock();
 
@@ -627,8 +729,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             allocation.UserData = userData;
 
-            Allocator.Budget.AddAllocation(Allocator.MemoryTypeIndexToHeapIndex(MemoryTypeIndex),
-                                           context.AllocationSize);
+            Allocator.Budget.AddAllocation(
+                Allocator.MemoryTypeIndexToHeapIndex(MemoryTypeIndex),
+                context.AllocationSize
+            );
 
             return allocation;
         }
@@ -641,15 +745,16 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             {
                 SType = StructureType.MemoryAllocateInfo,
                 MemoryTypeIndex = (uint)MemoryTypeIndex,
-                AllocationSize = (ulong)blockSize
+                AllocationSize = (ulong)blockSize,
             };
 
             // Every standalone block can potentially contain a buffer with BufferUsageFlags.BufferUsageShaderDeviceAddressBitKhr - always enable the feature
-            var allocFlagsInfo =
-                new MemoryAllocateFlagsInfoKHR(StructureType.MemoryAllocateFlagsInfoKhr);
+            var allocFlagsInfo = new MemoryAllocateFlagsInfoKHR(
+                StructureType.MemoryAllocateFlagsInfoKhr
+            );
             if (Allocator.UseKhrBufferDeviceAddress)
             {
-                allocFlagsInfo.Flags = MemoryAllocateFlags.AddressBitKhr;
+                allocFlagsInfo.Flags = MemoryAllocateFlags.DeviceAddressBitKhr;
                 allocFlagsInfo.PNext = _memoryAllocateNext;
                 info.PNext = &allocFlagsInfo;
             }
@@ -667,11 +772,19 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             if (metaObject.Size != blockSize)
             {
-                throw new InvalidOperationException("Returned Metadata object reports incorrect block size");
+                throw new InvalidOperationException(
+                    "Returned Metadata object reports incorrect block size"
+                );
             }
 
-            var block = new VulkanMemoryBlock(Allocator, ParentPool, MemoryTypeIndex, mem,
-                                              _nextBlockId++, metaObject);
+            var block = new VulkanMemoryBlock(
+                Allocator,
+                ParentPool,
+                MemoryTypeIndex,
+                mem,
+                _nextBlockId++,
+                metaObject
+            );
 
             _blocks.Add(block);
 
@@ -680,7 +793,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             return Result.Success;
         }
 
-        private void FreeEmptyBlocks(ref Defragmentation.DefragmentationStats stats)
+        private void FreeEmptyBlocks(ref DefragmentationStats stats)
         {
             for (var i = _blocks.Count - 1; i >= 0; --i)
             {

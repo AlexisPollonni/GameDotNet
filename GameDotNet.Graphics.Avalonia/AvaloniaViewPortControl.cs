@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Models;
@@ -14,7 +15,6 @@ using MouseButton = GameDotNet.Core.Models.MouseButton;
 using Size = System.Drawing.Size;
 
 namespace GameDotNet.Graphics.Avalonia;
-
 
 public abstract class AvaloniaViewPortControl(
     ILogger<AvaloniaViewPortControl> logger,
@@ -29,17 +29,18 @@ public abstract class AvaloniaViewPortControl(
     public IAsyncEnumerable<bool> FocusAcquired => GetFocusChangedAsync().Select(ev => ev.HasFocus);
     IAsyncEnumerable<Key> IInputContext.KeyDown => GetKeyDownAsync().Select(ev => ev.Key);
     IAsyncEnumerable<Key> IInputContext.KeyUp => GetKeyUpAsync().Select(ev => ev.Key);
-    public IAsyncEnumerable<MouseButton> MouseClickDown => GetPointerPressedAsync().Select(ev => ev.Button);
-    public IAsyncEnumerable<MouseButton> MouseClickUp => GetPointerReleasedAsync().Select(ev => ev.Button);
+    public IAsyncEnumerable<MouseButton> MouseClickDown =>
+        GetPointerPressedAsync().Select(ev => ev.Button);
+    public IAsyncEnumerable<MouseButton> MouseClickUp =>
+        GetPointerReleasedAsync().Select(ev => ev.Button);
     public IAsyncEnumerable<MouseScrollEvent> MouseScroll => GetPointerWheelChangedAsync();
     public IAsyncEnumerable<MouseMoveEvent> MouseMove => GetPointerMovedAsync();
-    
+
     //TODO: Implement cursor hiding and restriction
     public bool CursorHidden { get; set; }
     public bool CursorRestricted { get; set; }
     public Vector2 MousePosition { get; private set; }
     public bool IsClosing { get; private set; }
-
 
     private readonly CancellationTokenSource _cts = new();
     private readonly List<Key> _keysPressed = [];
@@ -65,14 +66,18 @@ public abstract class AvaloniaViewPortControl(
     {
         base.OnInitialized();
 
-        Task.Run(RegisterEvents, _cts.Token);
+        Dispatcher.UIThread.InvokeAsync(
+            async () => await RegisterEvents(),
+            DispatcherPriority.Input,
+            _cts.Token
+        );
     }
 
     private async ValueTask RegisterEvents()
     {
         var token = _cts.Token;
         IViewPort viewport = this;
-        
+
         await ValueTaskEx.WhenAll(
             eventBus.PublishAllAsync(viewport, GetResizedAsync(), token),
             eventBus.PublishAllAsync(viewport, GetFocusChangedAsync(), token),
@@ -100,7 +105,7 @@ public abstract class AvaloniaViewPortControl(
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
         base.OnPointerPressed(e);
-        
+
         var (pressed, button) = PointerPointToButton(e.GetCurrentPoint(this));
         if (button is not null && pressed)
         {
@@ -113,7 +118,7 @@ public abstract class AvaloniaViewPortControl(
         base.OnPointerReleased(e);
 
         var (pressed, button) = PointerPointToButton(e.GetCurrentPoint(this));
-        
+
         if (button is not null && !pressed)
         {
             _buttonsPressed.Remove(button);
@@ -121,88 +126,90 @@ public abstract class AvaloniaViewPortControl(
     }
 
     private async IAsyncEnumerable<ViewportResizedEvent> GetResizedAsync()
+    {
+        var sizeChanged = this.GetObservable(SizeChangedEvent).ToAsyncEnumerable();
+        await foreach (var args in sizeChanged)
         {
-            var sizeChanged = this.GetObservable(SizeChangedEvent).ToAsyncEnumerable();
-            await foreach (var args in sizeChanged)
-            {
-                yield return new(this, AvaloniaPixelSizeToSize(args.PreviousSize),
-                    AvaloniaPixelSizeToSize(args.NewSize));
-            }
+            yield return new(
+                this,
+                AvaloniaPixelSizeToSize(args.PreviousSize),
+                AvaloniaPixelSizeToSize(args.NewSize)
+            );
         }
+    }
 
     private async IAsyncEnumerable<ViewportFocusChangedEvent> GetFocusChangedAsync()
+    {
+        var focusChanged = this.GetObservable(IsKeyboardFocusWithinProperty).ToAsyncEnumerable();
+        await foreach (var hasFocus in focusChanged)
         {
-            var focusChanged = this.GetObservable(IsKeyboardFocusWithinProperty).ToAsyncEnumerable();
-            await foreach (var hasFocus in focusChanged)
-            {
-                yield return new(this, hasFocus);
-            }
+            yield return new(this, hasFocus);
         }
+    }
 
     private async IAsyncEnumerable<KeyDownEvent> GetKeyDownAsync()
+    {
+        var keydown = this.GetObservable(KeyDownEvent).ToAsyncEnumerable();
+        await foreach (var args in keydown)
         {
-            var keydown = this.GetObservable(KeyDownEvent).ToAsyncEnumerable();
-            await foreach (var args in keydown)
-            {
-                yield return new(args.Key.ToAbstraction());
-            }
+            yield return new(args.Key.ToAbstraction());
         }
+    }
 
     private async IAsyncEnumerable<KeyUpEvent> GetKeyUpAsync()
+    {
+        var keyup = this.GetObservable(KeyUpEvent).ToAsyncEnumerable();
+        await foreach (var args in keyup)
         {
-            var keyup = this.GetObservable(KeyUpEvent).ToAsyncEnumerable();
-            await foreach (var args in keyup)
-            {
-                yield return new(args.Key.ToAbstraction());
-            }
+            yield return new(args.Key.ToAbstraction());
         }
+    }
 
     private async IAsyncEnumerable<MouseScrollEvent> GetPointerWheelChangedAsync()
+    {
+        var pointerWheelChanged = this.GetObservable(PointerWheelChangedEvent).ToAsyncEnumerable();
+        await foreach (var args in pointerWheelChanged)
         {
-            var pointerWheelChanged = this.GetObservable(PointerWheelChangedEvent).ToAsyncEnumerable();
-            await foreach (var args in pointerWheelChanged)
-            {
-                yield return new(new((float)args.Delta.X, (float)args.Delta.Y));
-            }
+            yield return new(new((float)args.Delta.X, (float)args.Delta.Y));
         }
+    }
 
     private async IAsyncEnumerable<MouseMoveEvent> GetPointerMovedAsync()
+    {
+        var pointerMoved = this.GetObservable(PointerMovedEvent).ToAsyncEnumerable();
+        await foreach (var args in pointerMoved)
         {
-            var pointerMoved = this.GetObservable(PointerMovedEvent).ToAsyncEnumerable();
-            await foreach (var args in pointerMoved)
-            {
-                var point = args.GetCurrentPoint(this);
-                MousePosition = new((float)point.Position.X, (float)point.Position.Y);
-                yield return new(MousePosition);
-            }
+            var point = args.GetCurrentPoint(this);
+            MousePosition = new((float)point.Position.X, (float)point.Position.Y);
+            yield return new(MousePosition);
         }
+    }
 
     private async IAsyncEnumerable<MouseClickUpEvent> GetPointerReleasedAsync()
+    {
+        var pointerReleased = this.GetObservable(PointerReleasedEvent).ToAsyncEnumerable();
+        await foreach (var args in pointerReleased)
         {
-            var pointerReleased = this.GetObservable(PointerReleasedEvent).ToAsyncEnumerable();
-            await foreach (var args in pointerReleased)
+            var (pressed, button) = PointerPointToButton(args.GetCurrentPoint(this));
+            if (button is not null && !pressed)
             {
-                var (pressed, button) = PointerPointToButton(args.GetCurrentPoint(this));
-                if (button is not null && !pressed)
-                {
-                    yield return new(button);
-                }
+                yield return new(button);
             }
         }
+    }
 
     private async IAsyncEnumerable<MouseClickDownEvent> GetPointerPressedAsync()
+    {
+        var pointerPressed = this.GetObservable(PointerPressedEvent).ToAsyncEnumerable();
+        await foreach (var args in pointerPressed)
         {
-            var pointerPressed = this.GetObservable(PointerPressedEvent).ToAsyncEnumerable();
-            await foreach (var args in pointerPressed)
+            var (pressed, button) = PointerPointToButton(args.GetCurrentPoint(this));
+            if (button is not null && pressed)
             {
-                var (pressed, button) = PointerPointToButton(args.GetCurrentPoint(this));
-                if (button is not null && pressed)
-                {
-                    yield return new(button);
-                }
+                yield return new(button);
             }
         }
-
+    }
 
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -222,11 +229,11 @@ public abstract class AvaloniaViewPortControl(
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (e.Root is Window topLevel) topLevel.Closing -= TopLevelOnClosing;
+        if (e.Root is Window topLevel)
+            topLevel.Closing -= TopLevelOnClosing;
 
         base.OnDetachedFromVisualTree(e);
     }
-
 
     private void TopLevelOnClosing(object? sender, WindowClosingEventArgs e)
     {

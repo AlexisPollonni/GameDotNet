@@ -1,12 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using GameDotNet.Core.Tools.Containers;
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Collections;
+using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
-using Serilog;
+using Microsoft.Extensions.Logging;
 using Silk.NET.Core;
 using Silk.NET.Core.Loader;
 using Silk.NET.Core.Native;
@@ -20,73 +20,10 @@ namespace GameDotNet.Graphics.Vulkan.Bootstrap;
 [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 [SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
 [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
-public class InstanceBuilder
+public class InstanceBuilder(Vk api)
 {
-    private readonly Vk _api;
-
-    public static readonly unsafe DebugUtilsMessengerCallbackFunctionEXT DefaultDebugMessenger =
-        (severity, types, data, _) =>
-        {
-            var msgType = types switch
-            {
-                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt |
-                    DebugUtilsMessageTypeFlagsEXT.ValidationBitExt =>
-                    "General | Validation | Performance",
-                DebugUtilsMessageTypeFlagsEXT.ValidationBitExt | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt =>
-                    "Validation | Performance",
-                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt =>
-                    "General | Performance",
-                DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt => "Performance",
-                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt =>
-                    "General | Validation",
-                DebugUtilsMessageTypeFlagsEXT.ValidationBitExt => "Validation",
-                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt => "General",
-                _ => "Unknown"
-            };
-
-            var msg = SilkMarshal.PtrToString((nint)data->PMessage);
-
-            const string template = "<Vulkan || {MessageType}> {Message}";
-            switch (severity)
-            {
-                case DebugUtilsMessageSeverityFlagsEXT.VerboseBitExt:
-                    Log.Debug(template, msgType, msg);
-                    break;
-                case DebugUtilsMessageSeverityFlagsEXT.InfoBitExt:
-                    Log.Information(template, msgType, msg);
-                    break;
-                case DebugUtilsMessageSeverityFlagsEXT.WarningBitExt:
-                    Log.Warning(template, msgType, msg);
-                    break;
-                case DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt:
-                    Log.Error(template, msgType, msg);
-                    break;
-                case DebugUtilsMessageSeverityFlagsEXT.None:
-                default:
-                    Log.Warning(template, msgType, msg);
-                    break;
-            }
-
-            return Vk.False;
-        };
-
-
-    private readonly ILogger _logger;
-
-    public InstanceBuilder(Vk api)
-    {
-        _api = api;
-        _logger = Log.ForContext<InstanceBuilder>();
-        Layers = Enumerable.Empty<string>();
-        Extensions = Enumerable.Empty<string>();
-        DisabledValidationChecks = new List<ValidationCheckEXT>();
-        EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>();
-        DisabledValidationFeatures = new List<ValidationFeatureDisableEXT>();
-    }
-
-    public InstanceBuilder() : this(Vk.GetApi())
-    { }
-
+    public InstanceBuilder()
+        : this(Vk.GetApi()) { }
 
     public bool IsHeadless { get; set; }
 
@@ -96,7 +33,7 @@ public class InstanceBuilder
     public bool IsValidationLayersEnabled { get; set; }
 
     /// <summary>
-    /// If true, checks if the validation layers are available and load them if they are. 
+    /// If true, checks if the validation layers are available and load them if they are.
     /// </summary>
     public bool IsValidationLayersRequested { get; set; }
 
@@ -108,20 +45,67 @@ public class InstanceBuilder
     public Version32? RequiredApiVersion { get; set; }
     public Version32? DesiredApiVersion { get; set; }
 
-    public IEnumerable<string> Layers { get; set; }
-    public IEnumerable<string> Extensions { get; set; }
-    public IList<ValidationCheckEXT> DisabledValidationChecks { get; set; }
-    public IList<ValidationFeatureEnableEXT> EnabledValidationFeatures { get; set; }
-    public IList<ValidationFeatureDisableEXT> DisabledValidationFeatures { get; set; }
+    public IEnumerable<string> Layers { get; set; } = [];
+    public IEnumerable<string> Extensions { get; set; } = [];
+    public IList<ValidationCheckEXT> DisabledValidationChecks { get; set; } =
+        new List<ValidationCheckEXT>();
+    public IList<ValidationFeatureEnableEXT> EnabledValidationFeatures { get; set; } =
+        new List<ValidationFeatureEnableEXT>();
+    public IList<ValidationFeatureDisableEXT> DisabledValidationFeatures { get; set; } =
+        new List<ValidationFeatureDisableEXT>();
 
     public DebugUtilsMessengerCallbackFunctionEXT? DebugCallback { get; set; }
     public DebugUtilsMessageSeverityFlagsEXT? DebugMessageSeverity { get; set; }
     public DebugUtilsMessageTypeFlagsEXT? DebugMessageType { get; set; }
     public IVulkanAllocCallback AllocCallback { get; set; } = new NullAllocator();
 
-    public InstanceBuilder UseDefaultDebugMessenger()
+    public unsafe InstanceBuilder UseDefaultDebugMessenger(ILogger logger)
     {
-        DebugCallback = DefaultDebugMessenger;
+        DebugCallback = (severity, types, data, _) =>
+        {
+            var msgType = types switch
+            {
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
+                    | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt
+                    | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt =>
+                    "General | Validation | Performance",
+                DebugUtilsMessageTypeFlagsEXT.ValidationBitExt
+                    | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt => "Validation | Performance",
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
+                    | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt => "General | Performance",
+                DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt => "Performance",
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
+                    | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt => "General | Validation",
+                DebugUtilsMessageTypeFlagsEXT.ValidationBitExt => "Validation",
+                DebugUtilsMessageTypeFlagsEXT.GeneralBitExt => "General",
+                _ => "Unknown",
+            };
+
+            var msg = SilkMarshal.PtrToString((nint)data->PMessage);
+
+            const string template = "<Vulkan || {MessageType}> {Message}";
+            switch (severity)
+            {
+                case DebugUtilsMessageSeverityFlagsEXT.VerboseBitExt:
+                    logger.LogDebug(template, msgType, msg);
+                    break;
+                case DebugUtilsMessageSeverityFlagsEXT.InfoBitExt:
+                    logger.LogInformation(template, msgType, msg);
+                    break;
+                case DebugUtilsMessageSeverityFlagsEXT.WarningBitExt:
+                    logger.LogWarning(template, msgType, msg);
+                    break;
+                case DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt:
+                    logger.LogError(template, msgType, msg);
+                    break;
+                case DebugUtilsMessageSeverityFlagsEXT.None:
+                default:
+                    logger.LogWarning(template, msgType, msg);
+                    break;
+            }
+
+            return Vk.False;
+        };
         return this;
     }
 
@@ -132,10 +116,11 @@ public class InstanceBuilder
 
         var sysInfo = new SystemInfo();
 
-        var apiVersion = ChooseApiVersion(_api);
-        _logger.Information("Bootstrapper chose Vulkan version {VulkanVersion}", (Version)apiVersion);
+        var apiVersion = ChooseApiVersion(api);
 
-        var supportsProperties2Ext = sysInfo.IsExtensionAvailable(KhrGetPhysicalDeviceProperties2.ExtensionName);
+        var supportsProperties2Ext = sysInfo.IsExtensionAvailable(
+            KhrGetPhysicalDeviceProperties2.ExtensionName
+        );
 
         var extensions = Extensions.ToList();
         if (DebugCallback is not null && sysInfo.IsDebugUtilsAvailable)
@@ -148,7 +133,8 @@ public class InstanceBuilder
         {
             bool CheckAddWindow(string name)
             {
-                if (!sysInfo.IsExtensionAvailable(name)) return false;
+                if (!sysInfo.IsExtensionAvailable(name))
+                    return false;
                 extensions.Add(name);
                 return true;
             }
@@ -164,7 +150,8 @@ public class InstanceBuilder
                     break;
                 case UnderlyingPlatform.Linux:
                     addedWindowExtension = CheckAddWindow(KhrXcbSurface.ExtensionName);
-                    addedWindowExtension = CheckAddWindow(KhrXlibSurface.ExtensionName) || addedWindowExtension;
+                    addedWindowExtension =
+                        CheckAddWindow(KhrXlibSurface.ExtensionName) || addedWindowExtension;
                     addedWindowExtension =
                         CheckAddWindow(KhrWaylandSurface.ExtensionName) || addedWindowExtension;
                     break;
@@ -187,40 +174,65 @@ public class InstanceBuilder
         extensions = extensions.Distinct().ToList();
         var notSupported = extensions.Where(name => !sysInfo.IsExtensionAvailable(name)).ToArray();
         if (notSupported.Any())
-            throw new
-                PlatformException($"Current platform doesn't support these extensions: {string.Join(",", notSupported)}");
-
+            throw new PlatformException(
+                $"Current platform doesn't support these extensions: {string.Join(",", notSupported)}"
+            );
 
         var layers = Layers.ToList();
-        if (IsValidationLayersEnabled || IsValidationLayersRequested && sysInfo.IsValidationLayersEnabled)
+        if (
+            IsValidationLayersEnabled
+            || IsValidationLayersRequested && sysInfo.IsValidationLayersEnabled
+        )
             layers.AddRange(Constants.DefaultValidationLayers);
 
         layers = layers.Distinct().ToList();
         notSupported = layers.Where(name => !sysInfo.IsLayerAvailable(name)).ToArray();
         if (notSupported.Any())
-            throw new
-                PlatformException($"These requested layers are not available : {string.Join(",", notSupported)}");
+            throw new PlatformException(
+                $"These requested layers are not available : {string.Join(",", notSupported)}"
+            );
 
         CreateAppInfo(out var appInfo, apiVersion).DisposeWith(d);
         CreateInstanceInfo(out var vkInstanceInfo, extensions, layers, appInfo).DisposeWith(d);
 
-        var res2 = _api.CreateInstance(in vkInstanceInfo, alloc, out var instance);
+        var res2 = api.CreateInstance(in vkInstanceInfo, in alloc, out var instance);
         if (res2 != Result.Success)
-            throw new PlatformException("Failed to bootstrap vulkan instance", new VulkanException(res2));
+            throw new PlatformException(
+                "Failed to bootstrap vulkan instance",
+                new VulkanException(res2)
+            );
 
         if (DebugCallback is null)
-            return new(_api, instance, apiVersion, supportsProperties2Ext);
+            return new(api, instance, apiVersion, supportsProperties2Ext);
 
         CreateDebugMessengerInfo(out var messengerInfo);
 
         var info = messengerInfo!.Value;
-        _api.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
+        api.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
 
-        res2 = debugUtilsExt.CreateDebugUtilsMessenger(instance, in info, alloc, out var debugMessenger);
+        res2 = debugUtilsExt.CreateDebugUtilsMessenger(
+            instance,
+            in info,
+            in alloc,
+            out var debugMessenger
+        );
         if (res2 != Result.Success)
-            throw new PlatformException("Couldn't create Vulkan debug messenger", new VulkanException(res2));
+            throw new PlatformException(
+                "Couldn't create Vulkan debug messenger",
+                new VulkanException(res2)
+            );
 
-        return new(_api, instance, apiVersion, supportsProperties2Ext, IsValidationLayersEnabled, debugMessenger);
+        return new(
+            api,
+            instance,
+            apiVersion,
+            supportsProperties2Ext,
+            IsValidationLayersEnabled,
+            debugMessenger
+        )
+        {
+            IsHeadless = IsHeadless,
+        };
     }
 
     private Version32 ChooseApiVersion(Vk vk)
@@ -231,12 +243,19 @@ public class InstanceBuilder
             return apiVersion;
 
         var queriedApiVersion = Vk.Version10;
-        var res = vk.EnumerateInstanceVersion(ref Unsafe.As<Version32, uint>(ref queriedApiVersion));
+        var res = vk.EnumerateInstanceVersion(
+            ref Unsafe.As<Version32, uint>(ref queriedApiVersion)
+        );
         if (res != Result.Success && RequiredApiVersion is not null)
-            throw new PlatformException("Couldn't find vulkan api version", new VulkanException(res));
+            throw new PlatformException(
+                "Couldn't find vulkan api version",
+                new VulkanException(res)
+            );
 
         if (queriedApiVersion < RequiredApiVersion)
-            throw new PlatformException($"Vulkan version {(Version)RequiredApiVersion!} unavailable");
+            throw new PlatformException(
+                $"Vulkan version {(Version)RequiredApiVersion!} unavailable"
+            );
 
         if (RequiredApiVersion > Vk.Version10)
         {
@@ -244,9 +263,10 @@ public class InstanceBuilder
         }
         else if (DesiredApiVersion > Vk.Version10)
         {
-            apiVersion = queriedApiVersion >= DesiredApiVersion
-                             ? DesiredApiVersion.Value
-                             : queriedApiVersion;
+            apiVersion =
+                queriedApiVersion >= DesiredApiVersion
+                    ? DesiredApiVersion.Value
+                    : queriedApiVersion;
         }
 
         return apiVersion;
@@ -264,7 +284,7 @@ public class InstanceBuilder
             ApplicationVersion = ApplicationVersion ?? new Version32(0, 0, 1),
             EngineVersion = Constants.EngineVersion,
             PApplicationName = (ApplicationName ?? "").ToPtr(d),
-            PEngineName = (EngineName ?? "").ToPtr(d)
+            PEngineName = (EngineName ?? "").ToPtr(d),
         };
 
         return d;
@@ -280,12 +300,13 @@ public class InstanceBuilder
         {
             SType = StructureType.DebugUtilsMessengerCreateInfoExt,
             PNext = null,
-            MessageSeverity = DebugMessageSeverity ??
-                              DebugUtilsMessageSeverityFlagsEXT.InfoBitExt,
-            MessageType = DebugMessageType ??
-                          DebugUtilsMessageTypeFlagsEXT.GeneralBitExt | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt,
+            MessageSeverity = DebugMessageSeverity ?? DebugUtilsMessageSeverityFlagsEXT.InfoBitExt,
+            MessageType =
+                DebugMessageType
+                ?? DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
+                    | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt,
             PfnUserCallback = new(DebugCallback),
-            PUserData = null
+            PUserData = null,
         };
     }
 
@@ -304,7 +325,7 @@ public class InstanceBuilder
             EnabledValidationFeatureCount = (uint)EnabledValidationFeatures.Count,
             DisabledValidationFeatureCount = (uint)DisabledValidationFeatures.Count,
             PEnabledValidationFeatures = EnabledValidationFeatures.ToPtr(d),
-            PDisabledValidationFeatures = DisabledValidationFeatures.ToPtr(d)
+            PDisabledValidationFeatures = DisabledValidationFeatures.ToPtr(d),
         };
 
         return d;
@@ -323,14 +344,18 @@ public class InstanceBuilder
             SType = StructureType.ValidationFlagsExt,
             PNext = null,
             DisabledValidationCheckCount = (uint)DisabledValidationChecks.Count,
-            PDisabledValidationChecks = flags.AsPtr<ValidationCheckEXT>()
+            PDisabledValidationChecks = flags.AsPtr<ValidationCheckEXT>(),
         };
 
         return flags;
     }
 
-    private unsafe IDisposable CreateInstanceInfo(out InstanceCreateInfo info, IReadOnlyList<string> extensions,
-                                                  IReadOnlyList<string> layers, ApplicationInfo appInfo)
+    private unsafe IDisposable CreateInstanceInfo(
+        out InstanceCreateInfo info,
+        IReadOnlyList<string> extensions,
+        IReadOnlyList<string> layers,
+        ApplicationInfo appInfo
+    )
     {
         var d = new DisposableList();
 
@@ -338,12 +363,12 @@ public class InstanceBuilder
         {
             SType = StructureType.InstanceCreateInfo,
             PNext = null,
-            PApplicationInfo = appInfo.AsPtr(d),
+            PApplicationInfo = &appInfo,
             EnabledExtensionCount = (uint)extensions.Count,
             EnabledLayerCount = (uint)layers.Count,
             PpEnabledExtensionNames = extensions.ToByteDoublePtr(d),
             PpEnabledLayerNames = layers.ToByteDoublePtr(d),
-            Flags = 0
+            Flags = 0,
         };
 
         CreateDebugMessengerInfo(out var messengerInfo);
@@ -351,14 +376,15 @@ public class InstanceBuilder
         CreateValidationFlags(out var checks)?.DisposeWith(d);
 
         var pNextChain = new[]
-            {
-                messengerInfo?.ToGlobalMemory(),
-                features?.ToGlobalMemory(),
-                checks?.ToGlobalMemory()
-            }.WhereNotNull()
-             .Select(memory => memory.DisposeWith(d))
-             .SetupPNextChain()
-             .ToArray();
+        {
+            messengerInfo?.ToGlobalMemory(),
+            features?.ToGlobalMemory(),
+            checks?.ToGlobalMemory(),
+        }
+            .WhereNotNull()
+            .Select(memory => memory.DisposeWith(d))
+            .SetupPNextChain()
+            .ToArray();
 
         if (pNextChain.Length > 0)
             info.PNext = (void*)pNextChain[0].Handle;

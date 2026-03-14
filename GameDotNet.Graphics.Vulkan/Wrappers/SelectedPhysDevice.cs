@@ -14,11 +14,10 @@ public sealed class SelectedPhysDevice
     public PhysicalDeviceMemoryProperties MemoryProperties { get; init; }
 
     internal Version32 InstanceVersion { get; init; }
-    internal IReadOnlyList<string> ExtensionsToEnable { get; init; } = Array.Empty<string>();
-    internal IReadOnlyList<QueueFamilyProperties> QueueFamilies { get; init; } = Array.Empty<QueueFamilyProperties>();
+    internal IReadOnlyList<string> ExtensionsToEnable { get; init; } = [];
+    internal IReadOnlyList<QueueFamilyProperties> QueueFamilies { get; init; } = [];
 
-    internal IReadOnlyList<GenericFeaturesNextNode> ExtendedFeaturesChain { get; init; } =
-        Array.Empty<GenericFeaturesNextNode>();
+    internal IReadOnlyList<GenericFeaturesNextNode> ExtendedFeaturesChain { get; init; } = [];
 
     internal bool DeferSurfaceInit { get; init; }
 }

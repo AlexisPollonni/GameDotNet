@@ -1,14 +1,19 @@
+using System.Collections.Immutable;
+using System.Runtime.InteropServices;
+using GameDotNet.Core.Tooling.Collections;
+using GameDotNet.Core.Tooling.Extensions;
 using Serilog;
-using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
-using Silk.NET.Windowing;
 
 namespace GameDotNet.Graphics.Vulkan.Tools.Extensions;
 
 public static class SilkExtensions
 {
-    internal static Result LogWarning(this Result res, string message = "Unexpected Vulkan API error")
+    internal static Result LogWarning(
+        this Result res,
+        string message = "Unexpected Vulkan API error"
+    )
     {
         if (res is not Result.Success)
             Log.Warning("{Message} : {VulkanResult}", message, res);
@@ -24,8 +29,10 @@ public static class SilkExtensions
         return res;
     }
 
-    public static Result ThrowOnError(this Result res,
-                                      string message = "Vulkan API function call failed when it wasn't expected to")
+    public static Result ThrowOnError(
+        this Result res,
+        string message = "Vulkan API function call failed when it wasn't expected to"
+    )
     {
         if (res is Result.Success)
             return res;
@@ -34,21 +41,14 @@ public static class SilkExtensions
         throw new VulkanException(res);
     }
 
-    internal static IEnumerable<GlobalMemory> SetupPNextChain(this IEnumerable<GlobalMemory> nextNodesChain)
+    internal static IEnumerable<GlobalMemory> SetupPNextChain(
+        this IEnumerable<GlobalMemory> nextNodesChain
+    )
     {
         var arr = nextNodesChain.ToArray();
         SetupPNextChain(arr);
         return arr;
     }
-
-    /// <summary>
-    /// Determines if a view is a GLFW window.
-    /// WARNING: if the window is not initialized this method returns false.
-    /// </summary>
-    /// <param name="view"></param>
-    /// <returns>True if view is GLFW, false otherwise or if its not initialized.</returns>
-    internal static bool IsGlfw(this IView view) => view.Native?.Kind.HasFlag(NativeWindowFlags.Glfw) ?? false;
-
 
     internal static unsafe void SetupPNextChain(params GlobalMemory[] structs)
     {
@@ -75,5 +75,52 @@ public static class SilkExtensions
         {
             return SilkMarshal.PtrToString((nint)properties.ExtensionName);
         }
+    }
+
+    public static GlobalMemory ToGlobalMemory<T>(this T s)
+        where T : unmanaged
+    {
+        var ptr = Marshal.AllocHGlobal(Marshal.SizeOf<T>());
+        Marshal.StructureToPtr(s, ptr, false);
+
+        return SilkMarshal.HGlobalToMemory(ptr, Marshal.SizeOf<T>());
+    }
+
+    public static GlobalMemory ToGlobalMemory(this string s)
+    {
+        return SilkMarshal.StringToMemory(s);
+    }
+
+    public static GlobalMemory ToGlobalMemory(this IEnumerable<string> s)
+    {
+        return SilkMarshal.StringArrayToMemory(s.ToArray());
+    }
+
+    public static GlobalMemory ToGlobalMemory<T>(this IEnumerable<T> enumerable)
+        where T : unmanaged
+    {
+        unsafe
+        {
+            var array = enumerable.ToImmutableArray();
+            var mem = GlobalMemory.Allocate(array.Length * sizeof(T));
+
+            for (var i = 0; i < array.Length; i++)
+            {
+                mem.AsRef<T>(i) = array[i];
+            }
+
+            return mem;
+        }
+    }
+
+    public static unsafe byte* ToPtr(this string str, ICompositeDisposable d) =>
+        str.ToGlobalMemory().DisposeWith(d).AsPtr<byte>();
+
+    public static unsafe byte** ToByteDoublePtr(
+        this IEnumerable<string> str,
+        ICompositeDisposable d
+    )
+    {
+        return (byte**)str.ToGlobalMemory().DisposeWith(d).AsPtr<byte>();
     }
 }

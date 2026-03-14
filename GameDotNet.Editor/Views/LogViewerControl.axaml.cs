@@ -1,5 +1,5 @@
-using Avalonia.ReactiveUI;
 using GameDotNet.Editor.ViewModels;
+using ReactiveUI.Avalonia;
 
 namespace GameDotNet.Editor.Views;
 

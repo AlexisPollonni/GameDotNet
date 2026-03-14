@@ -1,4 +1,3 @@
-using GameDotNet.Core.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.KHR;
@@ -9,7 +8,7 @@ internal static class QueueTools
 {
     public static int? GetFirstQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families, QueueFlags desiredFlags)
     {
-        foreach (var (family, i) in families.WithIndex())
+        foreach (var (i, family) in families.Index())
         {
             if (family.QueueFlags.HasFlag(desiredFlags)) return i;
         }
@@ -20,7 +19,7 @@ internal static class QueueTools
     public static int? GetDedicatedQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families,
                                                     QueueFlags desiredFlags, QueueFlags undesiredFlags)
     {
-        foreach (var (family, i) in families.WithIndex())
+        foreach (var (i, family) in families.Index())
         {
             if (family.QueueFlags.HasFlag(desiredFlags)
                 && !family.QueueFlags.HasFlag(undesiredFlags)
@@ -37,7 +36,7 @@ internal static class QueueTools
                                                    QueueFlags desiredFlags, QueueFlags undesiredFlags)
     {
         int? index = null;
-        foreach (var (family, i) in families.WithIndex())
+        foreach (var (i, family) in families.Index())
         {
             if (!family.QueueFlags.HasFlag(desiredFlags) || family.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
                 continue;
@@ -62,7 +61,7 @@ internal static class QueueTools
         if (!instance.Vk.TryGetInstanceExtension(instance, out KhrSurface ext))
             return null;
 
-        foreach (var (_, i) in families.WithIndex())
+        foreach (var (i, _) in families.Index())
         {
             var res = ext.GetPhysicalDeviceSurfaceSupport(device, (uint)i, surface, out var presentSupport);
             if (res != Result.Success)

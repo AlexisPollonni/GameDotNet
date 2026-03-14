@@ -5,35 +5,42 @@ using Avalonia.Threading;
 using DependencyPropertyGenerator;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
+using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.Avalonia.Gpu.Interop;
 using GameDotNet.Graphics.Models;
-using GameDotNet.Graphics.Services;
 using GameDotNet.Graphics.Tooling;
 using Injectio.Attributes;
 using MessagePipe;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ObjectPool;
+using Shouldly;
 using Size = System.Drawing.Size;
 
 namespace GameDotNet.Graphics.Avalonia;
-
 
 /// <summary>
 /// Avalonia control that renders using Slang Gfx via composition interop.
 /// This provides a surface where you can render your game/3D content.
 /// </summary>
-[RegisterScoped(Registration = RegistrationStrategy.Self)]
+[RegisterScoped<RendererCompositionControl>]
 [DependencyProperty<TimelineStats>("RenderStats")]
-public partial class SlangCompositionControl(
-    ILogger<SlangCompositionControl> logger,
-    SlangContext slangContext, 
-    ILogger<AvaloniaViewPortControl> viewportLogger, 
+public partial class RendererCompositionControl(
+    ILogger<RendererCompositionControl> logger,
+    ILogger<AvaloniaViewPortControl> viewportLogger,
     IEventBus eventBus,
     IAsyncRequestHandler<RenderFrameRequest, RenderFramePresentResponse> renderHandler,
-    ObjectPool<PooledValueTaskSource> tcsPool) : AvaloniaViewPortControl(viewportLogger, eventBus)
+    ObjectPool<PooledValueTaskSource> tcsPool
+) : AvaloniaViewPortControl(viewportLogger, eventBus)
 {
+    private SwapchainBase? _swapchain;
     private CancellationTokenSource _initializedCts = new();
     private Task? _renderTask;
+
+    public Func<
+        ICompositionGpuInterop,
+        CompositionDrawingSurface,
+        SwapchainBase
+    >? SwapchainFactory { get; set; }
 
     protected override void OnInitialized()
     {
@@ -54,7 +61,7 @@ public partial class SlangCompositionControl(
 
         if (_renderTask is null)
             return;
-        
+
         _initializedCts.Cancel();
 
         try
@@ -65,7 +72,7 @@ public partial class SlangCompositionControl(
         {
             //swallow expected cancellation
         }
-        
+
         _initializedCts.Dispose();
         _initializedCts = new();
     }
@@ -78,67 +85,89 @@ public partial class SlangCompositionControl(
 
         var surface = compositor.CreateDrawingSurface();
         var visual = compositor.CreateSurfaceVisual();
-        
+
         visual.Size = new(Size.Width, Size.Height);
         visual.Surface = surface;
-        
+
         ElementComposition.SetElementChildVisual(this, visual);
 
         var interop = await compositor.TryGetCompositionGpuInterop();
         if (interop == null)
         {
-            logger.LogError("Failed to get GPU interop from Avalonia compositor, does your platform support it?");
+            logger.LogError(
+                "Failed to get GPU interop from Avalonia compositor, does your platform support it?"
+            );
             return;
         }
-        
-        var swapchain = new SlangGfxSwapchain(interop, surface, slangContext);
 
-        await RenderLoopAsync(compositor, visual, swapchain, token).ConfigureAwait(false);
-    }
+        _swapchain ??= SwapchainFactory
+            ?.Invoke(interop, surface)
+            .ShouldNotBeNull(
+                "Failed to create swapchain, did you set the SwapchainFactory property?"
+            );
 
-    private async Task RenderLoopAsync(Compositor compositor, CompositionSurfaceVisual visual, SlangGfxSwapchain swapchain, CancellationToken token)
-    {
         try
         {
-            var lastSize = Size;
-            while (!token.IsCancellationRequested)
-            {
-                await Dispatcher.UIThread.AwaitWithPriority(Task.CompletedTask, DispatcherPriority.Render);
-
-                var size = Size;
-                if (lastSize != size)
-                {
-                    visual.Size = new(size.Width, size.Height);
-                    lastSize = size;
-                }
-
-                await RequestCompositionUpdateAsync(compositor, token).ConfigureAwait(true);
-            
-                await RenderFrame(size, swapchain, token).ConfigureAwait(false);
-            }
+            await RenderLoopAsync(compositor, visual, token).ConfigureAwait(false);
         }
         finally
         {
-            await swapchain.DisposeAsync().ConfigureAwait(false);
+            await (_swapchain?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
+            _swapchain = null;
+        }
+    }
+
+    private async Task RenderLoopAsync(
+        Compositor compositor,
+        CompositionSurfaceVisual visual,
+        CancellationToken token
+    )
+    {
+        var lastSize = Size;
+        while (!token.IsCancellationRequested)
+        {
+            await Dispatcher.UIThread.AwaitWithPriority(
+                Task.CompletedTask,
+                DispatcherPriority.Render
+            );
+
+            var size = Size;
+            if (lastSize != size)
+            {
+                visual.Size = new(size.Width, size.Height);
+                lastSize = size;
+            }
+
+            await RequestCompositionUpdateAsync(compositor, token).ConfigureAwait(true);
+
+            await RenderFrame(size, token).ConfigureAwait(false);
         }
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
-    private async ValueTask RenderFrame(Size size, SlangGfxSwapchain swapchain, CancellationToken token = default)
+    private async ValueTask RenderFrame(Size size, CancellationToken token = default)
     {
-        if (size == Size.Empty) return;
-        
+        if (size == Size.Empty)
+            return;
+
         Dispatcher.UIThread.CheckAccess();
-        
-        using (swapchain.BeginDraw(new(size.Width, size.Height), out var image))
+
+        using (_swapchain!.BeginDraw(new(size.Width, size.Height), out var image))
         {
-            var presentResponse = await renderHandler.InvokeAsync(new(this, image, new(size.Width, size.Height)), token).ConfigureAwait(true);
+            var texture = (IDeviceTexture)image; //slightly dangerous, but for now since we control inheritance chain will allow it
+
+            var presentResponse = await renderHandler
+                .InvokeAsync(new(this, texture), token)
+                .ConfigureAwait(true);
             RenderStats = presentResponse.RenderStats;
         }
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
-    private async ValueTask RequestCompositionUpdateAsync(Compositor compositor, CancellationToken token)
+    private async ValueTask RequestCompositionUpdateAsync(
+        Compositor compositor,
+        CancellationToken token
+    )
     {
         var tcs = tcsPool.Get();
 
@@ -149,10 +178,10 @@ public partial class SlangCompositionControl(
             {
                 if (token.IsCancellationRequested)
                     return;
-                
+
                 tcs.SetResult();
             });
-            
+
             await tcs.AsValueTask().ConfigureAwait(true);
         }
         finally

@@ -1,18 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-    <ItemGroup>
-        <PackageReference Include="AssimpNetter"/>
-        <PackageReference Include="AutoCtor"/>
-        <PackageReference Include="AutoFactories.Microsoft.DependencyInjection"/>
-        <PackageReference Include="Injectio"/>
-        <PackageReference Include="Intellenum"/>
-        <PackageReference Include="Microsoft.Extensions.Http"/>
-        <PackageReference Include="ShaderSlang.Net" IncludeAssets="all" />
-        <PackageReference Include="Silk.NET.Input"/>
-    </ItemGroup>
-    <ItemGroup>
-        <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj"/>
-    </ItemGroup>
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="AssimpNetter" />
+    <PackageReference Include="AutoCtor" />
+    <PackageReference Include="Injectio" />
+    <PackageReference Include="Intellenum" />
+    <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="SlangShaderSharp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameDotNet.Core\GameDotNet.Core.csproj" />
+  </ItemGroup>
 </Project>

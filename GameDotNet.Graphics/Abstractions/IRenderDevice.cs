@@ -27,8 +27,7 @@ public interface IDeviceContext : IDisposable
 
     void ResourceBarrier(BarrierDescription desc);
 
-    public class BarrierDescription
-    { }
+    public class BarrierDescription { }
 }
 
 public interface IGraphicsContext : IDeviceContext
@@ -37,17 +36,19 @@ public interface IGraphicsContext : IDeviceContext
     void SetPipeline(IGraphicsPipeline pipeline);
     void SetVertexBuffer(IDeviceBuffer buffer);
     void SetIndexBuffer(IDeviceBuffer buffer);
-    void Draw(uint vertexCount, uint instanceCount = 1, uint firstVertex = 0, uint firstInstance = 0);
+    void Draw(
+        uint vertexCount,
+        uint instanceCount = 1,
+        uint firstVertex = 0,
+        uint firstInstance = 0
+    );
 }
 
-public interface IRenderPass
-{ }
+public interface IRenderPass { }
 
-public interface IPipeline
-{ }
+public interface IPipeline { }
 
-public interface IGraphicsPipeline : IPipeline
-{ }
+public interface IGraphicsPipeline : IPipeline { }
 
 public interface IComputeContext : IDeviceContext
 {
@@ -66,7 +67,7 @@ public interface IDeviceBuffer : IDisposable
     BufferDescription Description { get; }
 }
 
-public interface IDeviceTexture : IDisposable
+public interface IDeviceTexture
 {
     TextureDescription Description { get; }
 }
@@ -95,5 +96,4 @@ public class ShaderDescription
     public required ShaderStage Stage { get; init; }
 }
 
-public class PipelineDescription
-{ }
+public class PipelineDescription { }

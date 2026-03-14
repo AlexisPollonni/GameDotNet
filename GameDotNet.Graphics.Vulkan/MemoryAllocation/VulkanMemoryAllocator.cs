@@ -12,7 +12,9 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
     public sealed unsafe class VulkanMemoryAllocator : IDisposable
     {
         private const long SmallHeapMaxSize = 1024L * 1024 * 1024;
-        private const BufferUsageFlags UnknownBufferUsage = unchecked((BufferUsageFlags)uint.MaxValue);
+        private const BufferUsageFlags UnknownBufferUsage = unchecked(
+            (BufferUsageFlags)uint.MaxValue
+        );
 
         internal Vk VkApi { get; }
 
@@ -32,7 +34,9 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
         internal readonly BlockList[] BlockLists = new BlockList[Vk.MaxMemoryTypes]; //Default Pools
 
-        internal DedicatedAllocationHandler[] DedicatedAllocations = new DedicatedAllocationHandler[Vk.MaxMemoryTypes];
+        internal DedicatedAllocationHandler[] DedicatedAllocations = new DedicatedAllocationHandler[
+            Vk.MaxMemoryTypes
+        ];
 
         private long PreferredLargeHeapBlockSize;
         private PhysicalDevice PhysicalDevice;
@@ -49,7 +53,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         {
             if (createInfo.VulkanAPIObject == null)
             {
-                throw new ArgumentNullException(nameof(createInfo.VulkanAPIObject), "API vtable is null");
+                throw new ArgumentNullException(
+                    nameof(createInfo.VulkanAPIObject),
+                    "API vtable is null"
+                );
             }
 
             VkApi = createInfo.VulkanAPIObject;
@@ -71,7 +78,9 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             if (createInfo.VulkanAPIVersion < Vk.Version11)
             {
-                throw new NotSupportedException("Vulkan API Version of less than 1.1 is not supported");
+                throw new NotSupportedException(
+                    "Vulkan API Version of less than 1.1 is not supported"
+                );
             }
 
             Instance = createInfo.Instance;
@@ -86,29 +95,39 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             }
 
             UseExtMemoryBudget = (createInfo.Flags & AllocatorCreateFlags.ExtMemoryBudget) != 0;
-            UseAMDDeviceCoherentMemory = (createInfo.Flags & AllocatorCreateFlags.AMDDeviceCoherentMemory) != 0;
-            UseKhrBufferDeviceAddress = (createInfo.Flags & AllocatorCreateFlags.BufferDeviceAddress) != 0;
+            UseAMDDeviceCoherentMemory =
+                (createInfo.Flags & AllocatorCreateFlags.AMDDeviceCoherentMemory) != 0;
+            UseKhrBufferDeviceAddress =
+                (createInfo.Flags & AllocatorCreateFlags.BufferDeviceAddress) != 0;
 
             VkApi.GetPhysicalDeviceProperties(PhysicalDevice, out physicalDeviceProperties);
             VkApi.GetPhysicalDeviceMemoryProperties(PhysicalDevice, out memoryProperties);
 
             Debug.Assert(Helpers.IsPow2(Helpers.DebugAlignment));
             Debug.Assert(Helpers.IsPow2(Helpers.DebugMinBufferImageGranularity));
-            Debug.Assert(Helpers.IsPow2((long)PhysicalDeviceProperties.Limits.BufferImageGranularity));
+            Debug.Assert(
+                Helpers.IsPow2((long)PhysicalDeviceProperties.Limits.BufferImageGranularity)
+            );
             Debug.Assert(Helpers.IsPow2((long)PhysicalDeviceProperties.Limits.NonCoherentAtomSize));
 
-            PreferredLargeHeapBlockSize = (createInfo.PreferredLargeHeapBlockSize != 0)
-                                              ? createInfo.PreferredLargeHeapBlockSize
-                                              : (256L * 1024 * 1024);
+            PreferredLargeHeapBlockSize =
+                (createInfo.PreferredLargeHeapBlockSize != 0)
+                    ? createInfo.PreferredLargeHeapBlockSize
+                    : (256L * 1024 * 1024);
 
             GlobalMemoryTypeBits = CalculateGlobalMemoryTypeBits();
 
             if (createInfo.HeapSizeLimits != null)
             {
-                var memoryHeaps =
-                    MemoryMarshal.CreateSpan(ref MemoryHeaps.Element0, MemoryHeapCount);
+                var memoryHeaps = MemoryMarshal.CreateSpan(
+                    ref MemoryHeaps.Element0,
+                    MemoryHeapCount
+                );
 
-                var heapLimitLength = Math.Min(createInfo.HeapSizeLimits.Length, (int)Vk.MaxMemoryHeaps);
+                var heapLimitLength = Math.Min(
+                    createInfo.HeapSizeLimits.Length,
+                    (int)Vk.MaxMemoryHeaps
+                );
 
                 for (var heapIndex = 0; heapIndex < heapLimitLength; ++heapIndex)
                 {
@@ -133,10 +152,18 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             {
                 var preferredBlockSize = CalcPreferredBlockSize(memTypeIndex);
 
-                BlockLists[memTypeIndex] =
-                    new(this, null, memTypeIndex, preferredBlockSize, 0, int.MaxValue,
-                        BufferImageGranularity, createInfo.FrameInUseCount, false,
-                        Helpers.DefaultMetaObjectCreate);
+                BlockLists[memTypeIndex] = new(
+                    this,
+                    null,
+                    memTypeIndex,
+                    preferredBlockSize,
+                    0,
+                    int.MaxValue,
+                    BufferImageGranularity,
+                    createInfo.FrameInUseCount,
+                    false,
+                    Helpers.DefaultMetaObjectCreate
+                );
 
                 ref var alloc = ref DedicatedAllocations[memTypeIndex];
 
@@ -159,10 +186,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
         internal int MemoryTypeCount => (int)MemoryProperties.MemoryTypeCount;
 
-        internal bool IsIntegratedGPU => PhysicalDeviceProperties.DeviceType == PhysicalDeviceType.IntegratedGpu;
+        internal bool IsIntegratedGPU =>
+            PhysicalDeviceProperties.DeviceType == PhysicalDeviceType.IntegratedGpu;
 
         internal uint GlobalMemoryTypeBits { get; private set; }
-
 
         public void Dispose()
         {
@@ -184,7 +211,8 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             }
         }
 
-        public ref readonly PhysicalDeviceProperties PhysicalDeviceProperties => ref physicalDeviceProperties;
+        public ref readonly PhysicalDeviceProperties PhysicalDeviceProperties =>
+            ref physicalDeviceProperties;
 
         public ref readonly PhysicalDeviceMemoryProperties MemoryProperties => ref memoryProperties;
 
@@ -203,29 +231,33 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             }
 
             MemoryPropertyFlags requiredFlags = allocInfo.RequiredFlags,
-                                preferredFlags = allocInfo.PreferredFlags,
-                                notPreferredFlags = default;
+                preferredFlags = allocInfo.PreferredFlags,
+                notPreferredFlags = default;
 
             switch (allocInfo.Usage)
             {
                 case MemoryUsage.Unknown:
                     break;
                 case MemoryUsage.GPU_Only:
-                    if (IsIntegratedGPU ||
-                        (preferredFlags & MemoryPropertyFlags.HostVisibleBit) == 0)
+                    if (
+                        IsIntegratedGPU
+                        || (preferredFlags & MemoryPropertyFlags.HostVisibleBit) == 0
+                    )
                     {
                         preferredFlags |= MemoryPropertyFlags.DeviceLocalBit;
                     }
 
                     break;
                 case MemoryUsage.CPU_Only:
-                    requiredFlags |= MemoryPropertyFlags.HostVisibleBit |
-                                     MemoryPropertyFlags.HostCoherentBit;
+                    requiredFlags |=
+                        MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit;
                     break;
                 case MemoryUsage.CPU_To_GPU:
                     requiredFlags |= MemoryPropertyFlags.HostVisibleBit;
-                    if (!IsIntegratedGPU ||
-                        (preferredFlags & MemoryPropertyFlags.HostVisibleBit) == 0)
+                    if (
+                        !IsIntegratedGPU
+                        || (preferredFlags & MemoryPropertyFlags.HostVisibleBit) == 0
+                    )
                     {
                         preferredFlags |= MemoryPropertyFlags.DeviceLocalBit;
                     }
@@ -245,9 +277,15 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                     throw new ArgumentException("Invalid Usage Flags");
             }
 
-            if (((allocInfo.RequiredFlags | allocInfo.PreferredFlags) &
-                 (MemoryPropertyFlags.DeviceCoherentBitAmd |
-                  MemoryPropertyFlags.DeviceUncachedBitAmd)) == 0)
+            if (
+                (
+                    (allocInfo.RequiredFlags | allocInfo.PreferredFlags)
+                    & (
+                        MemoryPropertyFlags.DeviceCoherentBitAmd
+                        | MemoryPropertyFlags.DeviceUncachedBitAmd
+                    )
+                ) == 0
+            )
             {
                 notPreferredFlags |= MemoryPropertyFlags.DeviceCoherentBitAmd;
             }
@@ -256,7 +294,11 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             var minCost = int.MaxValue;
             uint memTypeBit = 1;
 
-            for (var memTypeIndex = 0; memTypeIndex < MemoryTypeCount; ++memTypeIndex, memTypeBit <<= 1)
+            for (
+                var memTypeIndex = 0;
+                memTypeIndex < MemoryTypeCount;
+                ++memTypeIndex, memTypeBit <<= 1
+            )
             {
                 if ((memTypeBit & memoryTypeBits) == 0)
                     continue;
@@ -285,7 +327,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             return memoryTypeIndex;
         }
 
-        public int? FindMemoryTypeIndexForBufferInfo(in BufferCreateInfo bufferInfo, in AllocationCreateInfo allocInfo)
+        public int? FindMemoryTypeIndexForBufferInfo(
+            in BufferCreateInfo bufferInfo,
+            in AllocationCreateInfo allocInfo
+        )
         {
             Buffer buffer;
             fixed (BufferCreateInfo* pBufferInfo = &bufferInfo)
@@ -308,7 +353,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             return tmp;
         }
 
-        public int? FindMemoryTypeIndexForImageInfo(in ImageCreateInfo imageInfo, in AllocationCreateInfo allocInfo)
+        public int? FindMemoryTypeIndexForImageInfo(
+            in ImageCreateInfo imageInfo,
+            in AllocationCreateInfo allocInfo
+        )
         {
             Image image;
             fixed (ImageCreateInfo* pImageInfo = &imageInfo)
@@ -337,11 +385,19 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         /// <param name="requirements">Memory Requirements for the allocation</param>
         /// <param name="createInfo">Allocation Creation information</param>
         /// <returns>An object representing the allocation</returns>
-        public Allocation AllocateMemory(in MemoryRequirements requirements, in AllocationCreateInfo createInfo)
+        public Allocation AllocateMemory(
+            in MemoryRequirements requirements,
+            in AllocationCreateInfo createInfo
+        )
         {
             var dedicatedInfo = DedicatedAllocationInfo.Default;
 
-            return AllocateMemory(in requirements, in dedicatedInfo, in createInfo, SuballocationType.Unknown);
+            return AllocateMemory(
+                in requirements,
+                in dedicatedInfo,
+                in createInfo,
+                SuballocationType.Unknown
+            );
         }
 
         /// <summary>
@@ -352,18 +408,29 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         /// <param name="createInfo"></param>
         /// <param name="BindToBuffer">Whether to bind <paramref name="buffer"> to the allocation</param>
         /// <returns></returns>
-        public Allocation AllocateMemoryForBuffer(Buffer buffer, in AllocationCreateInfo createInfo,
-                                                  bool BindToBuffer = false)
+        public Allocation AllocateMemoryForBuffer(
+            Buffer buffer,
+            in AllocationCreateInfo createInfo,
+            bool BindToBuffer = false
+        )
         {
             var dedicatedInfo = DedicatedAllocationInfo.Default;
 
             dedicatedInfo.DedicatedBuffer = buffer;
 
-            GetBufferMemoryRequirements(buffer, out var memReq,
-                                        out dedicatedInfo.RequiresDedicatedAllocation,
-                                        out dedicatedInfo.PrefersDedicatedAllocation);
+            GetBufferMemoryRequirements(
+                buffer,
+                out var memReq,
+                out dedicatedInfo.RequiresDedicatedAllocation,
+                out dedicatedInfo.PrefersDedicatedAllocation
+            );
 
-            var alloc = AllocateMemory(in memReq, in dedicatedInfo, in createInfo, SuballocationType.Buffer);
+            var alloc = AllocateMemory(
+                in memReq,
+                in dedicatedInfo,
+                in createInfo,
+                SuballocationType.Buffer
+            );
 
             if (BindToBuffer)
             {
@@ -381,18 +448,29 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         /// <param name="createInfo"></param>
         /// <param name="BindToImage">Whether to bind <paramref name="image"> to the allocation</param>
         /// <returns></returns>
-        public Allocation AllocateMemoryForImage(Image image, in AllocationCreateInfo createInfo,
-                                                 bool BindToImage = false)
+        public Allocation AllocateMemoryForImage(
+            Image image,
+            in AllocationCreateInfo createInfo,
+            bool BindToImage = false
+        )
         {
             var dedicatedInfo = DedicatedAllocationInfo.Default;
 
             dedicatedInfo.DedicatedImage = image;
 
-            GetImageMemoryRequirements(image, out var memReq, out dedicatedInfo.RequiresDedicatedAllocation,
-                                       out dedicatedInfo.PrefersDedicatedAllocation);
+            GetImageMemoryRequirements(
+                image,
+                out var memReq,
+                out dedicatedInfo.RequiresDedicatedAllocation,
+                out dedicatedInfo.PrefersDedicatedAllocation
+            );
 
-            var alloc = AllocateMemory(in memReq, in dedicatedInfo, in createInfo,
-                                       SuballocationType.Image_Unknown);
+            var alloc = AllocateMemory(
+                in memReq,
+                in dedicatedInfo,
+                in createInfo,
+                SuballocationType.Image_Unknown
+            );
 
             if (BindToImage)
             {
@@ -407,8 +485,11 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             throw new NotImplementedException();
         }
 
-        public Buffer CreateBuffer(in BufferCreateInfo bufferInfo, in AllocationCreateInfo allocInfo,
-                                   out Allocation allocation)
+        public Buffer CreateBuffer(
+            in BufferCreateInfo bufferInfo,
+            in AllocationCreateInfo allocInfo,
+            out Allocation allocation
+        )
         {
             Result res;
             Buffer buffer;
@@ -432,11 +513,19 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 dedicatedInfo.DedicatedBuffer = buffer;
                 dedicatedInfo.DedicatedBufferUsage = bufferInfo.Usage;
 
-                GetBufferMemoryRequirements(buffer, out var memReq,
-                                            out dedicatedInfo.RequiresDedicatedAllocation,
-                                            out dedicatedInfo.PrefersDedicatedAllocation);
+                GetBufferMemoryRequirements(
+                    buffer,
+                    out var memReq,
+                    out dedicatedInfo.RequiresDedicatedAllocation,
+                    out dedicatedInfo.PrefersDedicatedAllocation
+                );
 
-                alloc = AllocateMemory(in memReq, in dedicatedInfo, in allocInfo, SuballocationType.Buffer);
+                alloc = AllocateMemory(
+                    in memReq,
+                    in dedicatedInfo,
+                    in allocInfo,
+                    SuballocationType.Buffer
+                );
             }
             catch
             {
@@ -471,14 +560,19 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         /// <param name="allocation">The object corresponding to the allocation</param>
         /// <returns>The created image</returns>
         ///
-        public Image CreateImage(in ImageCreateInfo imageInfo, in AllocationCreateInfo allocInfo,
-                                 out Allocation allocation)
+        public Image CreateImage(
+            in ImageCreateInfo imageInfo,
+            in AllocationCreateInfo allocInfo,
+            out Allocation allocation
+        )
         {
-            if (imageInfo.Extent.Width == 0 ||
-                imageInfo.Extent.Height == 0 ||
-                imageInfo.Extent.Depth == 0 ||
-                imageInfo.MipLevels == 0 ||
-                imageInfo.ArrayLayers == 0)
+            if (
+                imageInfo.Extent.Width == 0
+                || imageInfo.Extent.Height == 0
+                || imageInfo.Extent.Depth == 0
+                || imageInfo.MipLevels == 0
+                || imageInfo.ArrayLayers == 0
+            )
             {
                 throw new ArgumentException("Invalid Image Info");
             }
@@ -497,9 +591,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 }
             }
 
-            var suballocType = imageInfo.Tiling == ImageTiling.Optimal
-                                   ? SuballocationType.Image_Optimal
-                                   : SuballocationType.Image_Linear;
+            var suballocType =
+                imageInfo.Tiling == ImageTiling.Optimal
+                    ? SuballocationType.Image_Optimal
+                    : SuballocationType.Image_Linear;
 
             try
             {
@@ -529,9 +624,11 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             return image;
         }
 
-        private ref PhysicalDeviceMemoryProperties.MemoryTypesBuffer MemoryTypes => ref memoryProperties.MemoryTypes;
+        private ref PhysicalDeviceMemoryProperties.MemoryTypesBuffer MemoryTypes =>
+            ref memoryProperties.MemoryTypes;
 
-        private ref PhysicalDeviceMemoryProperties.MemoryHeapsBuffer MemoryHeaps => ref memoryProperties.MemoryHeaps;
+        private ref PhysicalDeviceMemoryProperties.MemoryHeapsBuffer MemoryHeaps =>
+            ref memoryProperties.MemoryHeaps;
 
         internal int MemoryTypeIndexToHeapIndex(int typeIndex)
         {
@@ -541,27 +638,30 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
         internal bool IsMemoryTypeNonCoherent(int memTypeIndex)
         {
-            return (MemoryTypes[memTypeIndex].PropertyFlags &
-                    (MemoryPropertyFlags.HostVisibleBit |
-                     MemoryPropertyFlags.HostCoherentBit)) ==
-                   MemoryPropertyFlags.HostVisibleBit;
+            return (
+                    MemoryTypes[memTypeIndex].PropertyFlags
+                    & (MemoryPropertyFlags.HostVisibleBit | MemoryPropertyFlags.HostCoherentBit)
+                ) == MemoryPropertyFlags.HostVisibleBit;
         }
 
         internal long GetMemoryTypeMinAlignment(int memTypeIndex)
         {
             return IsMemoryTypeNonCoherent(memTypeIndex)
-                       ? (long)Math.Max(1, PhysicalDeviceProperties.Limits.NonCoherentAtomSize)
-                       : 1;
+                ? (long)Math.Max(1, PhysicalDeviceProperties.Limits.NonCoherentAtomSize)
+                : 1;
         }
 
-        internal void GetBufferMemoryRequirements(Buffer buffer, out MemoryRequirements memReq,
-                                                  out bool requiresDedicatedAllocation,
-                                                  out bool prefersDedicatedAllocation)
+        internal void GetBufferMemoryRequirements(
+            Buffer buffer,
+            out MemoryRequirements memReq,
+            out bool requiresDedicatedAllocation,
+            out bool prefersDedicatedAllocation
+        )
         {
             var req = new BufferMemoryRequirementsInfo2
             {
                 SType = StructureType.BufferMemoryRequirementsInfo2,
-                Buffer = buffer
+                Buffer = buffer,
             };
 
             var dedicatedRequirements = new MemoryDedicatedRequirements
@@ -572,7 +672,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             var memReq2 = new MemoryRequirements2
             {
                 SType = StructureType.MemoryRequirements2,
-                PNext = &dedicatedRequirements
+                PNext = &dedicatedRequirements,
             };
 
             VkApi.GetBufferMemoryRequirements2(Device, &req, &memReq2);
@@ -582,14 +682,17 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             prefersDedicatedAllocation = dedicatedRequirements.PrefersDedicatedAllocation;
         }
 
-        internal void GetImageMemoryRequirements(Image image, out MemoryRequirements memReq,
-                                                 out bool requiresDedicatedAllocation,
-                                                 out bool prefersDedicatedAllocation)
+        internal void GetImageMemoryRequirements(
+            Image image,
+            out MemoryRequirements memReq,
+            out bool requiresDedicatedAllocation,
+            out bool prefersDedicatedAllocation
+        )
         {
             var req = new ImageMemoryRequirementsInfo2
             {
                 SType = StructureType.ImageMemoryRequirementsInfo2,
-                Image = image
+                Image = image,
             };
 
             var dedicatedRequirements = new MemoryDedicatedRequirements
@@ -600,7 +703,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             var memReq2 = new MemoryRequirements2
             {
                 SType = StructureType.MemoryRequirements2,
-                PNext = &dedicatedRequirements
+                PNext = &dedicatedRequirements,
             };
 
             VkApi.GetImageMemoryRequirements2(Device, &req, &memReq2);
@@ -610,8 +713,12 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             prefersDedicatedAllocation = dedicatedRequirements.PrefersDedicatedAllocation;
         }
 
-        internal Allocation AllocateMemory(in MemoryRequirements memReq, in DedicatedAllocationInfo dedicatedInfo,
-                                           in AllocationCreateInfo createInfo, SuballocationType suballocType)
+        internal Allocation AllocateMemory(
+            in MemoryRequirements memReq,
+            in DedicatedAllocationInfo dedicatedInfo,
+            in AllocationCreateInfo createInfo,
+            SuballocationType suballocType
+        )
         {
             Debug.Assert(Helpers.IsPow2((long)memReq.Alignment));
 
@@ -620,59 +727,79 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             const AllocationCreateFlags CheckFlags1 =
                 AllocationCreateFlags.DedicatedMemory | AllocationCreateFlags.NeverAllocate;
-            const AllocationCreateFlags
-                CheckFlags2 = AllocationCreateFlags.Mapped | AllocationCreateFlags.CanBecomeLost;
+            const AllocationCreateFlags CheckFlags2 =
+                AllocationCreateFlags.Mapped | AllocationCreateFlags.CanBecomeLost;
 
             if ((createInfo.Flags & CheckFlags1) == CheckFlags1)
             {
-                throw new
-                    ArgumentException("Specifying AllocationCreateFlags.DedicatedMemory with AllocationCreateFlags.NeverAllocate is invalid");
+                throw new ArgumentException(
+                    "Specifying AllocationCreateFlags.DedicatedMemory with AllocationCreateFlags.NeverAllocate is invalid"
+                );
             }
 
             if ((createInfo.Flags & CheckFlags2) == CheckFlags2)
             {
-                throw new
-                    ArgumentException("Specifying AllocationCreateFlags.Mapped with AllocationCreateFlags.CanBecomeLost is invalid");
+                throw new ArgumentException(
+                    "Specifying AllocationCreateFlags.Mapped with AllocationCreateFlags.CanBecomeLost is invalid"
+                );
             }
 
             if (dedicatedInfo.RequiresDedicatedAllocation)
             {
                 if ((createInfo.Flags & AllocationCreateFlags.NeverAllocate) != 0)
                 {
-                    throw new
-                        AllocationException("AllocationCreateFlags.NeverAllocate specified while dedicated allocation required",
-                                            Result.ErrorOutOfDeviceMemory);
+                    throw new AllocationException(
+                        "AllocationCreateFlags.NeverAllocate specified while dedicated allocation required",
+                        Result.ErrorOutOfDeviceMemory
+                    );
                 }
 
                 if (createInfo.Pool != null)
                 {
-                    throw new ArgumentException("Pool specified while dedicated allocation required");
+                    throw new ArgumentException(
+                        "Pool specified while dedicated allocation required"
+                    );
                 }
             }
 
-            if (createInfo.Pool != null && (createInfo.Flags & AllocationCreateFlags.DedicatedMemory) != 0)
+            if (
+                createInfo.Pool != null
+                && (createInfo.Flags & AllocationCreateFlags.DedicatedMemory) != 0
+            )
             {
-                throw new
-                    ArgumentException("Specified AllocationCreateFlags.DedicatedMemory when createInfo.Pool is not null");
+                throw new ArgumentException(
+                    "Specified AllocationCreateFlags.DedicatedMemory when createInfo.Pool is not null"
+                );
             }
 
             if (createInfo.Pool != null)
             {
                 var memoryTypeIndex = createInfo.Pool.BlockList.MemoryTypeIndex;
-                var alignmentForPool =
-                    Math.Max((long)memReq.Alignment, GetMemoryTypeMinAlignment(memoryTypeIndex));
+                var alignmentForPool = Math.Max(
+                    (long)memReq.Alignment,
+                    GetMemoryTypeMinAlignment(memoryTypeIndex)
+                );
 
                 var infoForPool = createInfo;
 
-                if ((createInfo.Flags & AllocationCreateFlags.Mapped) != 0 &&
-                    (MemoryTypes[memoryTypeIndex].PropertyFlags &
-                     MemoryPropertyFlags.HostVisibleBit) == 0)
+                if (
+                    (createInfo.Flags & AllocationCreateFlags.Mapped) != 0
+                    && (
+                        MemoryTypes[memoryTypeIndex].PropertyFlags
+                        & MemoryPropertyFlags.HostVisibleBit
+                    ) == 0
+                )
                 {
                     infoForPool.Flags &= ~AllocationCreateFlags.Mapped;
                 }
 
-                return createInfo.Pool.BlockList.Allocate(CurrentFrameIndex, (long)memReq.Size, alignmentForPool,
-                                                          infoForPool, suballocType);
+                return createInfo.Pool.BlockList.Allocate(
+                    CurrentFrameIndex,
+                    (long)memReq.Size,
+                    alignmentForPool,
+                    infoForPool,
+                    suballocType
+                );
             }
 
             var memoryTypeBits = memReq.MemoryTypeBits;
@@ -680,15 +807,25 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             if (typeIndex == null)
             {
-                throw new AllocationException("Unable to find suitable memory type for allocation",
-                                              Result.ErrorFeatureNotPresent);
+                throw new AllocationException(
+                    "Unable to find suitable memory type for allocation",
+                    Result.ErrorFeatureNotPresent
+                );
             }
 
-            var alignmentForType =
-                Math.Max((long)memReq.Alignment, GetMemoryTypeMinAlignment((int)typeIndex));
+            var alignmentForType = Math.Max(
+                (long)memReq.Alignment,
+                GetMemoryTypeMinAlignment((int)typeIndex)
+            );
 
-            return AllocateMemoryOfType((long)memReq.Size, alignmentForType, in dedicatedInfo, in createInfo,
-                                        (int)typeIndex, suballocType);
+            return AllocateMemoryOfType(
+                (long)memReq.Size,
+                alignmentForType,
+                in dedicatedInfo,
+                in createInfo,
+                (int)typeIndex,
+                suballocType
+            );
         }
 
         public void FreeMemory(Allocation allocation)
@@ -727,7 +864,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 }
             }
 
-            Budget.RemoveAllocation(MemoryTypeIndexToHeapIndex(allocation.MemoryTypeIndex), allocation.Size);
+            Budget.RemoveAllocation(
+                MemoryTypeIndexToHeapIndex(allocation.MemoryTypeIndex),
+                allocation.Size
+            );
         }
 
         public Stats CalculateStats()
@@ -811,17 +951,25 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                     outBudget.BlockBytes = heapBudget.BlockBytes;
                     outBudget.AllocationBytes = heapBudget.AllocationBytes;
 
-                    if (heapBudget.VulkanUsage + outBudget.BlockBytes > heapBudget.BlockBytesAtBudgetFetch)
+                    if (
+                        heapBudget.VulkanUsage + outBudget.BlockBytes
+                        > heapBudget.BlockBytesAtBudgetFetch
+                    )
                     {
-                        outBudget.Usage = heapBudget.VulkanUsage + outBudget.BlockBytes -
-                                          heapBudget.BlockBytesAtBudgetFetch;
+                        outBudget.Usage =
+                            heapBudget.VulkanUsage
+                            + outBudget.BlockBytes
+                            - heapBudget.BlockBytesAtBudgetFetch;
                     }
                     else
                     {
                         outBudget.Usage = 0;
                     }
 
-                    outBudget.Budget = Math.Min(heapBudget.VulkanBudget, (long)MemoryHeaps[heapIndex].Size);
+                    outBudget.Budget = Math.Min(
+                        heapBudget.VulkanBudget,
+                        (long)MemoryHeaps[heapIndex].Size
+                    );
                 }
                 finally
                 {
@@ -871,17 +1019,25 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                         outBudget.BlockBytes = heapBudget.BlockBytes;
                         outBudget.AllocationBytes = heapBudget.AllocationBytes;
 
-                        if (heapBudget.VulkanUsage + outBudget.BlockBytes > heapBudget.BlockBytesAtBudgetFetch)
+                        if (
+                            heapBudget.VulkanUsage + outBudget.BlockBytes
+                            > heapBudget.BlockBytesAtBudgetFetch
+                        )
                         {
-                            outBudget.Usage = heapBudget.VulkanUsage + outBudget.BlockBytes -
-                                              heapBudget.BlockBytesAtBudgetFetch;
+                            outBudget.Usage =
+                                heapBudget.VulkanUsage
+                                + outBudget.BlockBytes
+                                - heapBudget.BlockBytesAtBudgetFetch;
                         }
                         else
                         {
                             outBudget.Usage = 0;
                         }
 
-                        outBudget.Budget = Math.Min(heapBudget.VulkanBudget, (long)MemoryHeaps[heapIndex].Size);
+                        outBudget.Budget = Math.Min(
+                            heapBudget.VulkanBudget,
+                            (long)MemoryHeaps[heapIndex].Size
+                        );
                     }
                 }
                 finally
@@ -906,8 +1062,11 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             }
         }
 
-        internal Result DefragmentationBegin(in DefragmentationInfo2 info, DefragmentationStats stats,
-                                             DefragmentationContext context)
+        internal Result DefragmentationBegin(
+            in DefragmentationInfo2 info,
+            DefragmentationStats stats,
+            DefragmentationContext context
+        )
         {
             throw new NotImplementedException();
         }
@@ -917,8 +1076,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             throw new NotImplementedException();
         }
 
-        internal Result DefragmentationPassBegin(ref DefragmentationPassMoveInfo[] passInfo,
-                                                 DefragmentationContext context)
+        internal Result DefragmentationPassBegin(
+            ref DefragmentationPassMoveInfo[] passInfo,
+            DefragmentationContext context
+        )
         {
             throw new NotImplementedException();
         }
@@ -942,8 +1103,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 throw new ArgumentException("Min block count is higher than max block count");
             }
 
-            if (tmpCreateInfo.MemoryTypeIndex >= MemoryTypeCount ||
-                ((1u << tmpCreateInfo.MemoryTypeIndex) & GlobalMemoryTypeBits) == 0)
+            if (
+                tmpCreateInfo.MemoryTypeIndex >= MemoryTypeCount
+                || ((1u << tmpCreateInfo.MemoryTypeIndex) & GlobalMemoryTypeBits) == 0
+            )
             {
                 throw new ArgumentException("Invalid memory type index");
             }
@@ -999,14 +1162,19 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             throw new NotImplementedException();
         }
 
-        internal Result AllocateVulkanMemory(in MemoryAllocateInfo allocInfo, out DeviceMemory memory)
+        internal Result AllocateVulkanMemory(
+            in MemoryAllocateInfo allocInfo,
+            out DeviceMemory memory
+        )
         {
             var heapIndex = MemoryTypeIndexToHeapIndex((int)allocInfo.MemoryTypeIndex);
             ref var budgetData = ref Budget.BudgetData[heapIndex];
 
             if ((HeapSizeLimitMask & (1u << heapIndex)) != 0)
             {
-                long heapSize, blockBytes, blockBytesAfterAlloc;
+                long heapSize,
+                    blockBytes,
+                    blockBytesAfterAlloc;
 
                 heapSize = (long)MemoryHeaps[heapIndex].Size;
 
@@ -1017,11 +1185,18 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
                     if (blockBytesAfterAlloc > heapSize)
                     {
-                        throw new AllocationException("Budget limit reached for heap index " + heapIndex,
-                                                      Result.ErrorOutOfDeviceMemory);
+                        throw new AllocationException(
+                            "Budget limit reached for heap index " + heapIndex,
+                            Result.ErrorOutOfDeviceMemory
+                        );
                     }
-                } while (Interlocked.CompareExchange(ref budgetData.BlockBytes, blockBytesAfterAlloc, blockBytes) !=
-                         blockBytes);
+                } while (
+                    Interlocked.CompareExchange(
+                        ref budgetData.BlockBytes,
+                        blockBytesAfterAlloc,
+                        blockBytes
+                    ) != blockBytes
+                );
             }
             else
             {
@@ -1050,15 +1225,27 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         {
             VkApi.FreeMemory(Device, memory, null);
 
-            Interlocked.Add(ref Budget.BudgetData[MemoryTypeIndexToHeapIndex(memoryType)].BlockBytes, -size);
+            Interlocked.Add(
+                ref Budget.BudgetData[MemoryTypeIndexToHeapIndex(memoryType)].BlockBytes,
+                -size
+            );
         }
 
-        internal Result BindVulkanBuffer(Buffer buffer, DeviceMemory memory, long offset, void* pNext)
+        internal Result BindVulkanBuffer(
+            Buffer buffer,
+            DeviceMemory memory,
+            long offset,
+            void* pNext
+        )
         {
             if (pNext == null)
                 return VkApi.BindBufferMemory(Device, buffer, memory, (ulong)offset);
-            var info = new BindBufferMemoryInfo(pNext: pNext, buffer: buffer, memory: memory,
-                                                memoryOffset: (ulong)offset);
+            var info = new BindBufferMemoryInfo(
+                pNext: pNext,
+                buffer: buffer,
+                memory: memory,
+                memoryOffset: (ulong)offset
+            );
 
             return VkApi.BindBufferMemory2(Device, 1, &info);
         }
@@ -1073,7 +1260,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 PNext = pNext,
                 Image = image,
                 Memory = memory,
-                MemoryOffset = (ulong)offset
+                MemoryOffset = (ulong)offset,
             };
 
             return VkApi.BindImageMemory2(Device, 1, &info);
@@ -1081,9 +1268,14 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
         internal void FillAllocation(Allocation allocation, byte pattern)
         {
-            if (!Helpers.DebugInitializeAllocations || allocation.CanBecomeLost ||
-                (MemoryTypes[allocation.MemoryTypeIndex].PropertyFlags &
-                 MemoryPropertyFlags.HostVisibleBit) == 0)
+            if (
+                !Helpers.DebugInitializeAllocations
+                || allocation.CanBecomeLost
+                || (
+                    MemoryTypes[allocation.MemoryTypeIndex].PropertyFlags
+                    & MemoryPropertyFlags.HostVisibleBit
+                ) == 0
+            )
                 return;
             var pData = allocation.Map();
 
@@ -1113,19 +1305,28 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             var heapSize = (long)MemoryHeaps[heapIndex].Size;
 
-            return Helpers.AlignUp(heapSize <= SmallHeapMaxSize ? (heapSize / 8) : PreferredLargeHeapBlockSize,
-                                   32);
+            return Helpers.AlignUp(
+                heapSize <= SmallHeapMaxSize ? (heapSize / 8) : PreferredLargeHeapBlockSize,
+                32
+            );
         }
 
-        private Allocation AllocateMemoryOfType(long size, long alignment, in DedicatedAllocationInfo dedicatedInfo,
-                                                in AllocationCreateInfo createInfo,
-                                                int memoryTypeIndex, SuballocationType suballocType)
+        private Allocation AllocateMemoryOfType(
+            long size,
+            long alignment,
+            in DedicatedAllocationInfo dedicatedInfo,
+            in AllocationCreateInfo createInfo,
+            int memoryTypeIndex,
+            SuballocationType suballocType
+        )
         {
             var finalCreateInfo = createInfo;
 
-            if ((finalCreateInfo.Flags & AllocationCreateFlags.Mapped) != 0 &&
-                (MemoryTypes[memoryTypeIndex].PropertyFlags & MemoryPropertyFlags.HostVisibleBit) ==
-                0)
+            if (
+                (finalCreateInfo.Flags & AllocationCreateFlags.Mapped) != 0
+                && (MemoryTypes[memoryTypeIndex].PropertyFlags & MemoryPropertyFlags.HostVisibleBit)
+                    == 0
+            )
             {
                 finalCreateInfo.Flags &= ~AllocationCreateFlags.Mapped;
             }
@@ -1139,11 +1340,14 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             var preferredBlockSize = blockList.PreferredBlockSize;
             var preferDedicatedMemory =
-                dedicatedInfo.RequiresDedicatedAllocation | dedicatedInfo.PrefersDedicatedAllocation ||
-                size > preferredBlockSize / 2;
+                dedicatedInfo.RequiresDedicatedAllocation | dedicatedInfo.PrefersDedicatedAllocation
+                || size > preferredBlockSize / 2;
 
-            if (preferDedicatedMemory && (finalCreateInfo.Flags & AllocationCreateFlags.NeverAllocate) == 0 &&
-                finalCreateInfo.Pool == null)
+            if (
+                preferDedicatedMemory
+                && (finalCreateInfo.Flags & AllocationCreateFlags.NeverAllocate) == 0
+                && finalCreateInfo.Pool == null
+            )
             {
                 finalCreateInfo.Flags |= AllocationCreateFlags.DedicatedMemory;
             }
@@ -1154,7 +1358,13 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             {
                 try
                 {
-                    return blockList.Allocate(CurrentFrameIndex, size, alignment, finalCreateInfo, suballocType);
+                    return blockList.Allocate(
+                        CurrentFrameIndex,
+                        size,
+                        alignment,
+                        finalCreateInfo,
+                        suballocType
+                    );
                 }
                 catch (Exception e)
                 {
@@ -1165,21 +1375,32 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             //Try a dedicated allocation if a block allocation failed, or if specified as a dedicated allocation
             if ((finalCreateInfo.Flags & AllocationCreateFlags.NeverAllocate) != 0)
             {
-                throw new
-                    AllocationException("Block List allocation failed, and `AllocationCreateFlags.NeverAllocate` specified",
-                                        blockAllocException);
+                throw new AllocationException(
+                    "Block List allocation failed, and `AllocationCreateFlags.NeverAllocate` specified",
+                    blockAllocException
+                );
             }
 
-            return AllocateDedicatedMemory(size, suballocType, memoryTypeIndex,
-                                           (finalCreateInfo.Flags & AllocationCreateFlags.WithinBudget) != 0,
-                                           (finalCreateInfo.Flags & AllocationCreateFlags.Mapped) != 0,
-                                           finalCreateInfo.UserData, in dedicatedInfo,
-                                           finalCreateInfo.MemoryAllocateNext);
+            return AllocateDedicatedMemory(
+                size,
+                suballocType,
+                memoryTypeIndex,
+                (finalCreateInfo.Flags & AllocationCreateFlags.WithinBudget) != 0,
+                (finalCreateInfo.Flags & AllocationCreateFlags.Mapped) != 0,
+                finalCreateInfo.UserData,
+                in dedicatedInfo,
+                finalCreateInfo.MemoryAllocateNext
+            );
         }
 
         private Allocation AllocateDedicatedMemoryPage(
-            long size, SuballocationType suballocType, int memTypeIndex, in MemoryAllocateInfo allocInfo, bool map,
-            object? userData)
+            long size,
+            SuballocationType suballocType,
+            int memTypeIndex,
+            in MemoryAllocateInfo allocInfo,
+            bool map,
+            object? userData
+        )
         {
             var res = AllocateVulkanMemory(in allocInfo, out var memory);
 
@@ -1201,9 +1422,16 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 }
             }
 
-            var allocation = new DedicatedAllocation(this, memTypeIndex, memory, suballocType, mappedData, size)
+            var allocation = new DedicatedAllocation(
+                this,
+                memTypeIndex,
+                memory,
+                suballocType,
+                mappedData,
+                size
+            )
             {
-                UserData = userData
+                UserData = userData,
             };
 
             Budget.AddAllocation(MemoryTypeIndexToHeapIndex(memTypeIndex), size);
@@ -1213,10 +1441,16 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             return allocation;
         }
 
-        private Allocation AllocateDedicatedMemory(long size, SuballocationType suballocType, int memTypeIndex,
-                                                   bool withinBudget, bool map, object? userData,
-                                                   in DedicatedAllocationInfo dedicatedInfo,
-                                                   IChain<MemoryAllocateInfo>? memoryAllocateNext)
+        private Allocation AllocateDedicatedMemory(
+            long size,
+            SuballocationType suballocType,
+            int memTypeIndex,
+            bool withinBudget,
+            bool map,
+            object? userData,
+            in DedicatedAllocationInfo dedicatedInfo,
+            IChain<MemoryAllocateInfo>? memoryAllocateNext
+        )
         {
             var heapIndex = MemoryTypeIndexToHeapIndex(memTypeIndex);
 
@@ -1225,8 +1459,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 GetBudget(heapIndex, out var budget);
                 if (budget.Usage + size > budget.Budget)
                 {
-                    throw new AllocationException("Memory Budget limit reached for heap index " + heapIndex,
-                                                  Result.ErrorOutOfDeviceMemory);
+                    throw new AllocationException(
+                        "Memory Budget limit reached for heap index " + heapIndex,
+                        Result.ErrorOutOfDeviceMemory
+                    );
                 }
             }
 
@@ -1234,13 +1470,20 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             {
                 SType = StructureType.MemoryAllocateInfo,
                 MemoryTypeIndex = (uint)memTypeIndex,
-                AllocationSize = (ulong)size
+                AllocationSize = (ulong)size,
             };
 
-            Debug.Assert(!(dedicatedInfo.DedicatedBuffer.Handle != default && dedicatedInfo.DedicatedImage.Handle != default),
-                         "dedicated buffer and dedicated image were both specified");
+            Debug.Assert(
+                !(
+                    dedicatedInfo.DedicatedBuffer.Handle != default
+                    && dedicatedInfo.DedicatedImage.Handle != default
+                ),
+                "dedicated buffer and dedicated image were both specified"
+            );
 
-            var dedicatedAllocInfo = new MemoryDedicatedAllocateInfo(StructureType.MemoryDedicatedAllocateInfo);
+            var dedicatedAllocInfo = new MemoryDedicatedAllocateInfo(
+                StructureType.MemoryDedicatedAllocateInfo
+            );
 
             if (dedicatedInfo.DedicatedBuffer.Handle != default)
             {
@@ -1253,16 +1496,21 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 allocInfo.PNext = &dedicatedAllocInfo;
             }
 
-            var allocFlagsInfo = new MemoryAllocateFlagsInfoKHR(StructureType.MemoryAllocateFlagsInfoKhr);
+            var allocFlagsInfo = new MemoryAllocateFlagsInfoKHR(
+                StructureType.MemoryAllocateFlagsInfoKhr
+            );
             if (UseKhrBufferDeviceAddress)
             {
                 var canContainBufferWithDeviceAddress = true;
 
                 if (dedicatedInfo.DedicatedBuffer.Handle != default)
                 {
-                    canContainBufferWithDeviceAddress = dedicatedInfo.DedicatedBufferUsage == UnknownBufferUsage
-                                                        || (dedicatedInfo.DedicatedBufferUsage &
-                                                            BufferUsageFlags.ShaderDeviceAddressBitExt) != 0;
+                    canContainBufferWithDeviceAddress =
+                        dedicatedInfo.DedicatedBufferUsage == UnknownBufferUsage
+                        || (
+                            dedicatedInfo.DedicatedBufferUsage
+                            & BufferUsageFlags.ShaderDeviceAddressBitExt
+                        ) != 0;
                 }
                 else if (dedicatedInfo.DedicatedImage.Handle != default)
                 {
@@ -1271,7 +1519,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
                 if (canContainBufferWithDeviceAddress)
                 {
-                    allocFlagsInfo.Flags = MemoryAllocateFlags.AddressBit;
+                    allocFlagsInfo.Flags = MemoryAllocateFlags.DeviceAddressBit;
                     allocFlagsInfo.PNext = allocInfo.PNext;
                     allocInfo.PNext = &allocFlagsInfo;
                 }
@@ -1288,7 +1536,14 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                 ptr->PNext = memoryAllocateNext[0].PNext;
             }
 
-            var alloc = AllocateDedicatedMemoryPage(size, suballocType, memTypeIndex, in allocInfo, map, userData);
+            var alloc = AllocateDedicatedMemoryPage(
+                size,
+                suballocType,
+                memTypeIndex,
+                in allocInfo,
+                map,
+                userData
+            );
 
             //Register made allocations
             ref var handler = ref DedicatedAllocations[memTypeIndex];
@@ -1296,7 +1551,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             handler.Mutex.EnterWriteLock();
             try
             {
-                handler.Allocations.InsertSorted(alloc, (alloc1, alloc2) => alloc1.Offset.CompareTo(alloc2.Offset));
+                handler.Allocations.InsertSorted(
+                    alloc,
+                    (alloc1, alloc2) => alloc1.Offset.CompareTo(alloc2.Offset)
+                );
             }
             finally
             {
@@ -1344,8 +1602,10 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             // Exclude memory types that have VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD.
             for (var index = 0; index < MemoryTypeCount; ++index)
             {
-                if ((MemoryTypes[index].PropertyFlags &
-                     MemoryPropertyFlags.DeviceCoherentBitAmd) != 0)
+                if (
+                    (MemoryTypes[index].PropertyFlags & MemoryPropertyFlags.DeviceCoherentBitAmd)
+                    != 0
+                )
                 {
                     memoryTypeBits &= ~(1u << index);
                 }
@@ -1358,11 +1618,14 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         {
             Debug.Assert(UseExtMemoryBudget);
 
-            var budgetProps =
-                new PhysicalDeviceMemoryBudgetPropertiesEXT(StructureType.PhysicalDeviceMemoryBudgetPropertiesExt);
+            var budgetProps = new PhysicalDeviceMemoryBudgetPropertiesEXT(
+                StructureType.PhysicalDeviceMemoryBudgetPropertiesExt
+            );
 
-            var memProps =
-                new PhysicalDeviceMemoryProperties2(StructureType.PhysicalDeviceMemoryProperties2, &budgetProps);
+            var memProps = new PhysicalDeviceMemoryProperties2(
+                StructureType.PhysicalDeviceMemoryProperties2,
+                &budgetProps
+            );
 
             VkApi.GetPhysicalDeviceMemoryProperties2(PhysicalDevice, &memProps);
 
@@ -1405,10 +1668,16 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             }
         }
 
-        internal Result FlushOrInvalidateAllocation(Allocation allocation, long offset, long size, CacheOperation op)
+        internal Result FlushOrInvalidateAllocation(
+            Allocation allocation,
+            long offset,
+            long size,
+            CacheOperation op
+        )
         {
             var memTypeIndex = allocation.MemoryTypeIndex;
-            if (size <= 0 || !IsMemoryTypeNonCoherent(memTypeIndex)) return Result.Success;
+            if (size <= 0 || !IsMemoryTypeNonCoherent(memTypeIndex))
+                return Result.Success;
             var allocSize = allocation.Size;
 
             Debug.Assert((ulong)offset <= (ulong)allocSize);
@@ -1432,8 +1701,11 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                         Debug.Assert(offset + size <= allocSize);
                     }
 
-                    memRange.Size =
-                        (ulong)Helpers.AlignUp(size + (offset - (long)memRange.Offset), nonCoherentAtomSize);
+                    memRange.Size = (ulong)
+                        Helpers.AlignUp(
+                            size + (offset - (long)memRange.Offset),
+                            nonCoherentAtomSize
+                        );
 
                     var allocOffset = blockAlloc.Offset;
 
@@ -1457,15 +1729,20 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
                     {
                         Debug.Assert(offset + size <= allocSize);
 
-                        memRange.Size =
-                            (ulong)Helpers.AlignUp(size + (offset - (long)memRange.Offset), nonCoherentAtomSize);
+                        memRange.Size = (ulong)
+                            Helpers.AlignUp(
+                                size + (offset - (long)memRange.Offset),
+                                nonCoherentAtomSize
+                            );
                     }
 
                     break;
                 }
                 default:
                     Debug.Assert(false);
-                    throw new ArgumentException("allocation type is not BlockAllocation or DedicatedAllocation");
+                    throw new ArgumentException(
+                        "allocation type is not BlockAllocation or DedicatedAllocation"
+                    );
             }
 
             switch (op)
@@ -1496,7 +1773,7 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
 
             public static readonly DedicatedAllocationInfo Default = new()
             {
-                DedicatedBufferUsage = unchecked((BufferUsageFlags)uint.MaxValue)
+                DedicatedBufferUsage = unchecked((BufferUsageFlags)uint.MaxValue),
             };
         }
     }

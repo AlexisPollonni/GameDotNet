@@ -1,22 +1,22 @@
 using Intellenum;
-using ShaderSlang.Net.Bindings.Generated;
+using SlangShaderSharp;
 
 namespace GameDotNet.Graphics.Models;
 
 [Intellenum<uint>]
-[Member("Vertex", Stage.Vertex)]
-[Member("Fragment", Stage.Fragment)]
-[Member("Compute", Stage.Compute)]
-[Member("Geometry", Stage.Geometry)]
+[Member("Vertex", SlangStage.Vertex)]
+[Member("Fragment", SlangStage.Fragment)]
+[Member("Compute", SlangStage.Compute)]
+[Member("Geometry", SlangStage.Geometry)]
 public partial class ShaderStage
 {
-    public static implicit operator Stage(ShaderStage stage) => stage.ToSlangStage();
+    public static implicit operator SlangStage(ShaderStage stage) => stage.ToSlangStage();
 
-    public static implicit operator ShaderStage(Stage stage) => FromSlangStage(stage);
+    public static implicit operator ShaderStage(SlangStage stage) => FromSlangStage(stage);
     
-    public Stage ToSlangStage() => (Stage)Value;
+    public SlangStage ToSlangStage() => (SlangStage)Value;
 
-    public static ShaderStage FromSlangStage(Stage stage)
+    public static ShaderStage FromSlangStage(SlangStage stage)
     {
         if(TryFromValue((uint)stage, out var shaderStage)) return shaderStage;
 

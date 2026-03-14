@@ -9,7 +9,7 @@ public interface IVulkanContext : IDisposable
     public Vk Api { get; }
     public VulkanInstance Instance { get; }
     public IVulkanAllocCallback Callbacks { get; }
-    public VulkanPhysDevice PhysDevice { get; }
+    public SelectedPhysDevice PhysDevice { get; }
     public VulkanDevice Device { get; }
     public VulkanMemoryAllocator Allocator { get; }
     public VulkanCommandBufferPool Pool { get; }

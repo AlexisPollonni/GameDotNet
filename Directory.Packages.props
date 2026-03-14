@@ -11,11 +11,10 @@
     <PackageVersion Include="AssimpNetter" Version="6.0.2.1" />
     <PackageVersion Include="AutoCtor" Version="2.10.0" />
     <PackageVersion Include="AutoFactories.Microsoft.DependencyInjection" Version="1.1.19" />
-    <PackageVersion Include="Avalonia" Version="11.3.10" />
-    <PackageVersion Include="Avalonia.Desktop" Version="11.3.10" />
+    <PackageVersion Include="Avalonia" Version="11.3.12" />
+    <PackageVersion Include="Avalonia.Desktop" Version="11.3.12" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.2.8" />
-    <PackageVersion Include="Avalonia.ReactiveUI" Version="11.3.8" />
-    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.10" />
+    <PackageVersion Include="Avalonia.Themes.Fluent" Version="11.3.12" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
     <PackageVersion Include="ByteSize" Version="2.1.2" />
     <PackageVersion Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
@@ -28,13 +27,19 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     <PackageVersion Include="Microsoft.DotNet.ILCompiler" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Extensions.DependencyInjection.AutoActivation" Version="10.1.0" />
+    <PackageVersion
+      Include="Microsoft.Extensions.DependencyInjection.AutoActivation"
+      Version="10.1.0"
+    />
     <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.1.0" />
     <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Extensions.ObjectPool" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Extensions.ObjectPool.DependencyInjection" Version="10.1.0" />
+    <PackageVersion
+      Include="Microsoft.Extensions.ObjectPool.DependencyInjection"
+      Version="10.1.0"
+    />
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.1.0" />
     <PackageVersion Include="Microsoft.Toolkit.HighPerformance" Version="7.1.2" />
     <PackageVersion Include="Nito.Disposables" Version="2.5.0" />
@@ -45,6 +50,11 @@
     <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.11.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.1" />
     <PackageVersion Include="QuikGraph" Version="2.5.0" />
+    <PackageVersion Include="ReactiveUI.Avalonia" Version="11.4.12" />
+    <PackageVersion
+      Include="ReactiveUI.Avalonia.Microsoft.Extensions.DependencyInjection"
+      Version="11.4.12"
+    />
     <PackageVersion Include="ReactiveUI.Fody" Version="19.5.41" />
     <PackageVersion Include="Serilog" Version="4.2.0" />
     <PackageVersion Include="Serilog.Extensions.Logging" Version="9.0.1" />
@@ -56,18 +66,16 @@
     <PackageVersion Include="Serilog.Sinks.File.GZip" Version="1.0.2" />
     <PackageVersion Include="ServiceScan.SourceGenerator" Version="2.3.4" />
     <PackageVersion Include="shaderc.net" Version="0.1.0" />
-    <PackageVersion Include="ShaderSlang.Net" Version="0.1.0-331" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
-    <PackageVersion Include="Silk.NET.Core" Version="2.22.0" />
-    <PackageVersion Include="Silk.NET.Input" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.Input.Common" Version="2.22.0" />
-    <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.21.0" />
+    <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.23.0" />
+    <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.22.0" />
     <PackageVersion Include="Silk.NET.WebGPU.Native.WGPU" Version="2.22.0" />
-    <PackageVersion Include="Silk.NET.Windowing.Extensions" Version="2.22.0" />
-    <PackageVersion Include="Silk.NET.Windowing.Sdl" Version="2.22.0" />
     <PackageVersion Include="Simple.Avalonia.Hosting" Version="8.5.0" />
+    <PackageVersion Include="SlangShaderSharp" Version="2026.4.0" />
     <PackageVersion Include="System.Linq.Async" Version="7.0.0" />
+    <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="TruePath" Version="1.10.0" />
     <PackageVersion Include="TUnit" Version="1.5.80" />
     <PackageVersion Include="ValueTaskSupplement" Version="1.1.0" />

@@ -1,4 +1,4 @@
-using GameDotNet.Core.Tools.Extensions;
+using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Graphics.Vulkan.Tools;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.KHR;

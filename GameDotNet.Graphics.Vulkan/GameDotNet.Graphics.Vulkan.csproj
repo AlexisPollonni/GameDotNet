@@ -1,16 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\GameDotNet.Graphics.Avalonia\GameDotNet.Graphics.Avalonia.csproj" />
     <ProjectReference Include="..\GameDotNet.Graphics\GameDotNet.Graphics.csproj" />
-    <ProjectReference Include="..\GameDotNet.Management\GameDotNet.Management.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="AutoFactories.Microsoft.DependencyInjection" />
+    <PackageReference Include="Injectio" />
     <PackageReference Include="Silk.NET.Vulkan.Extensions.EXT" />
+    <PackageReference Include="Silk.NET.Vulkan.Extensions.KHR" />
   </ItemGroup>
 </Project>

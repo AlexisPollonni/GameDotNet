@@ -1,40 +1,43 @@
 using CommunityToolkit.HighPerformance;
-using GameDotNet.Graphics.Vulkan.Tools.Allocators;
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using Silk.NET.Vulkan;
 using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public sealed class VulkanCommandBufferPool : IDisposable
+public sealed class VulkanCommandBufferPool : IVulkanWrapper<CommandPool>, IDisposable
 {
-    private readonly Vk _api;
-    private readonly VulkanDevice _device;
+    public IVulkanContext Context { get; }
+    public CommandPool Underlying { get; }
+
     private readonly DeviceQueue _queue;
-    private readonly IVulkanAllocCallback _callbacks;
-    private readonly CommandPool _commandPool;
 
-    private readonly List<CommandBuffer> _usedCommandBuffers = new();
-    private readonly object _lock = new();
+    private readonly List<CommandBuffer> _usedCommandBuffers = [];
+    private readonly Lock _lock = new();
 
-
-    public VulkanCommandBufferPool(Vk api, VulkanDevice device, DeviceQueue queue, IVulkanAllocCallback callbacks)
+    public VulkanCommandBufferPool(IVulkanContext context, DeviceQueue queue)
     {
-        _api = api;
-        _device = device;
+        Context = context;
         _queue = queue;
-        _callbacks = callbacks;
 
         var commandPoolCreateInfo = new CommandPoolCreateInfo
         {
             SType = StructureType.CommandPoolCreateInfo,
             Flags = CommandPoolCreateFlags.TransientBit,
-            QueueFamilyIndex = (uint)queue.FamilyIndex
+            QueueFamilyIndex = (uint)queue.FamilyIndex,
         };
 
-        _api.CreateCommandPool(_device, commandPoolCreateInfo, callbacks.Handle,
-                               out _commandPool)
+        context
+            .Api.CreateCommandPool(
+                context.Device,
+                in commandPoolCreateInfo,
+                in context.Callbacks.Handle,
+                out var pool
+            )
             .ThrowOnError();
+
+        Underlying = pool;
     }
 
     public void Dispose()
@@ -42,21 +45,26 @@ public sealed class VulkanCommandBufferPool : IDisposable
         lock (_lock)
         {
             FreeUsedCommandBuffers();
-            _api.DestroyCommandPool(_device, _commandPool, _callbacks.Handle);
+            Context.Api.DestroyCommandPool(Context.Device, Underlying, in Context.Callbacks.Handle);
         }
     }
 
     public VulkanCommandBuffer CreateCommandBuffer(VulkanFence? fence = null)
     {
-        return new(_api, _device, _queue, this, fence);
+        return new(Context, fence, _queue);
     }
 
     public void FreeUsedCommandBuffers()
     {
         lock (_lock)
         {
+            if (_usedCommandBuffers.Count == 0)
+            {
+                return;
+            }
+
             var s = _usedCommandBuffers.AsSpan();
-            _api.FreeCommandBuffers(_device, _commandPool, (uint)s.Length, s);
+            Context.Api.FreeCommandBuffers(Context.Device, Underlying, (uint)s.Length, s);
 
             _usedCommandBuffers.Clear();
         }
@@ -67,14 +75,18 @@ public sealed class VulkanCommandBufferPool : IDisposable
         var commandBufferAllocateInfo = new CommandBufferAllocateInfo
         {
             SType = StructureType.CommandBufferAllocateInfo,
-            CommandPool = _commandPool,
+            CommandPool = Underlying,
             CommandBufferCount = 1,
-            Level = CommandBufferLevel.Primary
+            Level = CommandBufferLevel.Primary,
         };
 
         lock (_lock)
         {
-            _api.AllocateCommandBuffers(_device, commandBufferAllocateInfo, out var commandBuffer);
+            Context.Api.AllocateCommandBuffers(
+                Context.Device,
+                in commandBufferAllocateInfo,
+                out var commandBuffer
+            );
 
             return commandBuffer;
         }
@@ -88,46 +100,50 @@ public sealed class VulkanCommandBufferPool : IDisposable
         }
     }
 
-    public sealed class VulkanCommandBuffer : IDisposable
+    public sealed class VulkanCommandBuffer : IVulkanWrapper<CommandBuffer>, IDisposable
     {
+        public IVulkanContext Context { get; }
+        public CommandBuffer Underlying { get; }
         public VulkanFence Fence { get; }
 
-        private readonly VulkanCommandBufferPool _commandBufferPool;
-        private readonly Vk _api;
-        private readonly VulkanDevice _device;
         private readonly DeviceQueue _queue;
         private readonly bool _fenceExternal;
 
         private bool _hasEnded;
         private bool _hasStarted;
 
-        public nint Handle => InternalHandle.Handle;
-
-        internal CommandBuffer InternalHandle { get; }
-
-        internal VulkanCommandBuffer(Vk api, VulkanDevice device, DeviceQueue queue,
-                                     VulkanCommandBufferPool commandBufferPool, VulkanFence? fence)
+        internal VulkanCommandBuffer(IVulkanContext context, VulkanFence? fence, DeviceQueue queue)
         {
-            _api = api;
-            _device = device;
-            _queue = queue;
-            _commandBufferPool = commandBufferPool;
             _fenceExternal = fence is not null;
+            Context = context;
+            _queue = queue;
 
-            Fence = fence ?? new(api, device, FenceCreateFlags.SignaledBit,
-                                 callbacks: commandBufferPool._callbacks.WithUserData("CmdBufferPool::Fence"));
+            Fence =
+                fence
+                ?? new(
+                    context.Api,
+                    context.Device,
+                    FenceCreateFlags.SignaledBit,
+                    callbacks: context.Callbacks.WithUserData("CmdBufferPool::Fence")
+                );
 
-            InternalHandle = _commandBufferPool.AllocateCommandBuffer();
+            Underlying = context.Pool.AllocateCommandBuffer();
         }
 
-        public static implicit operator CommandBuffer(VulkanCommandBuffer buffer) => buffer.InternalHandle;
+        public static implicit operator CommandBuffer(VulkanCommandBuffer buffer) =>
+            buffer.Underlying;
 
         public void Dispose()
         {
             Fence.Wait();
-            lock (_commandBufferPool._lock)
+            lock (Context.Pool._lock)
             {
-                _api.FreeCommandBuffers(_device, _commandBufferPool._commandPool, 1, InternalHandle);
+                Context.Api.FreeCommandBuffers(
+                    Context.Device,
+                    Context.Pool.Underlying,
+                    1,
+                    [Underlying]
+                );
             }
 
             if (!_fenceExternal)
@@ -136,7 +152,8 @@ public sealed class VulkanCommandBufferPool : IDisposable
 
         public void BeginRecording()
         {
-            if (_hasStarted) return;
+            if (_hasStarted)
+                return;
 
             Fence.Wait();
             Fence.Reset();
@@ -144,31 +161,34 @@ public sealed class VulkanCommandBufferPool : IDisposable
             var beginInfo = new CommandBufferBeginInfo
             {
                 SType = StructureType.CommandBufferBeginInfo,
-                Flags = CommandBufferUsageFlags.OneTimeSubmitBit
+                Flags = CommandBufferUsageFlags.OneTimeSubmitBit,
             };
 
-            _api.BeginCommandBuffer(InternalHandle, beginInfo);
+            Context.Api.BeginCommandBuffer(Underlying, in beginInfo);
 
             _hasStarted = true;
         }
 
         public void EndRecording()
         {
-            if (!_hasStarted || _hasEnded) return;
+            if (!_hasStarted || _hasEnded)
+                return;
 
             _hasEnded = true;
 
-            _api.EndCommandBuffer(InternalHandle);
+            Context.Api.EndCommandBuffer(Underlying);
         }
 
-
-        public void Submit(VulkanSemaphore? wait = null, PipelineStageFlags? waitDstStageMask = null,
-                           VulkanSemaphore? signal = null)
+        public void Submit(
+            VulkanSemaphore? wait = null,
+            PipelineStageFlags? waitDstStageMask = null,
+            VulkanSemaphore? signal = null
+        )
         {
             ReadOnlySpan<Semaphore> w = wait is null ? null : stackalloc[] { wait.Handle };
             ReadOnlySpan<PipelineStageFlags> f = waitDstStageMask is null
-                                                     ? null
-                                                     : stackalloc[] { waitDstStageMask.Value };
+                ? null
+                : stackalloc[] { waitDstStageMask.Value };
             ReadOnlySpan<Semaphore> sig = signal is null ? null : stackalloc[] { signal.Handle };
 
             Submit(w, f, sig);
@@ -177,32 +197,40 @@ public sealed class VulkanCommandBufferPool : IDisposable
         private unsafe void Submit(
             ReadOnlySpan<Semaphore> waitSemaphores,
             ReadOnlySpan<PipelineStageFlags> waitDstStageMask,
-            ReadOnlySpan<Semaphore> signalSemaphores)
+            ReadOnlySpan<Semaphore> signalSemaphores
+        )
         {
             EndRecording();
 
-            fixed (Semaphore* pWaitSemaphores = waitSemaphores, pSignalSemaphores = signalSemaphores)
+            fixed (
+                Semaphore* pWaitSemaphores = waitSemaphores,
+                    pSignalSemaphores = signalSemaphores
+            )
             {
                 fixed (PipelineStageFlags* pWaitDstStageMask = waitDstStageMask)
                 {
-                    var commandBuffer = InternalHandle;
+                    var commandBuffer = Underlying;
                     var submitInfo = new SubmitInfo
                     {
                         SType = StructureType.SubmitInfo,
-                        WaitSemaphoreCount = !waitSemaphores.IsEmpty ? (uint)waitSemaphores.Length : 0,
+                        WaitSemaphoreCount = !waitSemaphores.IsEmpty
+                            ? (uint)waitSemaphores.Length
+                            : 0,
                         PWaitSemaphores = pWaitSemaphores,
                         PWaitDstStageMask = pWaitDstStageMask,
                         CommandBufferCount = 1,
                         PCommandBuffers = &commandBuffer,
-                        SignalSemaphoreCount = !signalSemaphores.IsEmpty ? (uint)signalSemaphores.Length : 0,
+                        SignalSemaphoreCount = !signalSemaphores.IsEmpty
+                            ? (uint)signalSemaphores.Length
+                            : 0,
                         PSignalSemaphores = pSignalSemaphores,
                     };
 
-                    _api.QueueSubmit(_queue, 1, submitInfo, Fence);
+                    Context.Api.QueueSubmit(_queue, 1, in submitInfo, Fence);
                 }
             }
 
-            _commandBufferPool.DisposeCommandBuffer(this);
+            Context.Pool.DisposeCommandBuffer(this);
         }
     }
 }

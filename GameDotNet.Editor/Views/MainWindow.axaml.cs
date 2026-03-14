@@ -1,6 +1,6 @@
-using Avalonia.ReactiveUI;
 using Avalonia.Rendering;
 using GameDotNet.Editor.ViewModels;
+using ReactiveUI.Avalonia;
 
 namespace GameDotNet.Editor.Views
 {
