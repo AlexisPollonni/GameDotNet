@@ -79,20 +79,14 @@ public static class ServiceCollectionRegister
                 throw new InvalidOperationException("Failed to create Vulkan context");
             })
             .AddSingleton<IEntityRenderer, VulkanRenderer>()
+            .AddSingleton<IVulkanDevice, AvaloniaVulkanDeviceWrapper>()
             .AddAutoFactories();
     }
 }
 
-public class AvaloniaVulkanDeviceWrapper : IVulkanDevice
+public class AvaloniaVulkanDeviceWrapper(IVulkanContext context) : IVulkanDevice
 {
     private readonly Lock _lock = new();
-    private readonly IVulkanContext _context;
-
-    public AvaloniaVulkanDeviceWrapper(IVulkanContext context)
-    {
-        _context = context;
-        Instance = new AvaloniaVulkanInstanceWrapper(context);
-    }
 
     public void Dispose()
     {
@@ -103,7 +97,7 @@ public class AvaloniaVulkanDeviceWrapper : IVulkanDevice
     {
         if (false)
             return featureType == typeof(IVulkanContextExternalObjectsFeature)
-                ? new VulkanAvaloniaGpuInterop(_context)
+                ? new VulkanAvaloniaGpuInterop(context)
                 : null;
         return null;
     }
@@ -114,15 +108,15 @@ public class AvaloniaVulkanDeviceWrapper : IVulkanDevice
         return Disposable.Create(() => _lock.Exit());
     }
 
-    public IntPtr Handle => _context.Device.Underlying.Handle;
-    public IntPtr PhysicalDeviceHandle => _context.PhysDevice.Device.Underlying.Handle;
+    public IntPtr Handle => context.Device.Underlying.Handle;
+    public IntPtr PhysicalDeviceHandle => context.PhysDevice.Device.Underlying.Handle;
     public IntPtr MainQueueHandle =>
-        _context.Device.QueuesManager.GetFirstGraphic()?.Handle.Handle ?? IntPtr.Zero;
+        context.Device.QueuesManager.GetFirstGraphic()?.Handle.Handle ?? IntPtr.Zero;
     public uint GraphicsQueueFamilyIndex =>
-        (uint)(_context.Device.QueuesManager.GetFirstGraphic()?.FamilyIndex ?? 0);
-    public IVulkanInstance Instance { get; }
+        (uint)(context.Device.QueuesManager.GetFirstGraphic()?.FamilyIndex ?? 0);
+    public IVulkanInstance Instance { get; } = new AvaloniaVulkanInstanceWrapper(context);
     public bool IsLost { get; } = false; //TODO: Implement
-    public IEnumerable<string> EnabledExtensions => _context.PhysDevice.ExtensionsToEnable;
+    public IEnumerable<string> EnabledExtensions => context.PhysDevice.ExtensionsToEnable;
 }
 
 public class AvaloniaVulkanInstanceWrapper(IVulkanContext context) : IVulkanInstance
