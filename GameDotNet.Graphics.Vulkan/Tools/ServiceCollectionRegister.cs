@@ -1,9 +1,6 @@
 using System.Runtime.CompilerServices;
 using Avalonia;
-using Avalonia.Platform;
-using Avalonia.Rendering.Composition;
 using Avalonia.Vulkan;
-using GameDotNet.Core.Tooling;
 using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
@@ -95,10 +92,6 @@ public class AvaloniaVulkanDeviceWrapper(IVulkanContext context) : IVulkanDevice
 
     public object? TryGetFeature(Type featureType)
     {
-        if (false)
-            return featureType == typeof(IVulkanContextExternalObjectsFeature)
-                ? new VulkanAvaloniaGpuInterop(context)
-                : null;
         return null;
     }
 
@@ -137,161 +130,4 @@ public class AvaloniaVulkanInstanceWrapper(IVulkanContext context) : IVulkanInst
 
     public IntPtr Handle => context.Instance.Underlying.Handle;
     public IEnumerable<string> EnabledExtensions => context.Instance.EnabledExtensions;
-}
-
-internal unsafe class VulkanAvaloniaGpuInterop : IVulkanContextExternalObjectsFeature
-{
-    private readonly IVulkanContext _context;
-
-    public VulkanAvaloniaGpuInterop(IVulkanContext context)
-    {
-        _context = context;
-
-        var idProps = new PhysicalDeviceIDProperties
-        {
-            SType = StructureType.PhysicalDeviceIDProperties,
-        };
-        var props2 = new PhysicalDeviceProperties2
-        {
-            SType = StructureType.PhysicalDeviceProperties2,
-            PNext = &idProps,
-        };
-        context.Api.GetPhysicalDeviceProperties2(context.PhysDevice.Device, &props2);
-
-        DeviceUuid = new byte[16];
-        new ReadOnlySpan<byte>(idProps.DeviceUuid, 16).CopyTo(DeviceUuid);
-
-        if (idProps.DeviceLuidvalid)
-        {
-            DeviceLuid = new byte[8];
-            new ReadOnlySpan<byte>(idProps.DeviceLuid, 8).CopyTo(DeviceLuid);
-        }
-    }
-
-    public CompositionGpuImportedImageSynchronizationCapabilities GetSynchronizationCapabilities(
-        string imageHandleType
-    )
-    {
-        // For now semaphores only, see if we move towards timeline semaphores later
-        return CompositionGpuImportedImageSynchronizationCapabilities.Semaphores;
-    }
-
-    public IVulkanExternalImage ImportImage(
-        IPlatformHandle handle,
-        PlatformGraphicsExternalImageProperties properties
-    )
-    {
-        if (handle is not VulkanImageHandle imageHandle)
-        {
-            throw new ArgumentException("Invalid handle type", nameof(handle));
-        }
-
-        imageHandle.Image.TransitionLayout(
-            _context.Pool,
-            ImageLayout.ColorAttachmentOptimal,
-            AccessFlags.ColorAttachmentReadBit | AccessFlags.ColorAttachmentWriteBit
-        );
-        return new SharedImage(imageHandle.Image, ImageLayout.ColorAttachmentOptimal);
-    }
-
-    public IVulkanExternalSemaphore ImportSemaphore(IPlatformHandle handle)
-    {
-        return handle is not VulkanSemaphoreHandle semaphoreHandle
-            ? throw new ArgumentException("Invalid handle type", nameof(handle))
-            : new SharedSemaphore(_context, semaphoreHandle.Semaphore);
-    }
-
-    public IReadOnlyList<string> SupportedImageHandleTypes { get; } = [nameof(VulkanImageHandle)];
-    public IReadOnlyList<string> SupportedSemaphoreTypes { get; } = [nameof(VulkanSemaphoreHandle)];
-    public byte[] DeviceUuid { get; }
-    public byte[]? DeviceLuid { get; }
-
-    private sealed class SharedImage(VulkanImage image, ImageLayout currentLayout)
-        : SingleNonblockingDisposable<EmptyStruct>(default),
-            IVulkanExternalImage
-    {
-        private readonly VulkanImageView _view = image.GetImageView(
-            image.Format,
-            ImageAspectFlags.ColorBit
-        );
-
-        protected override void Dispose(EmptyStruct context)
-        {
-            _view.Dispose();
-        }
-
-        public VulkanImageInfo Info =>
-            new()
-            {
-                Format = (uint)image.Format,
-                Handle = image.Image.Handle,
-                Layout = (uint)currentLayout,
-                MemoryHandle = image.Allocation.DeviceMemory.Handle,
-                MemorySize = (ulong)image.Allocation.Size,
-                PixelSize = new((int)image.Extent.Width, (int)image.Extent.Height),
-                SampleCount = (uint)image.Description.SampleCount,
-                Tiling = (uint)image.CreateInfo.Tiling,
-                LevelCount = image.CreateInfo.MipLevels,
-                IsProtected = (image.CreateInfo.Flags & ImageCreateFlags.CreateProtectedBit) != 0,
-                UsageFlags = (uint)image.CreateInfo.Usage,
-                ViewHandle = _view.ImageView.Handle,
-            };
-    }
-
-    private sealed class SharedSemaphore(IVulkanContext context, VulkanSemaphore semaphore)
-        : SingleNonblockingDisposable<EmptyStruct>(default),
-            IVulkanExternalSemaphore
-    {
-        protected override void Dispose(EmptyStruct _)
-        {
-            // No need to dispose of anything, the underlying semaphore is owned by the context
-        }
-
-        public ulong Handle => semaphore.Handle.Handle;
-
-        void SubmitSemaphore(VulkanSemaphore? wait, VulkanSemaphore? signal)
-        {
-            var buf = context.Pool.CreateCommandBuffer();
-            buf.BeginRecording();
-            context.Api.CmdPipelineBarrier(
-                buf,
-                PipelineStageFlags.AllCommandsBit,
-                PipelineStageFlags.AllCommandsBit,
-                DependencyFlags.None,
-                0,
-                null,
-                0,
-                null,
-                0,
-                null
-            );
-
-            buf.EndRecording();
-            buf.Submit(wait, PipelineStageFlags.AllGraphicsBit, signal);
-        }
-
-        public void SubmitWaitSemaphore()
-        {
-            SubmitSemaphore(semaphore, null);
-        }
-
-        public void SubmitSignalSemaphore()
-        {
-            SubmitSemaphore(null, semaphore);
-        }
-    }
-
-    public sealed class VulkanImageHandle(VulkanImage image) : IPlatformHandle
-    {
-        public VulkanImage Image => image;
-        public IntPtr Handle => (IntPtr)image.Image.Handle;
-        public string? HandleDescriptor => nameof(VulkanImageHandle);
-    }
-
-    public sealed class VulkanSemaphoreHandle(VulkanSemaphore semaphore) : IPlatformHandle
-    {
-        public VulkanSemaphore Semaphore => semaphore;
-        public IntPtr Handle => (IntPtr)semaphore.Handle.Handle;
-        public string? HandleDescriptor => nameof(VulkanSemaphoreHandle);
-    }
 }
