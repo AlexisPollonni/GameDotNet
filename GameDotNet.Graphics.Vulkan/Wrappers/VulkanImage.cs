@@ -10,6 +10,7 @@ namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
 public sealed class VulkanImage : SingleNonblockingDisposable<EmptyStruct>, IDeviceTexture
 {
+    public ImageCreateInfo CreateInfo => _info;
     public Image Image { get; }
     public Allocation Allocation { get; }
 

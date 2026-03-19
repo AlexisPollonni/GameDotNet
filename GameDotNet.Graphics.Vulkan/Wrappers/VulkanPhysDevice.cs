@@ -1,35 +1,34 @@
 using GameDotNet.Core.Tooling.Extensions;
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using Silk.NET.Vulkan;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public class VulkanPhysDevice
+public class VulkanPhysDevice(IVulkanContext context, PhysicalDevice device)
+    : IVulkanWrapper<PhysicalDevice>
 {
-    private readonly Vk _api;
-    private readonly PhysicalDevice _handle;
+    public static implicit operator PhysicalDevice(VulkanPhysDevice device) => device.Underlying;
 
-    public VulkanPhysDevice(Vk api, PhysicalDevice handle)
-    {
-        _api = api;
-        _handle = handle;
-    }
+    public PhysicalDeviceFeatures GetFeatures() =>
+        Context.Api.GetPhysicalDeviceFeatures(Underlying);
 
-    public static implicit operator PhysicalDevice(VulkanPhysDevice device) => device._handle;
-
-    public PhysicalDeviceFeatures GetFeatures() => _api.GetPhysicalDeviceFeatures(_handle);
-
-    public PhysicalDeviceProperties GetProperties() => _api.GetPhysicalDeviceProperties(_handle);
+    public PhysicalDeviceProperties GetProperties() =>
+        Context.Api.GetPhysicalDeviceProperties(Underlying);
 
     public PhysicalDeviceMemoryProperties GetMemoryProperties() =>
-        _api.GetPhysicalDeviceMemoryProperties(_handle);
+        Context.Api.GetPhysicalDeviceMemoryProperties(Underlying);
 
     public unsafe IReadOnlyList<QueueFamilyProperties> GetQueueFamilyProperties()
     {
         var count = 0u;
-        _api.GetPhysicalDeviceQueueFamilyProperties(_handle, ref count, null);
+        Context.Api.GetPhysicalDeviceQueueFamilyProperties(Underlying, ref count, null);
 
         var properties = new QueueFamilyProperties[count];
-        _api.GetPhysicalDeviceQueueFamilyProperties(_handle, count.AsSpan(), properties.AsSpan());
+        Context.Api.GetPhysicalDeviceQueueFamilyProperties(
+            Underlying,
+            count.AsSpan(),
+            properties.AsSpan()
+        );
 
         return properties;
     }
@@ -37,7 +36,7 @@ public class VulkanPhysDevice
     public unsafe IReadOnlyList<QueueFamilyProperties2> GetQueueFamilyProperties2()
     {
         var count = 0u;
-        _api.GetPhysicalDeviceQueueFamilyProperties2(_handle, ref count, null);
+        Context.Api.GetPhysicalDeviceQueueFamilyProperties2(Underlying, ref count, null);
 
         var properties = new QueueFamilyProperties2[count];
 
@@ -45,8 +44,15 @@ public class VulkanPhysDevice
         var prop = new QueueFamilyProperties2(StructureType.QueueFamilyProperties2);
         Array.Fill(properties, prop);
 
-        _api.GetPhysicalDeviceQueueFamilyProperties2(_handle, count.AsSpan(), properties.AsSpan());
+        Context.Api.GetPhysicalDeviceQueueFamilyProperties2(
+            Underlying,
+            count.AsSpan(),
+            properties.AsSpan()
+        );
 
         return properties;
     }
+
+    public IVulkanContext Context => context;
+    public PhysicalDevice Underlying => device;
 }

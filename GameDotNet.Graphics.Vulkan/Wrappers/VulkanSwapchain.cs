@@ -18,19 +18,23 @@ public sealed class VulkanSwapchain : IDisposable
     private Image[]? _images;
     private ImageView[]? _imageViews;
 
-
-    internal VulkanSwapchain(VulkanInstance instance, VulkanDevice device, SwapchainKHR swapchain,
-                             AllocationCallbacks? alloc = null)
+    internal VulkanSwapchain(
+        VulkanInstance instance,
+        VulkanDevice device,
+        SwapchainKHR swapchain,
+        AllocationCallbacks? alloc = null
+    )
     {
         _instance = instance;
         _device = device;
         Swapchain = swapchain;
         _alloc = alloc;
 
-        if (!instance.Vk.TryGetDeviceExtension(_instance, _device, out _extension))
+        if (!instance.Context.Api.TryGetDeviceExtension(_instance, _device, out _extension))
         {
-            throw new
-                InvalidOperationException("Can't create Vulkan Swapchain, VK_KHR_swapchain device extension not available");
+            throw new InvalidOperationException(
+                "Can't create Vulkan Swapchain, VK_KHR_swapchain device extension not available"
+            );
         }
 
         ImageCount = (uint)GetImages().Count;
@@ -46,7 +50,7 @@ public sealed class VulkanSwapchain : IDisposable
         {
             foreach (var view in _imageViews)
             {
-                _instance.Vk.DestroyImageView(_device, view, _alloc.AsReadOnlyRefOrNull());
+                _instance.Context.Api.DestroyImageView(_device, view, _alloc.AsReadOnlyRefOrNull());
             }
         }
 
@@ -82,13 +86,21 @@ public sealed class VulkanSwapchain : IDisposable
                 Image = image,
                 ViewType = ImageViewType.Type2D,
                 Format = ImageFormat,
-                Components = new(ComponentSwizzle.Identity, ComponentSwizzle.Identity, ComponentSwizzle.Identity,
-                                 ComponentSwizzle.Identity),
-                SubresourceRange = new(ImageAspectFlags.ColorBit, 0, 1, 0, 1)
+                Components = new(
+                    ComponentSwizzle.Identity,
+                    ComponentSwizzle.Identity,
+                    ComponentSwizzle.Identity,
+                    ComponentSwizzle.Identity
+                ),
+                SubresourceRange = new(ImageAspectFlags.ColorBit, 0, 1, 0, 1),
             };
 
-            var res = _instance.Vk.CreateImageView(_device, createInfo, _alloc.AsReadOnlyRefOrNull(),
-                                                   out var imageView);
+            var res = _instance.Context.Api.CreateImageView(
+                _device,
+                createInfo,
+                _alloc.AsReadOnlyRefOrNull(),
+                out var imageView
+            );
             if (res is not Result.Success)
                 throw new VulkanException(res);
 
@@ -98,11 +110,22 @@ public sealed class VulkanSwapchain : IDisposable
         return _imageViews = imageViews;
     }
 
-    public Result AcquireNextImage(ulong timeout, Semaphore? semaphore, Fence? fence, out uint imageIndex)
+    public Result AcquireNextImage(
+        ulong timeout,
+        Semaphore? semaphore,
+        Fence? fence,
+        out uint imageIndex
+    )
     {
         imageIndex = 0U;
-        return _extension.AcquireNextImage(_device, Swapchain, timeout, semaphore ?? new(), fence ?? new(),
-                                           ref imageIndex);
+        return _extension.AcquireNextImage(
+            _device,
+            Swapchain,
+            timeout,
+            semaphore ?? new(),
+            fence ?? new(),
+            ref imageIndex
+        );
     }
 
     public Result QueuePresent(DeviceQueue queue, VulkanSemaphore waitSemaphore, uint currentIndex)
@@ -113,9 +136,13 @@ public sealed class VulkanSwapchain : IDisposable
         return QueuePresent(queue, w, s, currentIndex.AsSpan(), null);
     }
 
-    private unsafe Result QueuePresent(DeviceQueue queue, ReadOnlySpan<Semaphore> waitSemaphores,
-                                       ReadOnlySpan<SwapchainKHR> swapchains, ReadOnlySpan<uint> imageIndices,
-                                       Span<Result> results)
+    private unsafe Result QueuePresent(
+        DeviceQueue queue,
+        ReadOnlySpan<Semaphore> waitSemaphores,
+        ReadOnlySpan<SwapchainKHR> swapchains,
+        ReadOnlySpan<uint> imageIndices,
+        Span<Result> results
+    )
     {
         Result res;
 
@@ -132,7 +159,7 @@ public sealed class VulkanSwapchain : IDisposable
                 PImageIndices = pIndices,
                 PResults = pResults,
                 WaitSemaphoreCount = (uint)waitSemaphores.Length,
-                PWaitSemaphores = pWaits
+                PWaitSemaphores = pWaits,
             };
 
             res = _extension.QueuePresent(queue, info);

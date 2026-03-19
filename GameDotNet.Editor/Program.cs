@@ -1,9 +1,12 @@
 ﻿using System.Reactive.Concurrency;
+using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Logging;
+using Avalonia.Platform;
 using Avalonia.Rendering.Composition;
+using Avalonia.Vulkan;
 using GameDotNet.Editor.Services;
 using GameDotNet.Editor.Tools;
 using GameDotNet.Editor.ViewModels;
@@ -43,14 +46,6 @@ class Program
         builder.Logging.SetMinimumLevel(LogLevel.Debug);
 #endif
         //TODO: Change when moving to R3
-
-        var luid = Compositor
-            .TryGetDefaultCompositor()
-            ?.TryGetCompositionGpuInterop()
-            .GetAwaiter()
-            .GetResult()
-            ?.DeviceLuid;
-
         builder
             .Services.AddEngineInstrumentation()
             .AddAvaloniaLogger(
@@ -65,7 +60,7 @@ class Program
             )
             .AddTransient<ViewLocator>()
             .AddGameDotNetGraphicsAvalonia()
-            .AddVulkanRenderer(luid)
+            .AddVulkanRenderer()
             .AddGameDotNetEditor()
             .AddEditorViews()
             .AddViewerLogging();
@@ -95,6 +90,14 @@ class Program
             .Configure(() => new App(serviceProvider))
             .UsePlatformDetect()
             .UseReactiveUI(builder => { })
+            .With(new Win32PlatformOptions { RenderingMode = [Win32RenderingMode.Vulkan] })
+            .With(new X11PlatformOptions { RenderingMode = [X11RenderingMode.Vulkan] })
+            .With(
+                new VulkanOptions
+                {
+                    CustomSharedDevice = serviceProvider.GetRequiredService<IVulkanDevice>(),
+                }
+            )
             .AfterSetup(builder =>
             {
                 // The ApplicationLifetime is null when using the previewer.

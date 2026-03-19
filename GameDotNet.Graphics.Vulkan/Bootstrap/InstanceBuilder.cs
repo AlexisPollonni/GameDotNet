@@ -20,11 +20,8 @@ namespace GameDotNet.Graphics.Vulkan.Bootstrap;
 [SuppressMessage("ReSharper", "MemberCanBePrivate.Global")]
 [SuppressMessage("ReSharper", "PropertyCanBeMadeInitOnly.Global")]
 [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
-public class InstanceBuilder(Vk api)
+public partial class InstanceBuilder(IVulkanContext context)
 {
-    public InstanceBuilder()
-        : this(Vk.GetApi()) { }
-
     public bool IsHeadless { get; set; }
 
     /// <summary>
@@ -81,33 +78,31 @@ public class InstanceBuilder(Vk api)
                 _ => "Unknown",
             };
 
-            var msg = SilkMarshal.PtrToString((nint)data->PMessage);
+            var msg = SilkMarshal.PtrToString((nint)data->PMessage)?.ReplaceLineEndings(" ");
 
-            const string template = "<Vulkan || {MessageType}> {Message}";
-            switch (severity)
+            var level = severity switch
             {
-                case DebugUtilsMessageSeverityFlagsEXT.VerboseBitExt:
-                    logger.LogDebug(template, msgType, msg);
-                    break;
-                case DebugUtilsMessageSeverityFlagsEXT.InfoBitExt:
-                    logger.LogInformation(template, msgType, msg);
-                    break;
-                case DebugUtilsMessageSeverityFlagsEXT.WarningBitExt:
-                    logger.LogWarning(template, msgType, msg);
-                    break;
-                case DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt:
-                    logger.LogError(template, msgType, msg);
-                    break;
-                case DebugUtilsMessageSeverityFlagsEXT.None:
-                default:
-                    logger.LogWarning(template, msgType, msg);
-                    break;
-            }
+                DebugUtilsMessageSeverityFlagsEXT.VerboseBitExt => LogLevel.Debug,
+                DebugUtilsMessageSeverityFlagsEXT.InfoBitExt => LogLevel.Information,
+                DebugUtilsMessageSeverityFlagsEXT.WarningBitExt => LogLevel.Warning,
+                DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt => LogLevel.Error,
+                _ => LogLevel.Warning,
+            };
+
+            LogVulkanMessage(logger, level, msgType, msg ?? "No message provided");
 
             return Vk.False;
         };
         return this;
     }
+
+    [LoggerMessage("<Vulkan || {MessageType}> {Message}")]
+    static partial void LogVulkanMessage(
+        ILogger logger,
+        LogLevel logLevel,
+        string messageType,
+        string message
+    );
 
     public VulkanInstance Build()
     {
@@ -116,7 +111,7 @@ public class InstanceBuilder(Vk api)
 
         var sysInfo = new SystemInfo();
 
-        var apiVersion = ChooseApiVersion(api);
+        var apiVersion = ChooseApiVersion(context.Api);
 
         var supportsProperties2Ext = sysInfo.IsExtensionAvailable(
             KhrGetPhysicalDeviceProperties2.ExtensionName
@@ -160,7 +155,7 @@ public class InstanceBuilder(Vk api)
                     break;
                 case UnderlyingPlatform.MacOS:
                 case UnderlyingPlatform.IOS:
-                    addedWindowExtension = CheckAddWindow("VK_EXT_metal_surface");
+                    addedWindowExtension = CheckAddWindow(ExtMetalSurface.ExtensionName);
                     break;
                 case UnderlyingPlatform.Unknown:
                 default:
@@ -195,7 +190,7 @@ public class InstanceBuilder(Vk api)
         CreateAppInfo(out var appInfo, apiVersion).DisposeWith(d);
         CreateInstanceInfo(out var vkInstanceInfo, extensions, layers, appInfo).DisposeWith(d);
 
-        var res2 = api.CreateInstance(in vkInstanceInfo, in alloc, out var instance);
+        var res2 = context.Api.CreateInstance(in vkInstanceInfo, in alloc, out var instance);
         if (res2 != Result.Success)
             throw new PlatformException(
                 "Failed to bootstrap vulkan instance",
@@ -203,12 +198,12 @@ public class InstanceBuilder(Vk api)
             );
 
         if (DebugCallback is null)
-            return new(api, instance, apiVersion, supportsProperties2Ext);
+            return new(context, instance, apiVersion, supportsProperties2Ext, extensions);
 
         CreateDebugMessengerInfo(out var messengerInfo);
 
         var info = messengerInfo!.Value;
-        api.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
+        context.Api.TryGetInstanceExtension<ExtDebugUtils>(instance, out var debugUtilsExt);
 
         res2 = debugUtilsExt.CreateDebugUtilsMessenger(
             instance,
@@ -223,10 +218,11 @@ public class InstanceBuilder(Vk api)
             );
 
         return new(
-            api,
+            context,
             instance,
             apiVersion,
             supportsProperties2Ext,
+            extensions,
             IsValidationLayersEnabled,
             debugMessenger
         )

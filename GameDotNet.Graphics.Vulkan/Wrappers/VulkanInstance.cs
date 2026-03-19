@@ -1,57 +1,48 @@
+using GameDotNet.Core.Tooling;
+using GameDotNet.Graphics.Vulkan.Abstractions;
+using Nito.Disposables;
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.EXT;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public class VulkanInstance : IDisposable
+public sealed class VulkanInstance(
+    IVulkanContext context,
+    Instance instance,
+    Version32 vkVersion,
+    bool supportsProperties2Ext,
+    IEnumerable<string> enabledExtensions,
+    bool isValidationEnabled = false,
+    DebugUtilsMessengerEXT? messenger = null
+) : SingleNonblockingDisposable<EmptyStruct>(default), IVulkanWrapper<Instance>
 {
-    private readonly DebugUtilsMessengerEXT? _messenger;
-    internal readonly Instance Instance;
-
-    internal readonly Vk Vk;
-
-    public VulkanInstance(Vk context, Instance instance, Version32 vkVersion, bool supportsProperties2Ext,
-                          bool isValidationEnabled = false, DebugUtilsMessengerEXT? messenger = null)
-    {
-        Vk = context;
-        Vk.CurrentInstance = instance;
-        Instance = instance;
-        VkVersion = vkVersion;
-        SupportsProperties2Ext = supportsProperties2Ext;
-        IsValidationEnabled = isValidationEnabled;
-        _messenger = messenger;
-    }
-
+    public IVulkanContext Context { get; } = context;
+    public Instance Underlying { get; } = instance;
     public bool IsHeadless { get; internal set; }
-    public bool SupportsProperties2Ext { get; }
-    public bool IsValidationEnabled { get; }
-    public Version32 VkVersion { get; }
+    public bool SupportsProperties2Ext { get; } = supportsProperties2Ext;
+    public IEnumerable<string> EnabledExtensions { get; } = enabledExtensions;
+    public bool IsValidationEnabled { get; } = isValidationEnabled;
+    public Version32 VkVersion { get; } = vkVersion;
 
-    public void Dispose()
+    protected override void Dispose(EmptyStruct context)
     {
-        ReleaseUnmanagedResources();
-        GC.SuppressFinalize(this);
-    }
-
-    public static implicit operator Instance(VulkanInstance instance) => instance.Instance;
-
-    public IReadOnlyCollection<PhysicalDevice> GetPhysicalDevices() => Vk.GetPhysicalDevices(Instance);
-
-    ~VulkanInstance()
-    {
-        ReleaseUnmanagedResources();
-    }
-
-    private unsafe void ReleaseUnmanagedResources()
-    {
-        if (_messenger is not null)
+        if (messenger is not null)
         {
-            Vk.TryGetInstanceExtension<ExtDebugUtils>(Instance, out var utils);
-            utils.DestroyDebugUtilsMessenger(Instance, _messenger.Value, null);
+            Context.Api.TryGetInstanceExtension<ExtDebugUtils>(Context.Instance, out var utils);
+            utils.DestroyDebugUtilsMessenger(
+                Context.Instance,
+                messenger.Value,
+                in Context.Callbacks.Handle
+            );
         }
 
-        Vk.DestroyInstance(Instance, null);
-        Vk.Dispose();
+        Context.Api.DestroyInstance(Context.Instance, in Context.Callbacks.Handle);
+        Context.Api.Dispose();
     }
+
+    public static implicit operator Instance(VulkanInstance instance) => instance.Underlying;
+
+    public IReadOnlyCollection<PhysicalDevice> GetPhysicalDevices() =>
+        Context.Api.GetPhysicalDevices(Context.Instance);
 }

@@ -17,10 +17,14 @@ public sealed class VulkanSemaphorePair : SingleNonblockingDisposable<EmptyStruc
         : base(default)
     {
         _context = context;
+
+        var supported = GetSupportedSemaphoreExportHandleType(_context);
+
         var semaphoreExportInfo = new ExportSemaphoreCreateInfo(
-            handleTypes: OperatingSystem.IsWindows()
-                ? ExternalSemaphoreHandleTypeFlags.OpaqueWin32Bit
-                : ExternalSemaphoreHandleTypeFlags.OpaqueFDBit
+            handleTypes: supported
+                ?? throw new InvalidOperationException(
+                    "The physical device does not support exportable semaphores."
+                )
         );
         var semaphoreCreateInfo = new SemaphoreCreateInfo(
             pNext: exportable ? &semaphoreExportInfo : null
@@ -28,6 +32,58 @@ public sealed class VulkanSemaphorePair : SingleNonblockingDisposable<EmptyStruc
 
         ImageAvailableSemaphore = new(context, in semaphoreCreateInfo);
         RenderFinishedSemaphore = new(context, in semaphoreCreateInfo);
+    }
+
+    public static unsafe ExternalSemaphoreHandleTypeFlags? GetSupportedSemaphoreExportHandleType(
+        IVulkanContext context
+    )
+    {
+        if (
+            !context.Api.TryGetInstanceExtension<KhrExternalSemaphoreCapabilities>(
+                context.Instance,
+                out var ext
+            )
+        )
+        {
+            return null;
+        }
+
+        // Try NT handle first (modern, preferred)
+        ExternalSemaphoreHandleTypeFlags[] candidates = OperatingSystem.IsWindows()
+            ?
+            [
+                ExternalSemaphoreHandleTypeFlags.OpaqueWin32Bit,
+                ExternalSemaphoreHandleTypeFlags.OpaqueWin32KmtBit,
+            ]
+            : [ExternalSemaphoreHandleTypeFlags.OpaqueFDBit];
+
+        foreach (var candidate in candidates)
+        {
+            var info = new PhysicalDeviceExternalSemaphoreInfo
+            {
+                SType = StructureType.PhysicalDeviceExternalSemaphoreInfo,
+                HandleType = candidate,
+            };
+            var props = new ExternalSemaphoreProperties
+            {
+                SType = StructureType.ExternalSemaphoreProperties,
+            };
+
+            ext.GetPhysicalDeviceExternalSemaphoreProperties(
+                context.PhysDevice.Device,
+                &info,
+                &props
+            );
+
+            if (
+                (props.ExternalSemaphoreFeatures & ExternalSemaphoreFeatureFlags.ExportableBit) != 0
+            )
+            {
+                return candidate;
+            }
+        }
+
+        return null; // no exportable handle type found
     }
 
     public nint Export(bool renderFinished)
@@ -69,12 +125,12 @@ public sealed class VulkanSemaphorePair : SingleNonblockingDisposable<EmptyStruc
 
     protected override void Dispose(EmptyStruct context)
     {
-        _context.Instance.Vk.DestroySemaphore(
+        _context.Api.DestroySemaphore(
             _context.Device,
             ImageAvailableSemaphore,
             in _context.Callbacks.Handle
         );
-        _context.Instance.Vk.DestroySemaphore(
+        _context.Api.DestroySemaphore(
             _context.Device,
             RenderFinishedSemaphore,
             in _context.Callbacks.Handle

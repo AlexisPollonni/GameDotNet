@@ -6,24 +6,33 @@ namespace GameDotNet.Graphics.Vulkan.Tools;
 
 internal static class QueueTools
 {
-    public static int? GetFirstQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families, QueueFlags desiredFlags)
+    public static int? GetFirstQueueFamilyIndex(
+        IEnumerable<QueueFamilyProperties> families,
+        QueueFlags desiredFlags
+    )
     {
         foreach (var (i, family) in families.Index())
         {
-            if (family.QueueFlags.HasFlag(desiredFlags)) return i;
+            if (family.QueueFlags.HasFlag(desiredFlags))
+                return i;
         }
 
         return null;
     }
 
-    public static int? GetDedicatedQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families,
-                                                    QueueFlags desiredFlags, QueueFlags undesiredFlags)
+    public static int? GetDedicatedQueueFamilyIndex(
+        IEnumerable<QueueFamilyProperties> families,
+        QueueFlags desiredFlags,
+        QueueFlags undesiredFlags
+    )
     {
         foreach (var (i, family) in families.Index())
         {
-            if (family.QueueFlags.HasFlag(desiredFlags)
+            if (
+                family.QueueFlags.HasFlag(desiredFlags)
                 && !family.QueueFlags.HasFlag(undesiredFlags)
-                && !family.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
+                && !family.QueueFlags.HasFlag(QueueFlags.GraphicsBit)
+            )
             {
                 return i;
             }
@@ -32,13 +41,19 @@ internal static class QueueTools
         return null;
     }
 
-    public static int? GetSeparateQueueFamilyIndex(IEnumerable<QueueFamilyProperties> families,
-                                                   QueueFlags desiredFlags, QueueFlags undesiredFlags)
+    public static int? GetSeparateQueueFamilyIndex(
+        IEnumerable<QueueFamilyProperties> families,
+        QueueFlags desiredFlags,
+        QueueFlags undesiredFlags
+    )
     {
         int? index = null;
         foreach (var (i, family) in families.Index())
         {
-            if (!family.QueueFlags.HasFlag(desiredFlags) || family.QueueFlags.HasFlag(QueueFlags.GraphicsBit))
+            if (
+                !family.QueueFlags.HasFlag(desiredFlags)
+                || family.QueueFlags.HasFlag(QueueFlags.GraphicsBit)
+            )
                 continue;
 
             if (!family.QueueFlags.HasFlag(undesiredFlags))
@@ -52,18 +67,27 @@ internal static class QueueTools
         return index;
     }
 
-    public static int? GetPresentQueueFamilyIndex(VulkanInstance instance, PhysicalDevice device, SurfaceKHR surface,
-                                                  IReadOnlyList<QueueFamilyProperties> families)
+    public static int? GetPresentQueueFamilyIndex(
+        VulkanInstance instance,
+        PhysicalDevice device,
+        SurfaceKHR surface,
+        IReadOnlyList<QueueFamilyProperties> families
+    )
     {
         if (surface.Handle == 0)
             return null;
 
-        if (!instance.Vk.TryGetInstanceExtension(instance, out KhrSurface ext))
+        if (!instance.Context.Api.TryGetInstanceExtension(instance, out KhrSurface ext))
             return null;
 
         foreach (var (i, _) in families.Index())
         {
-            var res = ext.GetPhysicalDeviceSurfaceSupport(device, (uint)i, surface, out var presentSupport);
+            var res = ext.GetPhysicalDeviceSurfaceSupport(
+                device,
+                (uint)i,
+                surface,
+                out var presentSupport
+            );
             if (res != Result.Success)
                 return null;
 

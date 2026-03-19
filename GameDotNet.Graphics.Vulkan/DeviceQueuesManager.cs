@@ -18,16 +18,22 @@ public class DeviceQueuesManager
     private readonly ImmutableArray<QueueFamilyProperties2> _familyProperties2;
     private readonly DeviceQueue?[][] _queueCache;
 
-    public DeviceQueuesManager(VulkanInstance instance, VulkanPhysDevice physDevice, VulkanDevice device)
+    public DeviceQueuesManager(
+        VulkanInstance instance,
+        VulkanPhysDevice physDevice,
+        VulkanDevice device
+    )
     {
-        _api = instance.Vk;
+        _api = instance.Context.Api;
         _instance = instance;
         _physDevice = physDevice;
         _device = device;
         _lock = new();
 
         _familyProperties2 = physDevice.GetQueueFamilyProperties2().ToImmutableArray();
-        _familyProperties = _familyProperties2.Select(p => p.QueueFamilyProperties).ToImmutableArray();
+        _familyProperties = _familyProperties2
+            .Select(p => p.QueueFamilyProperties)
+            .ToImmutableArray();
 
         _queueCache = new DeviceQueue[_familyProperties.Length][];
 
@@ -44,7 +50,12 @@ public class DeviceQueuesManager
 
     public DeviceQueue? GetFirstPresent(VulkanSurface surface)
     {
-        var presentFamily = QueueTools.GetPresentQueueFamilyIndex(_instance, _physDevice, surface, _familyProperties);
+        var presentFamily = QueueTools.GetPresentQueueFamilyIndex(
+            _instance,
+            _physDevice,
+            surface,
+            _familyProperties
+        );
 
         return GetFirstQueueFromIndex(presentFamily);
     }
@@ -61,23 +72,40 @@ public class DeviceQueuesManager
         return GetQueueByIndexes(familyIndex, 0);
     }
 
-    public DeviceQueue? GetDedicatedQueue(QueueFlags desiredFlags, QueueFlags undesiredFlags, bool forceNew = false)
+    public DeviceQueue? GetDedicatedQueue(
+        QueueFlags desiredFlags,
+        QueueFlags undesiredFlags,
+        bool forceNew = false
+    )
     {
-        var index = QueueTools.GetDedicatedQueueFamilyIndex(_familyProperties, desiredFlags, undesiredFlags);
+        var index = QueueTools.GetDedicatedQueueFamilyIndex(
+            _familyProperties,
+            desiredFlags,
+            undesiredFlags
+        );
 
         return GetLastQueueOrNew(index, forceNew);
     }
 
-    public DeviceQueue? GetSeparateQueue(QueueFlags desiredFlags, QueueFlags undesiredFlags, bool forceNew = false)
+    public DeviceQueue? GetSeparateQueue(
+        QueueFlags desiredFlags,
+        QueueFlags undesiredFlags,
+        bool forceNew = false
+    )
     {
-        var index = QueueTools.GetSeparateQueueFamilyIndex(_familyProperties, desiredFlags, undesiredFlags);
+        var index = QueueTools.GetSeparateQueueFamilyIndex(
+            _familyProperties,
+            desiredFlags,
+            undesiredFlags
+        );
 
         return GetLastQueueOrNew(index, forceNew);
     }
 
     private DeviceQueue? GetLastQueueOrNew(int? familyIndex, bool forceNew)
     {
-        if (familyIndex is null) return null;
+        if (familyIndex is null)
+            return null;
 
         var queues = _queueCache[familyIndex.Value];
 
@@ -95,22 +123,30 @@ public class DeviceQueuesManager
 
     private DeviceQueue? GetQueueByIndexes(int? familyIndex, int queueIndex)
     {
-        if (familyIndex is null) return null;
+        if (familyIndex is null)
+            return null;
         if (familyIndex > _queueCache.Length)
-            throw new ArgumentOutOfRangeException(nameof(familyIndex), familyIndex,
-                                                  "Family index is out of bounds, no queue family has that index");
+            throw new ArgumentOutOfRangeException(
+                nameof(familyIndex),
+                familyIndex,
+                "Family index is out of bounds, no queue family has that index"
+            );
 
         var queueList = _queueCache[familyIndex.Value];
         if (queueIndex > queueList.Length)
-            throw new ArgumentOutOfRangeException(nameof(queueIndex), queueIndex,
-                                                  $"Queue index is out of bounds, can't create queue at this index in queue family n°{familyIndex}");
+            throw new ArgumentOutOfRangeException(
+                nameof(queueIndex),
+                queueIndex,
+                $"Queue index is out of bounds, can't create queue at this index in queue family n°{familyIndex}"
+            );
 
         DeviceQueue queue;
         lock (_lock)
         {
             queue = queueList[queueIndex];
 
-            if (queue is not null) return queue;
+            if (queue is not null)
+                return queue;
 
             queue = new(this, familyIndex.Value, queueIndex);
             queueList[queueIndex] = queue;

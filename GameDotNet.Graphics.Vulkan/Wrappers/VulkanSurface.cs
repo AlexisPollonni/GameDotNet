@@ -16,9 +16,10 @@ public sealed class VulkanSurface : IDisposable
         _surface = surface;
         _instance = instance;
 
-        if (!_instance.Vk.TryGetInstanceExtension(instance, out _surfaceExt))
-            throw new
-                InvalidOperationException("Can't create Vulkan Surface, VK_KHR_Surface instance extension not available");
+        if (!_instance.Context.Api.TryGetInstanceExtension(instance, out _surfaceExt))
+            throw new InvalidOperationException(
+                "Can't create Vulkan Surface, VK_KHR_Surface instance extension not available"
+            );
     }
 
     public void Dispose()
@@ -33,7 +34,11 @@ public sealed class VulkanSurface : IDisposable
 
     public SurfaceCapabilitiesKHR GetCapabilities(VulkanPhysDevice device)
     {
-        var res = _surfaceExt.GetPhysicalDeviceSurfaceCapabilities(device, _surface, out var capabilities);
+        var res = _surfaceExt.GetPhysicalDeviceSurfaceCapabilities(
+            device,
+            _surface,
+            out var capabilities
+        );
         if (res != Result.Success)
             throw new VulkanException(res);
 
@@ -43,7 +48,12 @@ public sealed class VulkanSurface : IDisposable
     public IReadOnlyList<SurfaceFormatKHR> GetSurfaceFormats(VulkanPhysDevice device)
     {
         var count = 0U;
-        _surfaceExt.GetPhysicalDeviceSurfaceFormats(device, _surface, count.AsSpan(), Span<SurfaceFormatKHR>.Empty);
+        _surfaceExt.GetPhysicalDeviceSurfaceFormats(
+            device,
+            _surface,
+            count.AsSpan(),
+            Span<SurfaceFormatKHR>.Empty
+        );
         var formats = new SurfaceFormatKHR[count];
         _surfaceExt.GetPhysicalDeviceSurfaceFormats(device, _surface, count.AsSpan(), formats);
 
@@ -53,7 +63,12 @@ public sealed class VulkanSurface : IDisposable
     public IReadOnlyList<PresentModeKHR> GetPresentModes(VulkanPhysDevice device)
     {
         var count = 0U;
-        _surfaceExt.GetPhysicalDeviceSurfacePresentModes(device, _surface, count.AsSpan(), Span<PresentModeKHR>.Empty);
+        _surfaceExt.GetPhysicalDeviceSurfacePresentModes(
+            device,
+            _surface,
+            count.AsSpan(),
+            Span<PresentModeKHR>.Empty
+        );
         var modes = new PresentModeKHR[count];
         _surfaceExt.GetPhysicalDeviceSurfacePresentModes(device, _surface, count.AsSpan(), modes);
 

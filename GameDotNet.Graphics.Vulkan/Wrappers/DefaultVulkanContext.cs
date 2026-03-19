@@ -33,15 +33,44 @@ public sealed class DefaultVulkanContext : IVulkanContext
 
     public DefaultVulkanContext(
         [FromFactory] ILogger<DefaultVulkanContext> logger,
+        SelectionCriteria criteria,
+        IEnumerable<string> requiredExtensions
+    )
+    {
+        _logger = logger;
+        Callbacks = MakeAlloc();
+        Api = Vk.GetApi();
+        Instance = MakeInstance(requiredExtensions);
+
+        PhysDevice = MakePhysDevice(criteria);
+        Device = MakeDevice();
+        Allocator = MakeAllocator();
+        MainGraphicsQueue = MakeQueue();
+        Pool = MakePool();
+    }
+
+    public DefaultVulkanContext(
+        [FromFactory] ILogger<DefaultVulkanContext> logger,
         ReadOnlySpan<byte> suggestedDeviceLuid
     )
     {
         _logger = logger;
         Callbacks = MakeAlloc();
-        Instance = MakeInstance();
-        Api = Instance.Vk;
+        Api = Vk.GetApi();
+        Instance = MakeInstance(isHeadless: true, requiredExtensions: []);
 
-        PhysDevice = MakePhysDevice(suggestedDeviceLuid);
+        var criteria = new SelectionCriteria
+        {
+            RequiredVersion = Vk.Version13,
+            RequirePresent = false,
+        };
+
+        if (suggestedDeviceLuid.Length > 0)
+        {
+            criteria.RequiredDeviceId = suggestedDeviceLuid.ToArray();
+        }
+
+        PhysDevice = MakePhysDevice(criteria);
         Device = MakeDevice();
         Allocator = MakeAllocator();
         MainGraphicsQueue = MakeQueue();
@@ -55,15 +84,22 @@ public sealed class DefaultVulkanContext : IVulkanContext
     {
         _logger = logger;
         Callbacks = MakeAlloc();
-        Instance = MakeInstance(view);
-        Api = Instance.Vk;
+        Api = Vk.GetApi();
+        Instance = MakeInstance([], view);
 
         if (view is not null)
         {
             Surface = CreateSurface(Instance, view);
         }
 
-        PhysDevice = MakePhysDevice([]);
+        var criteria = new SelectionCriteria
+        {
+            RequiredVersion = Vk.Version13,
+            RequirePresent = true,
+            DeferSurfaceInit = Surface is null, // if we couldn't create a surface, defer it to the phys device selection step
+        };
+
+        PhysDevice = MakePhysDevice(criteria);
         Device = MakeDevice();
         Allocator = MakeAllocator();
         MainGraphicsQueue = MakeQueue();
@@ -80,16 +116,27 @@ public sealed class DefaultVulkanContext : IVulkanContext
 #endif
     }
 
-    private VulkanInstance MakeInstance(IVkSurfaceSource? view = null)
+    private VulkanInstance MakeInstance(
+        IEnumerable<string> requiredExtensions,
+        IVkSurfaceSource? view = null,
+        bool isHeadless = false
+    )
     {
-        var builder = new InstanceBuilder
+        var extensions = requiredExtensions.ToList();
+        if (view is not null)
+        {
+            extensions.AddRange(GetRequiredSurfaceExtensions(view));
+        }
+
+        var builder = new InstanceBuilder(this)
         {
             ApplicationName = "App",
             EngineName = nameof(GameDotNet),
             EngineVersion = new Version32(0, 0, 1),
             RequiredApiVersion = Vk.Version13,
-            IsHeadless = view is null,
+            IsHeadless = isHeadless,
             AllocCallback = Callbacks.WithUserData("Instance"),
+            Extensions = extensions,
 #if DEBUG
             EnabledValidationFeatures = new List<ValidationFeatureEnableEXT>
             {
@@ -114,30 +161,15 @@ public sealed class DefaultVulkanContext : IVulkanContext
 #endif
         };
 #if DEBUG
+
         builder.UseDefaultDebugMessenger(_logger);
 #endif
-
-        if (view is not null)
-        {
-            builder.Extensions = GetGlfwRequiredVulkanExtensions(view);
-        }
 
         return builder.Build();
     }
 
-    private SelectedPhysDevice MakePhysDevice(ReadOnlySpan<byte> suggestedDeviceLuid)
+    private SelectedPhysDevice MakePhysDevice(SelectionCriteria criteria)
     {
-        var criteria = new PhysicalDeviceSelector.SelectionCriteria
-        {
-            RequiredVersion = Vk.Version13,
-            RequirePresent = false,
-        };
-
-        if (suggestedDeviceLuid.Length > 0)
-        {
-            criteria.RequiredDeviceId = suggestedDeviceLuid.ToArray();
-        }
-
         return new PhysicalDeviceSelector(Instance, Surface, criteria).Select();
     }
 
@@ -151,7 +183,7 @@ public sealed class DefaultVulkanContext : IVulkanContext
 
     private VulkanMemoryAllocator MakeAllocator()
     {
-        return new(new(Instance.VkVersion, Instance.Vk, Instance, PhysDevice.Device, Device));
+        return new(new(Instance.VkVersion, Api, Instance, PhysDevice.Device, Device));
     }
 
     private DeviceQueue MakeQueue()
@@ -176,7 +208,7 @@ public sealed class DefaultVulkanContext : IVulkanContext
         Api.Dispose();
     }
 
-    private static unsafe IEnumerable<string> GetGlfwRequiredVulkanExtensions(IVkSurfaceSource view)
+    private static unsafe IEnumerable<string> GetRequiredSurfaceExtensions(IVkSurfaceSource view)
     {
         Debug.Assert(view.VkSurface != null, "_window.VkSurface != null");
         var ppExtensions = view.VkSurface.GetRequiredExtensions(out var count);
@@ -193,7 +225,7 @@ public sealed class DefaultVulkanContext : IVulkanContext
     {
         Debug.Assert(window.VkSurface != null, "window.VkSurface != null");
 
-        var handle = window.VkSurface.Create<nint>(instance.Instance.ToHandle(), null);
+        var handle = window.VkSurface.Create<nint>(instance.Underlying.ToHandle(), null);
         return new(instance, handle.ToSurface());
     }
 }

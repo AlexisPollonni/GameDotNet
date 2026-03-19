@@ -23,7 +23,7 @@ public class SwapchainBuilder
         Info info
     )
     {
-        _vk = instance.Vk;
+        _vk = instance.Context.Api;
         _instance = instance;
         _physDevice = physDevice;
         _device = device;
@@ -36,7 +36,7 @@ public class SwapchainBuilder
             device.QueuesManager.GetFirstPresent(info.Surface)
             ?? throw new ArgumentException("Couldn't find present queue of Vulkan device");
 
-        if (!instance.Vk.TryGetDeviceExtension(instance, _device, out _extension))
+        if (!_vk.TryGetDeviceExtension(instance, _device, out _extension))
         {
             throw new InvalidOperationException(
                 "Can't create Vulkan Swapchain, VK_KHR_swapchain extension not available"

@@ -23,7 +23,7 @@ public class PhysicalDeviceSelector
         Surface = surface;
         Criteria = criteria ?? new SelectionCriteria();
         _instance = instance;
-        _vk = instance.Vk;
+        _vk = instance.Context.Api;
     }
 
     public VulkanSurface? Surface { get; }
@@ -66,7 +66,7 @@ public class PhysicalDeviceSelector
 
                 if (suitable is Suitable.Partial)
                 {
-                    selectedDevice = device;
+                    selectedDevice ??= device;
                 }
             }
         }
@@ -76,7 +76,7 @@ public class PhysicalDeviceSelector
 
         return new()
         {
-            Device = new(_vk, selectedDevice.Value.Device),
+            Device = new(_instance.Context, selectedDevice.Value.Device),
             Surface = Surface,
             InstanceVersion = _instance.VkVersion,
             Features = selectedDevice.Value.DeviceFeatures,
@@ -147,10 +147,7 @@ public class PhysicalDeviceSelector
         }
         else if (_instance.SupportsProperties2Ext)
         {
-            _vk.TryGetInstanceExtension(
-                _instance.Instance,
-                out KhrGetPhysicalDeviceProperties2 ext
-            );
+            _vk.TryGetInstanceExtension(_instance, out KhrGetPhysicalDeviceProperties2 ext);
             ext.GetPhysicalDeviceFeatures2(device, out localFeatures);
         }
 
@@ -255,7 +252,7 @@ public class PhysicalDeviceSelector
         }
         else if (!_instance.IsHeadless)
         {
-            if (_vk.TryGetInstanceExtension(_instance.Instance, out KhrSurface surfaceExt))
+            if (_vk.TryGetInstanceExtension(_instance, out KhrSurface surfaceExt))
             {
                 uint formatCounts = 0;
                 surfaceExt.GetPhysicalDeviceSurfaceFormats(
@@ -484,48 +481,48 @@ public class PhysicalDeviceSelector
         Partial,
         No,
     }
+}
 
-    public class SelectionCriteria
+public class SelectionCriteria
+{
+    public bool AllowAnyType = true;
+    public bool DeferSurfaceInit = false;
+    public List<string> DesiredExtensions;
+    public ulong DesiredMemSize = 0;
+    public Version32 DesiredVersion = Vk.Version10;
+
+    public List<GenericFeaturesNextNode> ExtendedFeaturesChain;
+
+    public PhysicalDeviceType PreferredType = PhysicalDeviceType.DiscreteGpu;
+    public bool RequireDedicatedComputeQueue = false;
+    public bool RequireDedicatedTransferQueue = false;
+
+    public List<string> RequiredExtensions;
+
+    public PhysicalDeviceFeatures? RequiredFeatures;
+    public PhysicalDeviceFeatures2? RequiredFeatures2;
+
+    public ulong RequiredMemSize = 0;
+    public Version32 RequiredVersion = Vk.Version10;
+    public bool RequirePresent = true;
+    public bool RequireSeparateComputeQueue = false;
+    public bool RequireSeparateTransferQueue = false;
+    public bool UseFirstGpuUnconditionally = false;
+
+    public byte[]? RequiredDeviceId { get; set; }
+
+    public SelectionCriteria()
     {
-        public bool AllowAnyType = true;
-        public bool DeferSurfaceInit = false;
-        public List<string> DesiredExtensions;
-        public ulong DesiredMemSize = 0;
-        public Version32 DesiredVersion = Vk.Version10;
+        RequiredExtensions = new();
+        DesiredExtensions = new();
+        ExtendedFeaturesChain = new();
+        RequiredFeatures = null;
+        RequiredFeatures2 = null;
+    }
 
-        public List<GenericFeaturesNextNode> ExtendedFeaturesChain;
-
-        public PhysicalDeviceType PreferredType = PhysicalDeviceType.DiscreteGpu;
-        public bool RequireDedicatedComputeQueue = false;
-        public bool RequireDedicatedTransferQueue = false;
-
-        public List<string> RequiredExtensions;
-
-        public PhysicalDeviceFeatures? RequiredFeatures;
-        public PhysicalDeviceFeatures2? RequiredFeatures2;
-
-        public ulong RequiredMemSize = 0;
-        public Version32 RequiredVersion = Vk.Version10;
-        public bool RequirePresent = true;
-        public bool RequireSeparateComputeQueue = false;
-        public bool RequireSeparateTransferQueue = false;
-        public bool UseFirstGpuUnconditionally = false;
-
-        public byte[]? RequiredDeviceId { get; set; }
-
-        public SelectionCriteria()
-        {
-            RequiredExtensions = new();
-            DesiredExtensions = new();
-            ExtendedFeaturesChain = new();
-            RequiredFeatures = null;
-            RequiredFeatures2 = null;
-        }
-
-        public void AddFeature()
-        {
-            throw new NotImplementedException();
-        }
+    public void AddFeature()
+    {
+        throw new NotImplementedException();
     }
 }
 
