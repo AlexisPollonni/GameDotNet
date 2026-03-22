@@ -8,7 +8,6 @@
     <File Path="global.json" />
     <File Path="NuGet.Config" />
     <File Path="README.md" />
-    <File Path=".gitmodules" />
     <File Path=".github\dependabot.yml" />
     <File Path="Directory.Build.props" />
   </Folder>
