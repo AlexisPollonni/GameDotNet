@@ -8,6 +8,7 @@ using GameDotNet.Graphics.Vulkan.Wrappers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Nito.Disposables;
+using Shouldly;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
 using Silk.NET.Vulkan;
@@ -25,9 +26,16 @@ public static class ServiceCollectionRegister
                 var logger = provider.GetRequiredService<ILogger<DefaultVulkanContext>>();
 
                 var contextFac = provider.GetRequiredService<IVulkanContextFactory>();
+                var instanceExtensions = new List<string>
+                {
+                    KhrGetPhysicalDeviceProperties2.ExtensionName,
+                    KhrExternalMemoryCapabilities.ExtensionName,
+                    KhrExternalSemaphoreCapabilities.ExtensionName,
+                };
 
                 SelectionCriteria criteria = new()
                 {
+                    RequiredVersion = Vk.Version13,
                     DeferSurfaceInit = true,
                     PreferredType = PhysicalDeviceType.DiscreteGpu,
                     RequirePresent = true,
@@ -41,27 +49,22 @@ public static class ServiceCollectionRegister
 
                 if (OperatingSystem.IsWindows())
                 {
-                    criteria.DesiredExtensions.Add("VK_KHR_external_memory_win32");
-                    criteria.DesiredExtensions.Add("VK_KHR_external_semaphore_win32");
+                    criteria.DesiredExtensions.Add(KhrExternalMemoryWin32.ExtensionName);
+                    criteria.DesiredExtensions.Add(KhrExternalSemaphoreWin32.ExtensionName);
                 }
                 else if (OperatingSystem.IsLinux())
                 {
-                    criteria.DesiredExtensions.Add("VK_KHR_external_memory_fd");
-                    criteria.DesiredExtensions.Add("VK_KHR_external_semaphore_fd");
+                    criteria.DesiredExtensions.Add(KhrExternalMemoryFd.ExtensionName);
+                    criteria.DesiredExtensions.Add(KhrExternalSemaphoreFd.ExtensionName);
+
+                    instanceExtensions.Add(KhrXlibSurface.ExtensionName);
                 }
                 else
                 {
                     throw new PlatformNotSupportedException("Unsupported platform");
                 }
 
-                var context = contextFac.CreateFrom(
-                    criteria,
-                    [
-                        KhrGetPhysicalDeviceProperties2.ExtensionName,
-                        KhrExternalMemoryCapabilities.ExtensionName,
-                        KhrExternalSemaphoreCapabilities.ExtensionName,
-                    ]
-                );
+                var context = contextFac.CreateFrom(criteria, instanceExtensions);
 
                 {
                     var props = context.PhysDevice.Properties;
@@ -104,9 +107,17 @@ public class AvaloniaVulkanDeviceWrapper(IVulkanContext context) : IVulkanDevice
     public IntPtr Handle => context.Device.Underlying.Handle;
     public IntPtr PhysicalDeviceHandle => context.PhysDevice.Device.Underlying.Handle;
     public IntPtr MainQueueHandle =>
-        context.Device.QueuesManager.GetFirstGraphic()?.Handle.Handle ?? IntPtr.Zero;
+        (
+            context.Device.QueuesManager.GetLastQueueOrNew((int)GraphicsQueueFamilyIndex, true)
+            ?? context.Device.QueuesManager.GetFirstGraphic().ShouldNotBeNull()
+        )
+            .Handle
+            .Handle;
     public uint GraphicsQueueFamilyIndex =>
-        (uint)(context.Device.QueuesManager.GetFirstGraphic()?.FamilyIndex ?? 0);
+        (uint)(
+            context.Device.QueuesManager.GetFirstGraphic()?.FamilyIndex
+            ?? throw new InvalidOperationException("Vulkan device has no graphics queue family")
+        );
     public IVulkanInstance Instance { get; } = new AvaloniaVulkanInstanceWrapper(context);
     public bool IsLost { get; } = false; //TODO: Implement
     public IEnumerable<string> EnabledExtensions => context.PhysDevice.ExtensionsToEnable;
