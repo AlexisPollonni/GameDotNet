@@ -27,8 +27,19 @@ public class DeviceBuilder(IVulkanContext context)
 
         var queueDesc = _info.QueueDescriptions.ToList();
         if (queueDesc.Count == 0)
-            for (uint i = 0; i < context.PhysDevice.QueueFamilies.Count; i++)
-                queueDesc.Add(new(i, 1, new[] { 1f }));
+        {
+            //by default request all queues from all families with priority 1
+            var allFamilies = context.PhysDevice.QueueFamilies.Select(
+                (family, i) =>
+                    new CustomQueueDescription(
+                        (uint)i,
+                        family.QueueCount,
+                        Enumerable.Repeat(1f, (int)family.QueueCount).ToList()
+                    )
+            );
+
+            queueDesc.AddRange(allFamilies);
+        }
 
         var queueCreateInfos = new List<DeviceQueueCreateInfo>();
         foreach (var desc in queueDesc)
