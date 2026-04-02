@@ -125,30 +125,37 @@ public class PhysicalDeviceSelector
             && (_instance.VkVersion >= Vk.Version11 || _instance.SupportsProperties2Ext)
         )
         {
-            GenericFeaturesNextNode* prev = null;
-            foreach (var extension in fillChain)
+            fixed (GenericFeaturesNextNode* chain = fillChain)
             {
-                if (prev is not null)
+                for (var i = 0; i < fillChain.Length - 1; i++)
                 {
-                    prev->pNext = &extension;
+                    chain[i].pNext = &chain[i + 1];
                 }
 
-                prev = &extension;
+                chain[fillChain.Length - 1].pNext = null;
             }
         }
 
-        var localFeatures = new PhysicalDeviceFeatures2();
-        fixed (void* p = fillChain)
-            localFeatures.PNext = p;
+        var localFeatures = new PhysicalDeviceFeatures2
+        {
+            SType = StructureType.PhysicalDeviceFeatures2,
+            PNext = null,
+        };
 
-        if (_instance.VkVersion >= Vk.Version11 && deviceProperties.ApiVersion >= Vk.Version11)
+        fixed (GenericFeaturesNextNode* chain = fillChain)
         {
-            _vk.GetPhysicalDeviceFeatures2(device, out localFeatures);
-        }
-        else if (_instance.SupportsProperties2Ext)
-        {
-            _vk.TryGetInstanceExtension(_instance, out KhrGetPhysicalDeviceProperties2 ext);
-            ext.GetPhysicalDeviceFeatures2(device, out localFeatures);
+            if (fillChain.Length > 0)
+                localFeatures.PNext = chain;
+
+            if (_instance.VkVersion >= Vk.Version11 && deviceProperties.ApiVersion >= Vk.Version11)
+            {
+                _vk.GetPhysicalDeviceFeatures2(device, out localFeatures);
+            }
+            else if (_instance.SupportsProperties2Ext)
+            {
+                _vk.TryGetInstanceExtension(_instance, out KhrGetPhysicalDeviceProperties2 ext);
+                ext.GetPhysicalDeviceFeatures2(device, out localFeatures);
+            }
         }
 
         return new()

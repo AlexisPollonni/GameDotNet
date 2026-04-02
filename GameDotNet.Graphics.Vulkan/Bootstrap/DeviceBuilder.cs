@@ -64,7 +64,10 @@ public class DeviceBuilder(IVulkanContext context)
         DeviceCreateInfo deviceCreateInfo;
 
         var physicalDeviceExtensionFeatures = context.PhysDevice.ExtendedFeaturesChain.ToList();
-        var localFeatures2 = new PhysicalDeviceFeatures2();
+        var localFeatures2 = new PhysicalDeviceFeatures2
+        {
+            SType = StructureType.PhysicalDeviceFeatures2,
+        };
 
         if (!userDefinedPhysDevFeatures2)
         {
@@ -111,7 +114,7 @@ public class DeviceBuilder(IVulkanContext context)
                 pQueueCreateInfos: queueCreateInfos.ToPtr(d),
                 ppEnabledExtensionNames: extensions.ToByteDoublePtr(d),
                 ppEnabledLayerNames: context.Instance.IsValidationEnabled
-                    ? Constants.DefaultValidationLayers.AsPtr()
+                    ? Constants.DefaultValidationLayers.ToByteDoublePtr(d)
                     : null,
                 pNext: nextArray.Length is not 0 ? (void*)nextArray[0].Handle : null
             );
