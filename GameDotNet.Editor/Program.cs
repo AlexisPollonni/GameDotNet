@@ -56,7 +56,9 @@ class Program
                 LogArea.Layout,
                 LogArea.Binding,
                 LogArea.Platform,
-                LogArea.Win32Platform
+                LogArea.Win32Platform,
+                LogArea.X11Platform,
+                LogArea.LinuxFramebufferPlatform
             )
             .AddTransient<ViewLocator>()
             .AddGameDotNetGraphicsAvalonia()
@@ -83,10 +85,11 @@ class Program
     public static AppBuilder BuildAvaloniaApp() =>
         BuildAvaloniaAppFromServiceProvider(EmptyServiceProvider);
 
-    private static AppBuilder BuildAvaloniaAppFromServiceProvider(
-        IServiceProvider serviceProvider
-    ) =>
-        AppBuilder
+    private static AppBuilder BuildAvaloniaAppFromServiceProvider(IServiceProvider serviceProvider)
+    {
+        Logger.Sink = serviceProvider.GetRequiredService<ILogSink>();
+
+        return AppBuilder
             .Configure(() => new App(serviceProvider))
             .UsePlatformDetect()
             .UseReactiveUI(builder => { })
@@ -109,6 +112,7 @@ class Program
                     AfterDesktopSetup(desktop, serviceProvider);
                 }
             });
+    }
 
     private static void AfterDesktopSetup(
         IClassicDesktopStyleApplicationLifetime desktop,
@@ -119,8 +123,6 @@ class Program
         var mainWindowViewModel = provider.GetRequiredService<MainWindowViewModel>();
         mainWindow.DataContext = mainWindowViewModel;
         desktop.MainWindow = mainWindow;
-
-        Logger.Sink = provider.GetRequiredService<ILogSink>();
 
         Application.Current?.DataTemplates.Add(provider.GetRequiredService<ViewLocator>());
 
