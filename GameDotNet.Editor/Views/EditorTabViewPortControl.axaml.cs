@@ -6,6 +6,7 @@ using Avalonia.Platform;
 using Avalonia.Rendering.Composition;
 using Avalonia.Skia;
 using Avalonia.Threading;
+using Avalonia.Vulkan;
 using GameDotNet.Core.Abstractions;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Editor.ViewModels;
@@ -15,7 +16,9 @@ using GameDotNet.Graphics.Avalonia.Gpu.Interop;
 using GameDotNet.Graphics.Models;
 using GameDotNet.Graphics.Tooling;
 using GameDotNet.Graphics.Vulkan;
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
+using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using MessagePipe;
 using Microsoft.Extensions.DependencyInjection;
@@ -53,7 +56,7 @@ public class RenderThreadAnimationControl(
     ILogger<RenderThreadAnimationControl> logger,
     IVulkanContext context,
     IAsyncRequestHandler<RenderFrameRequest, RenderFramePresentResponse> renderHandler,
-    ObjectPool<PooledValueTaskSource> tcsPool,
+    IVulkanDevice vulkanDevice,
     IEventBus eventBus
 ) : AvaloniaViewPortControl(logger, eventBus)
 {
@@ -74,8 +77,11 @@ public class RenderThreadAnimationControl(
 
     public TimelineStats? RenderStats { get; private set; }
 
-    private class CustomVisualHandler(ILogger logger, Channel<SkiaFrameReady> frameReadyChannel)
-        : CompositionCustomVisualHandler
+    private class CustomVisualHandler(
+        ILogger logger,
+        Channel<SkiaFrameReady> frameReadyChannel,
+        IVulkanDevice device
+    ) : CompositionCustomVisualHandler
     {
         public override void OnRender(ImmediateDrawingContext drawingContext)
         {
@@ -94,6 +100,8 @@ public class RenderThreadAnimationControl(
 
             try
             {
+                using var _ = device.Lock(); // ensure we have access to the Vulkan device for the duration of the draw call
+
                 DrawCanvas(
                     lease.SkCanvas,
                     lease.GrContext.ShouldNotBeNull("No Gr Context"),
@@ -116,7 +124,10 @@ public class RenderThreadAnimationControl(
 
         private void DrawCanvas(SKCanvas canvas, GRContext context, SkiaSwapchainImage image)
         {
-            var vkImageInfo = image.ImageInfo;
+            var vkImageInfo = image.ImageInfo with
+            {
+                CurrentQueueFamily = device.GraphicsQueueFamilyIndex,
+            };
 
             var backendTexture = new GRBackendTexture(
                 image.Size.Width,
@@ -152,7 +163,7 @@ public class RenderThreadAnimationControl(
 
             var compositor = visual.Compositor;
 
-            _handler = new(logger, _swapchainChannel);
+            _handler = new(logger, _swapchainChannel, vulkanDevice);
             _customVisual = compositor.CreateCustomVisual(_handler);
             _customVisual.Size = new(Bounds.Width, Bounds.Height);
             ElementComposition.SetElementChildVisual(this, _customVisual);
@@ -238,7 +249,7 @@ public class RenderThreadAnimationControl(
 
         if (_presentImage is null || _presentImage.Size != pixelSize)
         {
-            await (_presentImage?.DisposeAsync() ?? ValueTask.CompletedTask).ConfigureAwait(false);
+            _presentImage?.Dispose();
 
             _presentImage = new(context, pixelSize);
         }
@@ -248,19 +259,13 @@ public class RenderThreadAnimationControl(
             .InvokeAsync(new(this, _presentImage.Image), token)
             .ConfigureAwait(false);
 
-        // Transition to shader-readable
-        _presentImage.Present();
-
         Dispatcher.UIThread.Invoke(() => RenderStats = presentResponse.RenderStats);
         await _swapchainChannel.Writer.WriteAsync(new(_presentImage), token).ConfigureAwait(false);
     }
 }
 
-internal class SkiaSwapchainImage : SingleNonblockingAsyncDisposable<EmptyStruct>, ISwapchainImage
+internal class SkiaSwapchainImage : SingleDisposable<EmptyStruct>
 {
-    private readonly IVulkanContext _context;
-    private readonly VulkanFence _renderFence;
-
     internal VulkanImage Image { get; }
 
     public PixelSize Size { get; }
@@ -284,13 +289,12 @@ internal class SkiaSwapchainImage : SingleNonblockingAsyncDisposable<EmptyStruct
             LevelCount = Image.CreateInfo.MipLevels,
             Protected = Image.CreateInfo.Flags.HasFlag(ImageCreateFlags.CreateProtectedBit),
             SharingMode = (uint)Image.CreateInfo.SharingMode,
-            CurrentQueueFamily = (uint)_context.Device.QueuesManager.GetFirstGraphic()!.FamilyIndex,
+            CurrentQueueFamily = 0,
         };
 
     public SkiaSwapchainImage(IVulkanContext context, PixelSize size)
         : base(default)
     {
-        _context = context;
         Size = size;
 
         // Normal image — no external memory flags needed
@@ -306,52 +310,11 @@ internal class SkiaSwapchainImage : SingleNonblockingAsyncDisposable<EmptyStruct
         var allocInfo = new AllocationCreateInfo { Usage = MemoryUsage.GPU_Only };
 
         Image = new(context, in createInfo, in allocInfo);
-
-        _renderFence = new(
-            context.Api,
-            context.Device,
-            FenceCreateFlags.SignaledBit,
-            context.Callbacks
-        );
     }
 
-    public void BeginDraw()
+    protected override void Dispose(EmptyStruct context)
     {
-        // Wait for previous frame's GPU work on this image to complete
-        _renderFence.Wait();
-        _renderFence.Reset();
-
-        _context.Pool.FreeUsedCommandBuffers();
-
-        using var cmd = _context.Pool.CreateCommandBuffer();
-        cmd.BeginRecording();
-        Image.TransitionLayout(
-            cmd,
-            ImageLayout.ColorAttachmentOptimal,
-            AccessFlags.ColorAttachmentWriteBit
-        );
-        cmd.Submit();
-    }
-
-    public void Present()
-    {
-        // Transition to shader-readable for Skia sampling
-        Image.TransitionLayout(
-            _context.Pool,
-            ImageLayout.ShaderReadOnlyOptimal,
-            AccessFlags.ShaderReadBit
-        );
-
-        // LastPresent completes immediately since there's no async GPU interop
-        LastPresent = Task.CompletedTask;
-    }
-
-    protected override ValueTask DisposeAsync(EmptyStruct _)
-    {
-        _renderFence.Wait(); // ensure GPU is done
-        _renderFence.Dispose();
         Image.Dispose();
-        return ValueTask.CompletedTask;
     }
 }
 

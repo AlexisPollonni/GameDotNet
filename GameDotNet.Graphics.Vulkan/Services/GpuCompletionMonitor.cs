@@ -13,7 +13,6 @@ namespace GameDotNet.Graphics.Vulkan.Services;
 /// Single background thread that monitors all pending timeline semaphore completions.
 /// Uses vkWaitSemaphores with AnyBit — kernel wakes the thread on the first GPU signal.
 /// </summary>
-[RegisterSingleton<GpuCompletionMonitor>]
 public sealed class GpuCompletionMonitor : SingleAsyncDisposable<EmptyStruct>
 {
     private readonly ObjectPool<PooledValueTaskSource> _vtsPool;

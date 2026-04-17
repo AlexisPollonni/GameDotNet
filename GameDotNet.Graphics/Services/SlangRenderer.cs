@@ -42,7 +42,7 @@ public class SlangRenderer(IEntityRenderer renderer)
         CancellationToken cancellationToken = default
     )
     {
-        var stats = renderer.Render(request.Texture);
+        var stats = await renderer.Render(request.Texture);
 
         return new(stats);
     }

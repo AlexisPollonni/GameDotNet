@@ -1,8 +1,11 @@
 using System.Runtime.CompilerServices;
 using Avalonia;
 using Avalonia.Vulkan;
+using GameDotNet.Core.Tooling;
 using GameDotNet.Graphics.Abstractions;
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
+using GameDotNet.Graphics.Vulkan.Services;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Microsoft.Extensions.DependencyInjection;
@@ -47,6 +50,15 @@ public static class ServiceCollectionRegister
                     ],
                 };
 
+                criteria.ExtendedFeaturesChain = Chain.Create(
+                    new PhysicalDeviceFeatures2(features: null),
+                    new PhysicalDeviceVulkan12Features(timelineSemaphore: true),
+                    new PhysicalDeviceVulkan13Features(
+                        synchronization2: true,
+                        dynamicRendering: true
+                    )
+                );
+
                 if (OperatingSystem.IsWindows())
                 {
                     criteria.DesiredExtensions.Add(KhrExternalMemoryWin32.ExtensionName);
@@ -66,31 +78,43 @@ public static class ServiceCollectionRegister
 
                 var context = contextFac.CreateFrom(criteria, instanceExtensions);
 
-                {
-                    var props = context.PhysDevice.Properties;
-                    logger.LogInformation(
-                        "Created vulkan context with device {VulkanDevice}",
-                        SilkMarshal.PtrToString((IntPtr)props.DeviceName)
-                    );
+                var props = context.PhysDevice.Properties;
+                logger.LogInformation(
+                    "Created vulkan context with device {VulkanDevice}",
+                    SilkMarshal.PtrToString((IntPtr)props.DeviceName)
+                );
 
-                    return (DefaultVulkanContext)context;
-                }
+                return (DefaultVulkanContext)context;
 
                 throw new InvalidOperationException("Failed to create Vulkan context");
             })
+            .AddSingleton<GpuCompletionMonitor>()
+            .AddKeyedSingleton<CommandSubmitter>(QueueFlags.GraphicsBit)
             .AddSingleton<IEntityRenderer, VulkanRenderer>()
             .AddSingleton<IVulkanDevice, AvaloniaVulkanDeviceWrapper>()
             .AddAutoFactories();
     }
 }
 
-public class AvaloniaVulkanDeviceWrapper(IVulkanContext context) : IVulkanDevice
+public class AvaloniaVulkanDeviceWrapper : SingleDisposable<EmptyStruct>, IVulkanDevice
 {
-    private readonly Lock _lock = new();
+    private readonly IVulkanContext _context;
+    private readonly Task<QueueHandle?> _avaloniaQueue;
+    private readonly CancellationTokenSource _disposeTokenSource = new();
 
-    public void Dispose()
+    public AvaloniaVulkanDeviceWrapper(IVulkanContext context)
+        : base(default)
     {
-        //noop
+        _context = context;
+
+        _avaloniaQueue = context.Queues.GetFirstGraphic().AsTask();
+
+        Instance = new AvaloniaVulkanInstanceWrapper(context);
+    }
+
+    protected override void Dispose(EmptyStruct context)
+    {
+        _disposeTokenSource.Dispose();
     }
 
     public object? TryGetFeature(Type featureType)
@@ -100,27 +124,37 @@ public class AvaloniaVulkanDeviceWrapper(IVulkanContext context) : IVulkanDevice
 
     public IDisposable Lock()
     {
-        _lock.Enter();
-        return Disposable.Create(() => _lock.Exit());
+        return Disposable.Create(null);
     }
 
-    public IntPtr Handle => context.Device.Underlying.Handle;
-    public IntPtr PhysicalDeviceHandle => context.PhysDevice.Device.Underlying.Handle;
-    public IntPtr MainQueueHandle =>
-        (
-            context.Device.QueuesManager.GetLastQueueOrNew((int)GraphicsQueueFamilyIndex, true)
-            ?? context.Device.QueuesManager.GetFirstGraphic().ShouldNotBeNull()
+    public IntPtr Handle => _context.Device.Underlying.Handle;
+    public IntPtr PhysicalDeviceHandle => _context.PhysDevice.Device.Underlying.Handle;
+    public IntPtr MainQueueHandle => GetAvaloniaQueue().Underlying.Handle;
+
+    public uint GraphicsQueueFamilyIndex => GetAvaloniaQueue().FamilyIndex;
+    public IVulkanInstance Instance { get; }
+    public bool IsLost => false; //TODO: Implement
+    public IEnumerable<string> EnabledExtensions => _context.PhysDevice.ExtensionsToEnable;
+
+    private DeviceQueue GetAvaloniaQueue()
+    {
+        QueueHandle? handle = null;
+        if (
+            !_avaloniaQueue.Wait(TimeSpan.FromMilliseconds(200), _disposeTokenSource.Token)
+            || _avaloniaQueue.IsCanceled
         )
-            .Handle
-            .Handle;
-    public uint GraphicsQueueFamilyIndex =>
-        (uint)(
-            context.Device.QueuesManager.GetFirstGraphic()?.FamilyIndex
-            ?? throw new InvalidOperationException("Vulkan device has no graphics queue family")
-        );
-    public IVulkanInstance Instance { get; } = new AvaloniaVulkanInstanceWrapper(context);
-    public bool IsLost { get; } = false; //TODO: Implement
-    public IEnumerable<string> EnabledExtensions => context.PhysDevice.ExtensionsToEnable;
+        {
+            throw new OperationCanceledException();
+        }
+
+        if (_avaloniaQueue.IsCompletedSuccessfully)
+            handle = _avaloniaQueue.Result;
+
+        return handle?.Queue
+            ?? throw new InvalidOperationException(
+                "Cannot lock a vulkan graphics queue for avalonia"
+            );
+    }
 }
 
 public class AvaloniaVulkanInstanceWrapper(IVulkanContext context) : IVulkanInstance

@@ -5,5 +5,5 @@ namespace GameDotNet.Graphics.Abstractions;
 
 public interface IEntityRenderer
 {
-    TimelineStats Render(IDeviceTexture renderTarget, params ReadOnlySpan<Entity> entities);
+    ValueTask<TimelineStats> Render(IDeviceTexture renderTarget);
 }
