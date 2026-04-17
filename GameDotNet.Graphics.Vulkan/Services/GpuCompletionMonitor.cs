@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using CommunityToolkit.HighPerformance;
 using GameDotNet.Core.Tooling;
@@ -42,11 +43,13 @@ public sealed class GpuCompletionMonitor : SingleAsyncDisposable<EmptyStruct>
     /// the GPU signals <paramref name="semaphore"/> at ≥ <paramref name="targetValue"/>.
     /// Thread-safe — can be called from any thread.
     /// </summary>
-    public ValueTask WhenReached(VulkanTimelineSemaphore semaphore, ulong targetValue)
+    [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
+    public async ValueTask WhenReached(VulkanTimelineSemaphore semaphore, ulong targetValue)
     {
         var vts = _vtsPool.Get();
         _incoming.Writer.TryWrite(new(semaphore, targetValue, vts));
-        return vts.AsValueTask();
+        await vts.AsValueTask().ConfigureAwait(false);
+        _vtsPool.Return(vts);
     }
 
     private async Task MonitorLoop()
@@ -57,17 +60,17 @@ public sealed class GpuCompletionMonitor : SingleAsyncDisposable<EmptyStruct>
 
         while (!IsDisposeStarted && !_cts.IsCancellationRequested)
         {
+            if (tracked.Count == 0)
+            {
+                await _incoming.Reader.WaitToReadAsync(_cts.Token);
+            }
+
             // Drain all newly registered completions into the tracked list
-            await foreach (var pendingCompletion in _incoming.Reader.ReadAllAsync(_cts.Token))
+            while (_incoming.Reader.TryRead(out var pendingCompletion))
             {
                 tracked.Add(pendingCompletion);
                 semaphores.Add(pendingCompletion.Semaphore);
                 values.Add(pendingCompletion.TargetValue);
-            }
-
-            if (tracked.Count == 0)
-            {
-                continue;
             }
 
             var result = VulkanTimelineSemaphore.WaitAny(
@@ -84,16 +87,15 @@ public sealed class GpuCompletionMonitor : SingleAsyncDisposable<EmptyStruct>
             foreach (
                 var (index, pendingCompletion) in tracked
                     .AsValueEnumerable()
-                    .Where(static completion =>
-                        completion.Semaphore.CurrentValue >= completion.TargetValue
-                    )
                     .Index()
+                    .Where(static tuple =>
+                        tuple.Item.Semaphore.CurrentValue >= tuple.Item.TargetValue
+                    )
                     .Reverse()
             )
             {
-                // Completed — signal the awaiter and return VTS to pool
+                // Completed — signal the awaiter
                 pendingCompletion.Source.SetResult();
-                _vtsPool.Return(pendingCompletion.Source);
 
                 // swap-remove would be faster for large lists
                 tracked.RemoveAt(index);
