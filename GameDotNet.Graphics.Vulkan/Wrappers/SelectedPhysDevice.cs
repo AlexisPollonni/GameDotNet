@@ -17,7 +17,8 @@ public sealed class SelectedPhysDevice
     internal IReadOnlyList<string> ExtensionsToEnable { get; init; } = [];
     internal IReadOnlyList<QueueFamilyProperties> QueueFamilies { get; init; } = [];
 
-    internal IReadOnlyList<GenericFeaturesNextNode> ExtendedFeaturesChain { get; init; } = [];
+    internal IChain<PhysicalDeviceFeatures2> ExtendedFeaturesChain { get; init; } =
+        Chain.Create<PhysicalDeviceFeatures2>();
 
     internal bool DeferSurfaceInit { get; init; }
 }

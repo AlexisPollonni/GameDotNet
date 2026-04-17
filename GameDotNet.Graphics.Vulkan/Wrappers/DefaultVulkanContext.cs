@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using AutoFactories;
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.Bootstrap;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
+using GameDotNet.Graphics.Vulkan.Services;
 using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using Microsoft.Extensions.Logging;
-using Shouldly;
 using Silk.NET.Core;
 using Silk.NET.Core.Contexts;
 using Silk.NET.Core.Native;
@@ -25,9 +26,8 @@ public sealed class DefaultVulkanContext : IVulkanContext
     public SelectedPhysDevice PhysDevice { get; }
     public VulkanSurface? Surface { get; }
     public VulkanDevice Device { get; }
+    public DeviceQueuesManager Queues { get; }
     public VulkanMemoryAllocator Allocator { get; }
-    public VulkanCommandBufferPool Pool { get; }
-    public DeviceQueue MainGraphicsQueue { get; }
 
     private readonly ILogger<DefaultVulkanContext> _logger;
 
@@ -44,9 +44,8 @@ public sealed class DefaultVulkanContext : IVulkanContext
 
         PhysDevice = MakePhysDevice(criteria);
         Device = MakeDevice();
+        Queues = new(this);
         Allocator = MakeAllocator();
-        MainGraphicsQueue = MakeQueue();
-        Pool = MakePool();
     }
 
     public DefaultVulkanContext(
@@ -72,9 +71,8 @@ public sealed class DefaultVulkanContext : IVulkanContext
 
         PhysDevice = MakePhysDevice(criteria);
         Device = MakeDevice();
+        Queues = new(this);
         Allocator = MakeAllocator();
-        MainGraphicsQueue = MakeQueue();
-        Pool = MakePool();
     }
 
     public DefaultVulkanContext(
@@ -101,9 +99,8 @@ public sealed class DefaultVulkanContext : IVulkanContext
 
         PhysDevice = MakePhysDevice(criteria);
         Device = MakeDevice();
+        Queues = new(this);
         Allocator = MakeAllocator();
-        MainGraphicsQueue = MakeQueue();
-        Pool = MakePool();
     }
 
     private static IVulkanAllocCallback MakeAlloc()
@@ -186,21 +183,8 @@ public sealed class DefaultVulkanContext : IVulkanContext
         return new(new(Instance.VkVersion, Api, Instance, PhysDevice.Device, Device));
     }
 
-    private DeviceQueue MakeQueue()
-    {
-        return Device
-            .QueuesManager.GetFirstGraphic()
-            .ShouldNotBeNull("No graphics queue family found");
-    }
-
-    private VulkanCommandBufferPool MakePool()
-    {
-        return new(this, MainGraphicsQueue);
-    }
-
     public void Dispose()
     {
-        Pool.Dispose();
         Allocator.Dispose();
         Device.Dispose();
         Surface?.Dispose();

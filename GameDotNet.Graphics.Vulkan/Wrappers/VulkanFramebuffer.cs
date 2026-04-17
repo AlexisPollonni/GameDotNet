@@ -1,3 +1,4 @@
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using Silk.NET.Vulkan;
@@ -12,9 +13,14 @@ public sealed class VulkanFramebuffer : IDisposable
     private readonly VulkanDevice _device;
     private readonly IVulkanAllocCallback _callback;
 
-    public unsafe VulkanFramebuffer(IVulkanContext ctx, Extent2D extent, VulkanRenderPass renderPass,
-                                    ReadOnlySpan<ImageView> attachments,
-                                    FramebufferCreateFlags flags = FramebufferCreateFlags.None, uint layers = 1)
+    public unsafe VulkanFramebuffer(
+        IVulkanContext ctx,
+        Extent2D extent,
+        VulkanRenderPass renderPass,
+        ReadOnlySpan<ImageView> attachments,
+        FramebufferCreateFlags flags = FramebufferCreateFlags.None,
+        uint layers = 1
+    )
     {
         _api = ctx.Api;
         _device = ctx.Device;
@@ -31,14 +37,19 @@ public sealed class VulkanFramebuffer : IDisposable
                 PAttachments = pAttach,
                 Width = extent.Width,
                 Height = extent.Height,
-                Layers = layers
+                Layers = layers,
             };
 
             Handle = CreateFramebuffer(info);
         }
     }
 
-    public VulkanFramebuffer(Vk api, VulkanDevice device, IVulkanAllocCallback callback, in FramebufferCreateInfo infos)
+    public VulkanFramebuffer(
+        Vk api,
+        VulkanDevice device,
+        IVulkanAllocCallback callback,
+        in FramebufferCreateInfo infos
+    )
     {
         _api = api;
         _device = device;

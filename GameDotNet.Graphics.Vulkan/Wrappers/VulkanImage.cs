@@ -1,5 +1,6 @@
 using GameDotNet.Core.Tooling;
 using GameDotNet.Graphics.Abstractions;
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using Nito.Disposables;
@@ -102,28 +103,6 @@ public sealed class VulkanImage : SingleNonblockingDisposable<EmptyStruct>, IDev
             destinationLayout,
             destinationAccessFlags
         );
-
-    public void TransitionLayout(
-        VulkanCommandBufferPool pool,
-        ImageLayout destinationLayout,
-        AccessFlags destinationAccessFlags
-    )
-    {
-        var commandBuffer = pool.CreateCommandBuffer();
-        commandBuffer.BeginRecording();
-        TransitionLayout(commandBuffer.Underlying, destinationLayout, destinationAccessFlags);
-        commandBuffer.EndRecording();
-        commandBuffer.Submit();
-    }
-
-    public void TransitionLayout(
-        VulkanCommandBufferPool pool,
-        uint destinationLayout,
-        uint destinationAccessFlags
-    )
-    {
-        TransitionLayout(pool, (ImageLayout)destinationLayout, (AccessFlags)destinationAccessFlags);
-    }
 
     protected override void Dispose(EmptyStruct context)
     {

@@ -1,5 +1,6 @@
 using GameDotNet.Core.Tooling;
 using GameDotNet.Graphics.Vulkan.Abstractions;
+using GameDotNet.Graphics.Vulkan.Services;
 using Nito.Disposables;
 using Silk.NET.Vulkan;
 
@@ -9,12 +10,10 @@ public sealed class VulkanDevice : SingleNonblockingDisposable<EmptyStruct>, IVu
 {
     public Device Underlying { get; }
     public IVulkanContext Context { get; }
-    public DeviceQueuesManager QueuesManager { get; }
 
     public VulkanDevice(IVulkanContext context, Device device)
         : base(default)
     {
-        QueuesManager = new(context.Instance, context.PhysDevice.Device, this);
         Context = context;
         Underlying = device;
     }

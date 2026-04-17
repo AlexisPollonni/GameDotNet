@@ -50,11 +50,15 @@ public sealed class VulkanSwapchain : IDisposable
         {
             foreach (var view in _imageViews)
             {
-                _instance.Context.Api.DestroyImageView(_device, view, _alloc.AsReadOnlyRefOrNull());
+                _instance.Context.Api.DestroyImageView(
+                    _device,
+                    view,
+                    in _alloc.AsReadOnlyRefOrNull()
+                );
             }
         }
 
-        _extension.DestroySwapchain(_device, Swapchain, _alloc.AsReadOnlyRefOrNull());
+        _extension.DestroySwapchain(_device, Swapchain, in _alloc.AsReadOnlyRefOrNull());
     }
 
     public IReadOnlyList<Image> GetImages()
@@ -97,8 +101,8 @@ public sealed class VulkanSwapchain : IDisposable
 
             var res = _instance.Context.Api.CreateImageView(
                 _device,
-                createInfo,
-                _alloc.AsReadOnlyRefOrNull(),
+                in createInfo,
+                in _alloc.AsReadOnlyRefOrNull(),
                 out var imageView
             );
             if (res is not Result.Success)
@@ -130,8 +134,8 @@ public sealed class VulkanSwapchain : IDisposable
 
     public Result QueuePresent(DeviceQueue queue, VulkanSemaphore waitSemaphore, uint currentIndex)
     {
-        ReadOnlySpan<Semaphore> w = stackalloc[] { waitSemaphore.Handle };
-        ReadOnlySpan<SwapchainKHR> s = stackalloc[] { Swapchain };
+        ReadOnlySpan<Semaphore> w = [waitSemaphore.Underlying];
+        ReadOnlySpan<SwapchainKHR> s = [Swapchain];
 
         return QueuePresent(queue, w, s, currentIndex.AsSpan(), null);
     }
@@ -162,7 +166,7 @@ public sealed class VulkanSwapchain : IDisposable
                 PWaitSemaphores = pWaits,
             };
 
-            res = _extension.QueuePresent(queue, info);
+            res = queue.Present(_extension, in info);
         }
 
         return res;

@@ -1,5 +1,6 @@
 using GameDotNet.Core.Tooling;
 using GameDotNet.Graphics.Models;
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using Nito.Disposables;
