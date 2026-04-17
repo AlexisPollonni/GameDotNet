@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using GameDotNet.Core.Tooling.Collections;
 using GameDotNet.Core.Tooling.Extensions;
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Graphics.Vulkan.Tools.Allocators;
 using GameDotNet.Graphics.Vulkan.Tools.Extensions;

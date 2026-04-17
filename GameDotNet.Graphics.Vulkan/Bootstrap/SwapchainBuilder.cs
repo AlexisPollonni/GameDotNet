@@ -30,11 +30,7 @@ public class SwapchainBuilder
         _info = info;
 
         _info.GraphicsQueue ??=
-            device.QueuesManager.GetFirstGraphic()
-            ?? throw new ArgumentException("Couldn't find graphics queue of Vulkan device");
-        _info.PresentQueue ??=
-            device.QueuesManager.GetFirstPresent(info.Surface)
-            ?? throw new ArgumentException("Couldn't find present queue of Vulkan device");
+            _info.PresentQueue ?? throw new ArgumentException("No graphics queue provided");
 
         if (!_vk.TryGetDeviceExtension(instance, _device, out _extension))
         {
@@ -129,7 +125,12 @@ public class SwapchainBuilder
         SwapchainKHR swapchain;
         unsafe
         {
-            var res = _extension.CreateSwapchain(_device, swapchainCreateInfo, null, out swapchain);
+            var res = _extension.CreateSwapchain(
+                _device,
+                in swapchainCreateInfo,
+                null,
+                out swapchain
+            );
 
             if (res is not Result.Success)
                 throw new VulkanException(res);

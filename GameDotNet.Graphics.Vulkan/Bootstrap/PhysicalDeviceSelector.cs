@@ -1,4 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance;
 using dotVariant;
 using GameDotNet.Core.Tooling.Extensions;
 using GameDotNet.Graphics.Vulkan.Tools;
@@ -6,6 +9,7 @@ using GameDotNet.Graphics.Vulkan.Wrappers;
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
 using Silk.NET.Vulkan.Extensions.KHR;
+using ZLinq;
 
 namespace GameDotNet.Graphics.Vulkan.Bootstrap;
 
@@ -45,7 +49,12 @@ public class PhysicalDeviceSelector
             throw new PlatformException("Couldn't find any physical devices");
 
         var physDeviceDescriptions = devices
-            .Select(device => PopulateDeviceDetails(device, Criteria.ExtendedFeaturesChain))
+            .Select(device =>
+            {
+                var clonedChain = ((Chain)Criteria.ExtendedFeaturesChain).Duplicate();
+
+                return PopulateDeviceDetails(device, (IChain<PhysicalDeviceFeatures2>)clonedChain);
+            })
             .ToArray();
         PhysicalDeviceDesc? selectedDevice = null;
 
@@ -95,7 +104,7 @@ public class PhysicalDeviceSelector
 
     private unsafe PhysicalDeviceDesc PopulateDeviceDetails(
         in PhysicalDevice device,
-        IEnumerable<GenericFeaturesNextNode> srcExtendedFeaturesChain
+        IChain<PhysicalDeviceFeatures2> srcExtendedFeaturesChain
     )
     {
         var physDeviceIdProperties = new PhysicalDeviceIDProperties
@@ -119,43 +128,26 @@ public class PhysicalDeviceSelector
         _vk.GetPhysicalDeviceFeatures(device, out var deviceFeatures);
         _vk.GetPhysicalDeviceMemoryProperties(device, out var deviceMemoryProperties);
 
-        var fillChain = srcExtendedFeaturesChain.ToArray();
-        if (
-            fillChain.Length > 0
-            && (_instance.VkVersion >= Vk.Version11 || _instance.SupportsProperties2Ext)
-        )
-        {
-            fixed (GenericFeaturesNextNode* chain = fillChain)
-            {
-                for (var i = 0; i < fillChain.Length - 1; i++)
-                {
-                    chain[i].pNext = &chain[i + 1];
-                }
+        var defaultFeatures = new PhysicalDeviceFeatures2(features: null);
+        ref var localFeatures = ref _instance.VkVersion >= Vk.Version11
+        || _instance.SupportsProperties2Ext
+            ? ref srcExtendedFeaturesChain.HeadRef
+            : ref defaultFeatures;
 
-                chain[fillChain.Length - 1].pNext = null;
-            }
+        if (_instance.VkVersion >= Vk.Version11 && deviceProperties.ApiVersion >= Vk.Version11)
+        {
+            _vk.GetPhysicalDeviceFeatures2(
+                device,
+                (PhysicalDeviceFeatures2*)Unsafe.AsPointer(ref localFeatures)
+            );
         }
-
-        var localFeatures = new PhysicalDeviceFeatures2
+        else if (_instance.SupportsProperties2Ext)
         {
-            SType = StructureType.PhysicalDeviceFeatures2,
-            PNext = null,
-        };
-
-        fixed (GenericFeaturesNextNode* chain = fillChain)
-        {
-            if (fillChain.Length > 0)
-                localFeatures.PNext = chain;
-
-            if (_instance.VkVersion >= Vk.Version11 && deviceProperties.ApiVersion >= Vk.Version11)
-            {
-                _vk.GetPhysicalDeviceFeatures2(device, out localFeatures);
-            }
-            else if (_instance.SupportsProperties2Ext)
-            {
-                _vk.TryGetInstanceExtension(_instance, out KhrGetPhysicalDeviceProperties2 ext);
-                ext.GetPhysicalDeviceFeatures2(device, out localFeatures);
-            }
+            _vk.TryGetInstanceExtension(_instance, out KhrGetPhysicalDeviceProperties2 ext);
+            ext.GetPhysicalDeviceFeatures2(
+                device,
+                (PhysicalDeviceFeatures2*)Unsafe.AsPointer(ref localFeatures)
+            );
         }
 
         return new()
@@ -168,7 +160,7 @@ public class PhysicalDeviceSelector
             DeviceProperties2 = physDeviceProperties2,
             MemProperties = deviceMemoryProperties,
             QueueFamilies = familyProperties,
-            ExtendedFeaturesChain = fillChain,
+            ExtendedFeaturesChain = srcExtendedFeaturesChain,
         };
     }
 
@@ -329,157 +321,57 @@ public class PhysicalDeviceSelector
             .ToList();
     }
 
-    private static bool SupportsFeature(
+    private static unsafe bool SupportsFeature(
         PhysicalDeviceFeatures supported,
         PhysicalDeviceFeatures requested,
-        IList<GenericFeaturesNextNode> extensionSupported,
-        IList<GenericFeaturesNextNode> extensionRequested
+        IChain<PhysicalDeviceFeatures2> extensionSupported,
+        IChain<PhysicalDeviceFeatures2> extensionRequested
     )
     {
-        if (requested.RobustBufferAccess && !supported.RobustBufferAccess)
-            return false;
-        if (requested.FullDrawIndexUint32 && !supported.FullDrawIndexUint32)
-            return false;
-        if (requested.ImageCubeArray && !supported.ImageCubeArray)
-            return false;
-        if (requested.IndependentBlend && !supported.IndependentBlend)
-            return false;
-        if (requested.GeometryShader && !supported.GeometryShader)
-            return false;
-        if (requested.TessellationShader && !supported.TessellationShader)
-            return false;
-        if (requested.SampleRateShading && !supported.SampleRateShading)
-            return false;
-        if (requested.DualSrcBlend && !supported.DualSrcBlend)
-            return false;
-        if (requested.LogicOp && !supported.LogicOp)
-            return false;
-        if (requested.MultiDrawIndirect && !supported.MultiDrawIndirect)
-            return false;
-        if (requested.DrawIndirectFirstInstance && !supported.DrawIndirectFirstInstance)
-            return false;
-        if (requested.DepthClamp && !supported.DepthClamp)
-            return false;
-        if (requested.DepthBiasClamp && !supported.DepthBiasClamp)
-            return false;
-        if (requested.FillModeNonSolid && !supported.FillModeNonSolid)
-            return false;
-        if (requested.DepthBounds && !supported.DepthBounds)
-            return false;
-        if (requested.WideLines && !supported.WideLines)
-            return false;
-        if (requested.LargePoints && !supported.LargePoints)
-            return false;
-        if (requested.AlphaToOne && !supported.AlphaToOne)
-            return false;
-        if (requested.MultiViewport && !supported.MultiViewport)
-            return false;
-        if (requested.SamplerAnisotropy && !supported.SamplerAnisotropy)
-            return false;
-        if (requested.TextureCompressionEtc2 && !supported.TextureCompressionEtc2)
-            return false;
-        if (requested.TextureCompressionAstcLdr && !supported.TextureCompressionAstcLdr)
-            return false;
-        if (requested.TextureCompressionBC && !supported.TextureCompressionBC)
-            return false;
-        if (requested.OcclusionQueryPrecise && !supported.OcclusionQueryPrecise)
-            return false;
-        if (requested.PipelineStatisticsQuery && !supported.PipelineStatisticsQuery)
-            return false;
-        if (requested.VertexPipelineStoresAndAtomics && !supported.VertexPipelineStoresAndAtomics)
-            return false;
-        if (requested.FragmentStoresAndAtomics && !supported.FragmentStoresAndAtomics)
-            return false;
-        if (
-            requested.ShaderTessellationAndGeometryPointSize
-            && !supported.ShaderTessellationAndGeometryPointSize
-        )
-            return false;
-        if (requested.ShaderImageGatherExtended && !supported.ShaderImageGatherExtended)
-            return false;
-        if (
-            requested.ShaderStorageImageExtendedFormats
-            && !supported.ShaderStorageImageExtendedFormats
-        )
-            return false;
-        if (requested.ShaderStorageImageMultisample && !supported.ShaderStorageImageMultisample)
-            return false;
-        if (
-            requested.ShaderStorageImageReadWithoutFormat
-            && !supported.ShaderStorageImageReadWithoutFormat
-        )
-            return false;
-        if (
-            requested.ShaderStorageImageWriteWithoutFormat
-            && !supported.ShaderStorageImageWriteWithoutFormat
-        )
-            return false;
-        if (
-            requested.ShaderUniformBufferArrayDynamicIndexing
-            && !supported.ShaderUniformBufferArrayDynamicIndexing
-        )
-            return false;
-        if (
-            requested.ShaderSampledImageArrayDynamicIndexing
-            && !supported.ShaderSampledImageArrayDynamicIndexing
-        )
-            return false;
-        if (
-            requested.ShaderStorageBufferArrayDynamicIndexing
-            && !supported.ShaderStorageBufferArrayDynamicIndexing
-        )
-            return false;
-        if (
-            requested.ShaderStorageImageArrayDynamicIndexing
-            && !supported.ShaderStorageImageArrayDynamicIndexing
-        )
-            return false;
-        if (requested.ShaderClipDistance && !supported.ShaderClipDistance)
-            return false;
-        if (requested.ShaderCullDistance && !supported.ShaderCullDistance)
-            return false;
-        if (requested.ShaderFloat64 && !supported.ShaderFloat64)
-            return false;
-        if (requested.ShaderInt64 && !supported.ShaderInt64)
-            return false;
-        if (requested.ShaderInt16 && !supported.ShaderInt16)
-            return false;
-        if (requested.ShaderResourceResidency && !supported.ShaderResourceResidency)
-            return false;
-        if (requested.ShaderResourceMinLod && !supported.ShaderResourceMinLod)
-            return false;
-        if (requested.SparseBinding && !supported.SparseBinding)
-            return false;
-        if (requested.SparseResidencyBuffer && !supported.SparseResidencyBuffer)
-            return false;
-        if (requested.SparseResidencyImage2D && !supported.SparseResidencyImage2D)
-            return false;
-        if (requested.SparseResidencyImage3D && !supported.SparseResidencyImage3D)
-            return false;
-        if (requested.SparseResidency2Samples && !supported.SparseResidency2Samples)
-            return false;
-        if (requested.SparseResidency4Samples && !supported.SparseResidency4Samples)
-            return false;
-        if (requested.SparseResidency8Samples && !supported.SparseResidency8Samples)
-            return false;
-        if (requested.SparseResidency16Samples && !supported.SparseResidency16Samples)
-            return false;
-        if (requested.SparseResidencyAliased && !supported.SparseResidencyAliased)
-            return false;
-        if (requested.VariableMultisampleRate && !supported.VariableMultisampleRate)
-            return false;
-        if (requested.InheritedQueries && !supported.InheritedQueries)
-            return false;
+        var reqFeats = requested.AsSpan().Cast<PhysicalDeviceFeatures, Bool32>();
+        var supportedFeats = supported.AsSpan().Cast<PhysicalDeviceFeatures, Bool32>();
 
-        // ReSharper disable once LoopCanBeConvertedToQuery
-        for (var i = 0; i < extensionRequested.Count; i++)
+        var supportsFeatures = SupportsFeatures(reqFeats, supportedFeats);
+
+        var supportsFeaturesExt = extensionRequested
+            .Zip(extensionSupported)
+            .Skip(1)
+            .All(static tuple =>
+            {
+                var (req, sup) = tuple;
+
+                using var reqSpan = GetFieldSpanFromChainable(req, out var reqFeatSpan);
+                using var supSpan = GetFieldSpanFromChainable(sup, out var supFeatSpan);
+
+                var supports = SupportsFeatures(reqFeatSpan, supFeatSpan);
+
+                return supports;
+            });
+
+        return supportsFeatures && supportsFeaturesExt;
+
+        static IDisposable GetFieldSpanFromChainable(IChainable chainItem, out Span<Bool32> span)
         {
-            var res = GenericFeaturesNextNode.Match(extensionRequested[i], extensionSupported[i]);
-            if (!res)
-                return false;
+            var gcHandle = new PinnedGCHandle<IChainable>(chainItem);
+            var sizeofStruct = Marshal.SizeOf(chainItem);
+
+            span = new Span<byte>(gcHandle.GetAddressOfObjectData(), sizeofStruct)
+                .Slice(Marshal.SizeOf<BaseOutStructure>()) //Skip the sType and pNext fields
+                .Cast<byte, Bool32>();
+
+            return gcHandle;
         }
 
-        return true;
+        static bool SupportsFeatures(
+            ReadOnlySpan<Bool32> requiredSpan,
+            ReadOnlySpan<Bool32> supportedSpan
+        )
+        {
+            return requiredSpan
+                .AsValueEnumerable()
+                .Zip(supportedSpan.AsValueEnumerable(), (req, sup) => (req, sup))
+                .All(tuple => tuple.req ? tuple.sup : true);
+        }
     }
 
     private enum Suitable
@@ -498,7 +390,7 @@ public class SelectionCriteria
     public ulong DesiredMemSize = 0;
     public Version32 DesiredVersion = Vk.Version10;
 
-    public List<GenericFeaturesNextNode> ExtendedFeaturesChain;
+    public IChain<PhysicalDeviceFeatures2> ExtendedFeaturesChain;
 
     public PhysicalDeviceType PreferredType = PhysicalDeviceType.DiscreteGpu;
     public bool RequireDedicatedComputeQueue = false;
@@ -518,18 +410,15 @@ public class SelectionCriteria
 
     public byte[]? RequiredDeviceId { get; set; }
 
-    public SelectionCriteria()
+    public unsafe SelectionCriteria()
     {
         RequiredExtensions = new();
         DesiredExtensions = new();
-        ExtendedFeaturesChain = new();
+        ExtendedFeaturesChain = Chain.Create<PhysicalDeviceFeatures2>(
+            new(sType: StructureType.PhysicalDeviceFeatures2)
+        );
         RequiredFeatures = null;
         RequiredFeatures2 = null;
-    }
-
-    public void AddFeature()
-    {
-        throw new NotImplementedException();
     }
 }
 
@@ -556,5 +445,5 @@ internal struct PhysicalDeviceDesc
 
     //If vulkan version is 1.1 the variant uses PhysicalDeviceFeatures2
     public PhysicalDeviceFeatures2Variant DeviceFeatures2 { get; set; }
-    public IList<GenericFeaturesNextNode> ExtendedFeaturesChain { get; set; }
+    public IChain<PhysicalDeviceFeatures2> ExtendedFeaturesChain { get; set; }
 }
