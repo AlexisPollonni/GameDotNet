@@ -102,6 +102,8 @@ public class AvaloniaVulkanDeviceWrapper : SingleDisposable<EmptyStruct>, IVulka
     private readonly Task<QueueHandle?> _avaloniaQueue;
     private readonly CancellationTokenSource _disposeTokenSource = new();
 
+    private Lock _lock = new();
+
     public AvaloniaVulkanDeviceWrapper(IVulkanContext context)
         : base(default)
     {
@@ -124,7 +126,8 @@ public class AvaloniaVulkanDeviceWrapper : SingleDisposable<EmptyStruct>, IVulka
 
     public IDisposable Lock()
     {
-        return Disposable.Create(null);
+        _lock.Enter();
+        return Disposable.Create(() => _lock.Exit());
     }
 
     public IntPtr Handle => _context.Device.Underlying.Handle;
