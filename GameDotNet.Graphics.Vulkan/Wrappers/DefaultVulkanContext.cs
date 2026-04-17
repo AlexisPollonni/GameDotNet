@@ -148,8 +148,7 @@ public sealed class DefaultVulkanContext : IVulkanContext
             DebugMessageType =
                 DebugUtilsMessageTypeFlagsEXT.GeneralBitExt
                 | DebugUtilsMessageTypeFlagsEXT.ValidationBitExt
-                | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt
-                | DebugUtilsMessageTypeFlagsEXT.DeviceAddressBindingBitExt,
+                | DebugUtilsMessageTypeFlagsEXT.PerformanceBitExt,
             DebugMessageSeverity =
                 DebugUtilsMessageSeverityFlagsEXT.ErrorBitExt
                 | DebugUtilsMessageSeverityFlagsEXT.WarningBitExt
