@@ -1,3 +1,4 @@
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Silk.NET.Core;
 using Silk.NET.Vulkan;
@@ -8,7 +9,8 @@ namespace GameDotNet.Graphics.Vulkan.Tools.Extensions;
 
 public static class VulkanShaderObjectExtensions
 {
-    extension(VulkanDevice device)
+    extension<TDevice>(TDevice device)
+        where TDevice : IVulkanWrapper<Device>
     {
         public unsafe ShaderEXT CreateShaderObject(
             ShaderStageFlags stage,
@@ -33,7 +35,7 @@ public static class VulkanShaderObjectExtensions
             };
             device
                 .ShaderObjectExt.CreateShaders(
-                    device,
+                    device.Underlying,
                     1u,
                     [createInfo],
                     [device.Context.Callbacks.Handle],
@@ -46,7 +48,7 @@ public static class VulkanShaderObjectExtensions
         public void DestroyShaderObject(ShaderEXT shader)
         {
             device.ShaderObjectExt.DestroyShader(
-                device,
+                device.Underlying,
                 shader,
                 in device.Context.Callbacks.Handle
             );
@@ -56,19 +58,25 @@ public static class VulkanShaderObjectExtensions
         {
             nuint dataSize = 0;
             device
-                .ShaderObjectExt.GetShaderBinaryData(device, shader, ref dataSize, null)
+                .ShaderObjectExt.GetShaderBinaryData(device.Underlying, shader, ref dataSize, null)
                 .ThrowOnError();
             var data = new byte[dataSize];
             fixed (byte* pData = data)
             {
                 device
-                    .ShaderObjectExt.GetShaderBinaryData(device, shader, ref dataSize, pData)
+                    .ShaderObjectExt.GetShaderBinaryData(
+                        device.Underlying,
+                        shader,
+                        ref dataSize,
+                        pData
+                    )
                     .ThrowOnError();
             }
             return data;
         }
     }
-    extension(VulkanCommandBufferPool.VulkanCommandBuffer commandBuffer)
+    extension<TCommandBuffer>(TCommandBuffer commandBuffer)
+        where TCommandBuffer : IVulkanWrapper<CommandBuffer>
     {
         // --- Shader binding ---
         public void BindShaders(
@@ -76,7 +84,7 @@ public static class VulkanShaderObjectExtensions
             ReadOnlySpan<ShaderEXT> shaders
         )
         {
-            commandBuffer.ShaderObjectExt.CmdBindShaders(commandBuffer, stages, shaders);
+            commandBuffer.ShaderObjectExt.CmdBindShaders(commandBuffer.Underlying, stages, shaders);
         }
 
         // --- Vertex input ---
@@ -86,7 +94,7 @@ public static class VulkanShaderObjectExtensions
         )
         {
             commandBuffer.ShaderObjectExt.CmdSetVertexInput(
-                commandBuffer,
+                commandBuffer.Underlying,
                 vertexBindings,
                 vertexAttributes
             );
@@ -101,7 +109,7 @@ public static class VulkanShaderObjectExtensions
         )
         {
             commandBuffer.ShaderObjectExt.CmdBindVertexBuffers2(
-                (CommandBuffer)commandBuffer,
+                commandBuffer.Underlying,
                 firstBinding,
                 buffers,
                 offsets,
@@ -113,89 +121,142 @@ public static class VulkanShaderObjectExtensions
         // --- Input assembly ---
         public PrimitiveTopology PrimitiveTopology
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetPrimitiveTopology(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetPrimitiveTopology(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool PrimitiveRestartEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetPrimitiveRestartEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetPrimitiveRestartEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         // --- Tessellation ---
         public uint PatchControlPoints
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetPatchControlPoints(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetPatchControlPoints(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public TessellationDomainOrigin TessellationDomainOrigin
         {
             set =>
-                commandBuffer.ShaderObjectExt.CmdSetTessellationDomainOrigin(commandBuffer, value);
+                commandBuffer.ShaderObjectExt.CmdSetTessellationDomainOrigin(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         // --- Viewport / Scissor ---
         public ReadOnlySpan<Viewport> Viewports
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetViewportWithCount(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetViewportWithCount(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         public ReadOnlySpan<Rect2D> Scissors
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetScissorWithCount(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetScissorWithCount(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         // --- Rasterization ---
         public CullModeFlags CullMode
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetCullMode(commandBuffer, value);
+            set => commandBuffer.ShaderObjectExt.CmdSetCullMode(commandBuffer.Underlying, value);
         }
         public FrontFace FrontFace
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetFrontFace(commandBuffer, value);
+            set => commandBuffer.ShaderObjectExt.CmdSetFrontFace(commandBuffer.Underlying, value);
         }
         public PolygonMode PolygonMode
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetPolygonMode(commandBuffer, value);
+            set => commandBuffer.ShaderObjectExt.CmdSetPolygonMode(commandBuffer.Underlying, value);
         }
         public bool RasterizerDiscardEnable
         {
             set =>
-                commandBuffer.ShaderObjectExt.CmdSetRasterizerDiscardEnable(commandBuffer, value);
+                commandBuffer.ShaderObjectExt.CmdSetRasterizerDiscardEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool DepthBiasEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetDepthBiasEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetDepthBiasEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool DepthClampEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetDepthClampEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetDepthClampEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         public void SetDepthClampRange(DepthClampModeEXT mode, in DepthClampRangeEXT range)
         {
-            commandBuffer.ShaderObjectExt.CmdSetDepthClampRange(commandBuffer, mode, in range);
+            commandBuffer.ShaderObjectExt.CmdSetDepthClampRange(
+                commandBuffer.Underlying,
+                mode,
+                in range
+            );
         }
 
         public bool DepthClipEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetDepthClipEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetDepthClipEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool DepthClipNegativeOneToOne
         {
             set =>
-                commandBuffer.ShaderObjectExt.CmdSetDepthClipNegativeOneToOne(commandBuffer, value);
+                commandBuffer.ShaderObjectExt.CmdSetDepthClipNegativeOneToOne(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public ProvokingVertexModeEXT ProvokingVertexMode
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetProvokingVertexMode(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetProvokingVertexMode(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public uint RasterizationStream
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetRasterizationStream(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetRasterizationStream(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public ConservativeRasterizationModeEXT ConservativeRasterizationMode
         {
             set =>
                 commandBuffer.ShaderObjectExt.CmdSetConservativeRasterizationMode(
-                    commandBuffer,
+                    commandBuffer.Underlying,
                     value
                 );
         }
@@ -203,7 +264,7 @@ public static class VulkanShaderObjectExtensions
         {
             set =>
                 commandBuffer.ShaderObjectExt.CmdSetExtraPrimitiveOverestimationSize(
-                    commandBuffer,
+                    commandBuffer.Underlying,
                     value
                 );
         }
@@ -211,57 +272,102 @@ public static class VulkanShaderObjectExtensions
         // --- Line rasterization ---
         public LineRasterizationModeEXT LineRasterizationMode
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetLineRasterizationMode(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetLineRasterizationMode(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool LineStippleEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetLineStippleEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetLineStippleEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         // --- Multisampling ---
         public SampleCountFlags RasterizationSamples
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetRasterizationSamples(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetRasterizationSamples(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         public void SetSampleMask(SampleCountFlags samples, in uint sampleMask)
         {
-            commandBuffer.ShaderObjectExt.CmdSetSampleMask(commandBuffer, samples, in sampleMask);
+            commandBuffer.ShaderObjectExt.CmdSetSampleMask(
+                commandBuffer.Underlying,
+                samples,
+                in sampleMask
+            );
         }
 
         public bool AlphaToCoverageEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetAlphaToCoverageEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetAlphaToCoverageEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool AlphaToOneEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetAlphaToOneEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetAlphaToOneEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool SampleLocationsEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetSampleLocationsEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetSampleLocationsEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         // --- Depth / Stencil ---
         public bool DepthTestEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetDepthTestEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetDepthTestEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool DepthWriteEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetDepthWriteEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetDepthWriteEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public CompareOp DepthCompareOp
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetDepthCompareOp(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetDepthCompareOp(commandBuffer.Underlying, value);
         }
         public bool DepthBoundsTestEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetDepthBoundsTestEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetDepthBoundsTestEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
         public bool StencilTestEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetStencilTestEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetStencilTestEnable(
+                    commandBuffer.Underlying,
+                    value
+                );
         }
 
         public void SetStencilOp(
@@ -273,7 +379,7 @@ public static class VulkanShaderObjectExtensions
         )
         {
             commandBuffer.ShaderObjectExt.CmdSetStencilOp(
-                commandBuffer,
+                commandBuffer.Underlying,
                 faceMask,
                 failOp,
                 passOp,
@@ -286,7 +392,7 @@ public static class VulkanShaderObjectExtensions
         public void SetColorBlendEnable(uint firstAttachment, ReadOnlySpan<Bool32> enables)
         {
             commandBuffer.ShaderObjectExt.CmdSetColorBlendEnable(
-                commandBuffer,
+                commandBuffer.Underlying,
                 firstAttachment,
                 enables
             );
@@ -298,7 +404,7 @@ public static class VulkanShaderObjectExtensions
         )
         {
             commandBuffer.ShaderObjectExt.CmdSetColorBlendEquation(
-                commandBuffer,
+                commandBuffer.Underlying,
                 firstAttachment,
                 equations
             );
@@ -310,7 +416,7 @@ public static class VulkanShaderObjectExtensions
         )
         {
             commandBuffer.ShaderObjectExt.CmdSetColorWriteMask(
-                commandBuffer,
+                commandBuffer.Underlying,
                 firstAttachment,
                 writeMasks
             );
@@ -322,7 +428,7 @@ public static class VulkanShaderObjectExtensions
         )
         {
             commandBuffer.ShaderObjectExt.CmdSetColorBlendAdvance(
-                commandBuffer,
+                commandBuffer.Underlying,
                 firstAttachment,
                 blendAdvanced
             );
@@ -330,11 +436,12 @@ public static class VulkanShaderObjectExtensions
 
         public bool LogicOpEnable
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetLogicOpEnable(commandBuffer, value);
+            set =>
+                commandBuffer.ShaderObjectExt.CmdSetLogicOpEnable(commandBuffer.Underlying, value);
         }
         public LogicOp LogicOp
         {
-            set => commandBuffer.ShaderObjectExt.CmdSetLogicOp(commandBuffer, value);
+            set => commandBuffer.ShaderObjectExt.CmdSetLogicOp(commandBuffer.Underlying, value);
         }
     }
 }
