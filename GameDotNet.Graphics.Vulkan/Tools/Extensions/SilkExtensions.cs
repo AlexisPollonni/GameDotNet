@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using GameDotNet.Core.Tooling.Collections;
 using GameDotNet.Core.Tooling.Extensions;
@@ -122,5 +123,12 @@ public static class SilkExtensions
     )
     {
         return (byte**)str.ToGlobalMemory().DisposeWith(d).AsPtr<byte>();
+    }
+
+    public static ClearValue ToClearColor(this Color color)
+    {
+        var vec = color.ToVector4();
+
+        return new(new ClearColorValue(vec.X, vec.Y, vec.Z, vec.W));
     }
 }
