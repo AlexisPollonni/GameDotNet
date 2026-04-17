@@ -34,7 +34,11 @@ public readonly partial struct JobWorkerItem
         public ValueTask Execute(CancellationToken token) => job.OnStopped(token);
     }
 
-    public readonly struct Update(IUpdateJob job, JobManager.JobData data, SceneInstanceManager sceneManager)
+    public readonly struct Update(
+        IUpdateJob job,
+        JobManager.JobData data,
+        SceneInstanceManager sceneManager
+    )
     {
         public async ValueTask Execute(CancellationToken token)
         {
@@ -65,7 +69,7 @@ public readonly partial struct JobWorkerItem
 [AutoConstruct]
 [RegisterSingleton<JobManager>]
 public sealed partial class JobManager //TODO: for now public but change to internal later when interface is defined
-     : SingleAsyncDisposable<EmptyStruct>
+    : SingleAsyncDisposable<EmptyStruct>
 {
     private readonly IMeterFactory _meterFactory;
     private readonly TimeProvider _timeProvider;
@@ -73,20 +77,25 @@ public sealed partial class JobManager //TODO: for now public but change to inte
     private readonly IZeroAllocThreadPoolScheduler<JobWorkerItem> _scheduler;
     private readonly IJobDependencyGraph _jobDependencyGraph;
     private readonly SceneInstanceManager _sceneManager;
-    
+
     private readonly Meter _meter;
 
     private bool _initialized;
 
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly ConcurrentDictionary<IUpdateJob, JobData> _allJobs = [];
-    private readonly BidirectionalGraph<IUpdateJob, SEdge<IUpdateJob>> _runningDependencyGraph = new(false);
+    private readonly BidirectionalGraph<IUpdateJob, SEdge<IUpdateJob>> _runningDependencyGraph =
+        new(false);
     private readonly ConcurrentDictionary<IUpdateJob, ValueTask> _runningJobTasks = [];
 
     private readonly ConcurrentQueue<IUpdateJob> _jobsToAdd = [];
     private readonly ConcurrentQueue<IUpdateJob> _jobsToRemove = [];
 
-    public record JobData(ValueStopwatch ExecuteWatch, ValueStopwatch DeltaUpdateWatch, Histogram<double> Measure);
+    public record JobData(
+        ValueStopwatch ExecuteWatch,
+        ValueStopwatch DeltaUpdateWatch,
+        Histogram<double> Measure
+    );
 
     [RegisterServices]
     internal static void RegisterDependencies(IServiceCollection collection)
@@ -95,12 +104,12 @@ public sealed partial class JobManager //TODO: for now public but change to inte
         collection.AddPooled<ResettableWorkItem<JobWorkerItem>>();
         collection.AddPooled<PooledValueTaskSource>();
     }
-    
+
     [AutoPostConstruct]
     private void Configure(IEventRegistry registry, out Meter meter)
     {
         meter = _meterFactory.Create(new($"{typeof(JobManager).FullName}.Updates"));
-        
+
         registry.OnEvent<EngineStartedEvent>(OnStartup, _disposeCts.Token);
         registry.OnEvent<EngineStoppingEvent>(OnStopping, _disposeCts.Token);
     }
@@ -124,9 +133,11 @@ public sealed partial class JobManager //TODO: for now public but change to inte
     {
         ObjectDisposedException.ThrowIf(IsDisposeStarted, this);
         _initialized.ShouldBeTrue(
-            "JobManager is not initialized yet. Make sure to start the engine before calling Update.");
+            "JobManager is not initialized yet. Make sure to start the engine before calling Update."
+        );
 
-        if (!_initialized) return;
+        if (!_initialized)
+            return;
 
         if (ProcessJobChanges())
         {
@@ -134,8 +145,13 @@ public sealed partial class JobManager //TODO: for now public but change to inte
         }
 
         var sharedState = (_allJobs, sceneManager: _sceneManager);
-        await RunJobGraph(static (state, job) => new JobWorkerItem.Update(job, state._allJobs[job], state.sceneManager),
-            sharedState, token).ConfigureAwait(false);
+        await RunJobGraph(
+                static (state, job) =>
+                    new JobWorkerItem.Update(job, state._allJobs[job], state.sceneManager),
+                sharedState,
+                token
+            )
+            .ConfigureAwait(false);
     }
 
     protected override async ValueTask DisposeAsync(EmptyStruct context)
@@ -176,7 +192,8 @@ public sealed partial class JobManager //TODO: for now public but change to inte
 
     private async ValueTask OnStopping(EngineStoppingEvent _, CancellationToken token)
     {
-        await RunJobGraph<EmptyStruct>((_, job) => new JobWorkerItem.Stopping(), default, token).ConfigureAwait(false);
+        await RunJobGraph<EmptyStruct>((_, job) => new JobWorkerItem.Stopping(), default, token)
+            .ConfigureAwait(false);
 
         foreach (var job in _allJobs.Keys)
         {
@@ -190,12 +207,18 @@ public sealed partial class JobManager //TODO: for now public but change to inte
 
         while (_jobsToAdd.TryDequeue(out var jobToAdd))
         {
-            _allJobs.TryAdd(jobToAdd,
-                new(new(_timeProvider),
+            _allJobs.TryAdd(
+                jobToAdd,
+                new(
                     new(_timeProvider),
-                    _meter.CreateHistogram<double>($"{jobToAdd.GetType().FullName}.ExecuteTime",
+                    new(_timeProvider),
+                    _meter.CreateHistogram<double>(
+                        $"{jobToAdd.GetType().FullName}.ExecuteTime",
                         "ms",
-                        "Execution time of the job in milliseconds")));
+                        "Execution time of the job in milliseconds"
+                    )
+                )
+            );
             hasChanges = true;
         }
 
@@ -212,29 +235,34 @@ public sealed partial class JobManager //TODO: for now public but change to inte
     {
         _runningDependencyGraph.Clear();
 
-        using var graphEdges = _allJobs.Keys.AsValueEnumerable()
+        var graphEdges = _allJobs
+            .Keys.AsValueEnumerable()
             .SelectMany(job =>
             {
-                return _jobDependencyGraph.GetDependencies(job.GetType())
+                return _jobDependencyGraph
+                    .GetDependencies(job.GetType())
                     .AsValueEnumerable()
                     .Select(GetJobByType)
                     .Where(depJob => depJob.IsStarted)
-                    .Select(jobDep => new SEdge<IUpdateJob>(
-                        job,
-                        jobDep));
+                    .Select(jobDep => new SEdge<IUpdateJob>(job, jobDep));
             })
-            .ToArrayPool();
+            .ToArray(); //TODO: revisit using an array pool for performance. Had to use this because bellow method only accepts arrays and pooled arrays can be bigger than requested causing errors
 
-        _runningDependencyGraph.AddVerticesAndEdgeRange(graphEdges.Array);
+        _runningDependencyGraph.AddVerticesAndEdgeRange(graphEdges);
 
         var stoppedJobs = _allJobs.Keys.AsValueEnumerable().Where(job => !job.IsStarted);
         // Remove stopped jobs from the graph and merge dependencies
         foreach (var job in stoppedJobs)
         {
-            _runningDependencyGraph.MergeVertex(job, static (source, target) => new(source, target));
+            _runningDependencyGraph.MergeVertex(
+                job,
+                static (source, target) => new(source, target)
+            );
         }
 
-        _runningDependencyGraph.IsDirectedAcyclicGraph().ShouldBeTrue("Job dependency graph contains cycles");
+        _runningDependencyGraph
+            .IsDirectedAcyclicGraph()
+            .ShouldBeTrue("Job dependency graph contains cycles");
         return;
 
         IUpdateJob GetJobByType(Type type)
@@ -246,10 +274,15 @@ public sealed partial class JobManager //TODO: for now public but change to inte
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
-    private async ValueTask RunJobGraph<TState>(Func<TState, IUpdateJob, JobWorkerItem> createWorkerItem, TState state,
-        CancellationToken token)
+    private async ValueTask RunJobGraph<TState>(
+        Func<TState, IUpdateJob, JobWorkerItem> createWorkerItem,
+        TState state,
+        CancellationToken token
+    )
     {
-        _runningJobTasks.IsEmpty.ShouldBeTrue("There are still running jobs from previous execution");
+        _runningJobTasks.IsEmpty.ShouldBeTrue(
+            "There are still running jobs from previous execution"
+        );
 
         foreach (var currentJob in _runningDependencyGraph.SourceFirstTopologicalSort())
         {
@@ -286,7 +319,10 @@ public sealed partial class JobManager //TODO: for now public but change to inte
     }
 
     [AsyncMethodBuilder(typeof(PoolingAsyncValueTaskMethodBuilder))]
-    private static async ValueTask OnWorkerItemExecute(JobWorkerItem workItem, CancellationToken token)
+    private static async ValueTask OnWorkerItemExecute(
+        JobWorkerItem workItem,
+        CancellationToken token
+    )
     {
         if (workItem.TryMatch(out JobWorkerItem.Startup startup))
         {
@@ -300,6 +336,7 @@ public sealed partial class JobManager //TODO: for now public but change to inte
         {
             await update.Execute(token).ConfigureAwait(false);
         }
-        else throw new InvalidOperationException();
+        else
+            throw new InvalidOperationException();
     }
 }
