@@ -19,19 +19,19 @@
 			</DataTemplate>
 
 			<DataTemplate DataType="x:Single">
-				<fa:NumberBox Value="{CompiledBinding}"
+				<fa:FANumberBox Value="{CompiledBinding}"
 							  SmallChange="0.1"
 							  IsEnabled="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsReadonly}"/>
 			</DataTemplate>
 
 			<DataTemplate DataType="x:Double">
-				<fa:NumberBox Value="{CompiledBinding}"
+				<fa:FANumberBox Value="{CompiledBinding}"
 							  SmallChange="0.1"
 							  IsEnabled="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsReadonly}"/>
 			</DataTemplate>
 
 			<DataTemplate DataType="x:Int32">
-				<fa:NumberBox Value="{CompiledBinding}"
+				<fa:FANumberBox Value="{CompiledBinding}"
 							  SmallChange="1"
 							  IsEnabled="{CompiledBinding $parent[TreeViewItem].((vm:PropertyNodeViewModel)DataContext).IsReadonly}"/>
 			</DataTemplate>

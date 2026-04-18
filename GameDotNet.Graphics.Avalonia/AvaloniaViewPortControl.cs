@@ -274,7 +274,7 @@ public abstract class AvaloniaViewPortControl(
 
     private Size AvaloniaPixelSizeToSize(global::Avalonia.Size size)
     {
-        var scaling = this.GetVisualRoot()?.RenderScaling ?? 96.0;
+        var scaling = TopLevel.GetTopLevel(this)?.RenderScaling ?? 96.0;
         var pxS = PixelSize.FromSize(size, scaling);
 
         return new(pxS.Width, pxS.Height);
