@@ -139,7 +139,7 @@ public sealed class DefaultVulkanContext : IVulkanContext
             {
                 ValidationFeatureEnableEXT.BestPracticesExt,
                 ValidationFeatureEnableEXT.SynchronizationValidationExt,
-                ValidationFeatureEnableEXT.DebugPrintfExt,
+                //ValidationFeatureEnableEXT.DebugPrintfExt, //do not use with GpuAssistedExt will cause SIGSEV
                 ValidationFeatureEnableEXT.GpuAssistedReserveBindingSlotExt,
                 ValidationFeatureEnableEXT.GpuAssistedExt,
             },
