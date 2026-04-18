@@ -213,7 +213,10 @@ public class RenderThreadAnimationControl(
         base.OnPropertyChanged(change);
         if (change.Property == BoundsProperty && _customVisual is not null)
         {
-            _customVisual.Size = new(Bounds.Width, Bounds.Height);
+            //todo move this inside handler for performance
+            _customVisual.Compositor.RequestCompositionUpdate(() =>
+                _customVisual.Size = new(Bounds.Width, Bounds.Height)
+            );
         }
     }
 
@@ -278,7 +281,7 @@ internal class SkiaSwapchainImage : SingleDisposable<EmptyStruct>
             {
                 Offset = (ulong)Image.Allocation.Offset,
                 Size = (ulong)Image.Allocation.Size,
-                BackendMemory = (IntPtr)Image.Allocation.DeviceMemory.Handle,
+                Memory = Image.Allocation.DeviceMemory.Handle,
             },
             Image = Image.Image.Handle,
             ImageTiling = (uint)Image.CreateInfo.Tiling,
