@@ -42,26 +42,6 @@ public static class SilkExtensions
         throw new VulkanException(res);
     }
 
-    internal static IEnumerable<GlobalMemory> SetupPNextChain(
-        this IEnumerable<GlobalMemory> nextNodesChain
-    )
-    {
-        var arr = nextNodesChain.ToArray();
-        SetupPNextChain(arr);
-        return arr;
-    }
-
-    internal static unsafe void SetupPNextChain(params GlobalMemory[] structs)
-    {
-        if (structs.Length <= 1)
-            return;
-
-        for (var i = 0; i < structs.Length - 1; i++)
-        {
-            structs[i].AsRef<BaseOutStructure>().PNext = structs[i + 1].AsPtr<BaseOutStructure>();
-        }
-    }
-
     internal static string? GetLayerName(this LayerProperties properties)
     {
         unsafe

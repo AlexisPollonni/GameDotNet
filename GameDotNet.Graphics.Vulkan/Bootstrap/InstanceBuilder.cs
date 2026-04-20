@@ -179,7 +179,13 @@ public partial class InstanceBuilder(IVulkanContext context)
             IsValidationLayersEnabled
             || IsValidationLayersRequested && sysInfo.IsValidationLayersEnabled
         )
+        {
             layers.AddRange(Constants.DefaultValidationLayers);
+
+            const string layerSettingsExt = "VK_EXT_layer_settings";
+            if (sysInfo.IsLayerExtensionAvailable("VK_LAYER_KHRONOS_validation", layerSettingsExt))
+                extensions.Add(layerSettingsExt);
+        }
 
         layers = layers.Distinct().ToList();
         notSupported = layers.Where(name => !sysInfo.IsLayerAvailable(name)).ToArray();
@@ -356,36 +362,56 @@ public partial class InstanceBuilder(IVulkanContext context)
     {
         var d = new DisposableList();
 
-        info = new()
-        {
-            SType = StructureType.InstanceCreateInfo,
-            PNext = null,
-            PApplicationInfo = &appInfo,
-            EnabledExtensionCount = (uint)extensions.Count,
-            EnabledLayerCount = (uint)layers.Count,
-            PpEnabledExtensionNames = extensions.ToByteDoublePtr(d),
-            PpEnabledLayerNames = layers.ToByteDoublePtr(d),
-            Flags = 0,
-        };
+        info = new(
+            pApplicationInfo: &appInfo,
+            enabledExtensionCount: (uint)extensions.Count,
+            enabledLayerCount: (uint)layers.Count,
+            ppEnabledExtensionNames: extensions.ToByteDoublePtr(d),
+            ppEnabledLayerNames: layers.ToByteDoublePtr(d),
+            flags: 0
+        );
+        IChain<InstanceCreateInfo> infoChain = Chain.Create(info).DisposeWith(d);
 
         CreateDebugMessengerInfo(out var messengerInfo);
         CreateValidationFeatures(out var features)?.DisposeWith(d);
         CreateValidationFlags(out var checks)?.DisposeWith(d);
 
-        var pNextChain = new[]
+        if (messengerInfo is not null)
+            AddExtension(messengerInfo.Value);
+
+        if (features is not null)
+            AddExtension(features.Value);
+
+        if (checks is not null)
+            AddExtension(checks.Value);
+
+        if (IsValidationLayersEnabled || IsValidationLayersRequested)
         {
-            messengerInfo?.ToGlobalMemory(),
-            features?.ToGlobalMemory(),
-            checks?.ToGlobalMemory(),
+            var values = new uint[] { 5 };
+            var layerSetting = new LayerSettingEXT(
+                type: LayerSettingTypeEXT.Uint32Ext,
+                pLayerName: "khronos_validation".ToPtr(d),
+                pSettingName: "duplicate_message_limit".ToPtr(d),
+                valueCount: 1,
+                pValues: values.ToPtr(d)
+            );
+            var settingsInfo = new LayerSettingsCreateInfoEXT(
+                settingCount: 1,
+                pSettings: layerSetting.ToPtrPinned(d)
+            );
+
+            AddExtension(settingsInfo);
         }
-            .WhereNotNull()
-            .Select(memory => memory.DisposeWith(d))
-            .SetupPNextChain()
-            .ToArray();
 
-        if (pNextChain.Length > 0)
-            info.PNext = (void*)pNextChain[0].Handle;
-
+        info = infoChain.Head;
         return d;
+
+        void AddExtension<TExt>(TExt ext)
+            where TExt : unmanaged, IExtendsChain<InstanceCreateInfo>
+        {
+            var nonGenericChain = (Chain)infoChain;
+
+            infoChain = (IChain<InstanceCreateInfo>)nonGenericChain.AddAny(ext).DisposeWith(d);
+        }
     }
 }
