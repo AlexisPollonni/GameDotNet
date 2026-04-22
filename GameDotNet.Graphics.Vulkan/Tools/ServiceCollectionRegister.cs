@@ -90,7 +90,8 @@ public static class ServiceCollectionRegister
             })
             .AddSingleton<GpuCompletionMonitor>()
             .AddKeyedSingleton<CommandSubmitter>(QueueFlags.GraphicsBit)
-            .AddSingleton<IEntityRenderer, VulkanRenderer>()
+            .AddSingleton<SlangShaderService>()
+            .AddSingleton<IEntityRenderer, SlangMeshRenderer>()
             .AddSingleton<IVulkanDevice, AvaloniaVulkanDeviceWrapper>()
             .AddAutoFactories();
     }
