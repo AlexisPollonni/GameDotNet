@@ -10,18 +10,25 @@ public sealed class PooledValueTaskSource : IValueTaskSource, IResettable
 
     private ManualResetValueTaskSourceCore<VoidTaskResult> _core;
 
+    public bool RunContinuationAsynchronously
+    {
+        get => _core.RunContinuationsAsynchronously;
+        set => _core.RunContinuationsAsynchronously = value;
+    }
+
     void IValueTaskSource.GetResult(short token)
     {
         _core.GetResult(token);
     }
 
-    ValueTaskSourceStatus IValueTaskSource.GetStatus(short token) =>
-        _core.GetStatus(token);
+    ValueTaskSourceStatus IValueTaskSource.GetStatus(short token) => _core.GetStatus(token);
 
-    void IValueTaskSource.OnCompleted(Action<object?> continuation,
-                                      object? state,
-                                      short token,
-                                      ValueTaskSourceOnCompletedFlags flags)
+    void IValueTaskSource.OnCompleted(
+        Action<object?> continuation,
+        object? state,
+        short token,
+        ValueTaskSourceOnCompletedFlags flags
+    )
     {
         _core.OnCompleted(continuation, state, token, flags);
     }
