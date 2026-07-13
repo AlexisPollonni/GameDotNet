@@ -33,11 +33,11 @@ public sealed class VulkanInstance(
             utils.DestroyDebugUtilsMessenger(
                 Context.Instance,
                 messenger.Value,
-                in Context.Callbacks.Handle
+                in Context.Callbacks.Underlying
             );
         }
 
-        Context.Api.DestroyInstance(Context.Instance, in Context.Callbacks.Handle);
+        Context.Api.DestroyInstance(Context.Instance, in Context.Callbacks.Underlying);
         Context.Api.Dispose();
     }
 

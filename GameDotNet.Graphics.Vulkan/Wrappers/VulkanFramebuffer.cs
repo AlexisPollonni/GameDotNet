@@ -61,12 +61,12 @@ public sealed class VulkanFramebuffer : IDisposable
 
     public void Dispose()
     {
-        _api.DestroyFramebuffer(_device, Handle, _callback.Handle);
+        _api.DestroyFramebuffer(_device, Handle, in _callback.Underlying);
     }
 
     private Framebuffer CreateFramebuffer(in FramebufferCreateInfo info)
     {
-        _api.CreateFramebuffer(_device, info, _callback.Handle, out var framebuffer)
+        _api.CreateFramebuffer(_device, info, in _callback.Underlying, out var framebuffer)
             .ThrowOnError("Failed to create framebuffer");
         return framebuffer;
     }

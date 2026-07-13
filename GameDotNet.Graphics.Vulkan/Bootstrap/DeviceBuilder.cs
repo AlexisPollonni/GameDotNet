@@ -91,7 +91,7 @@ public class DeviceBuilder(IVulkanContext context)
             deviceCreateInfo.PNext = Unsafe.AsPointer(ref physicalDeviceExtensionFeatures.HeadRef); //TODO: in the future a cleaner way would be to create a mutable Chain derivative that can be created from an existing chain
         }
 
-        ref readonly var callback = ref _info.AllocationCallbacks.Handle;
+        ref readonly var callback = ref _info.AllocationCallbacks.Underlying;
         var res = context.Api.CreateDevice(
             context.PhysDevice.Device,
             in deviceCreateInfo,

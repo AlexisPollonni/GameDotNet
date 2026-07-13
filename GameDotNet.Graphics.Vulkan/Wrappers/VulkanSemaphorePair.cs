@@ -129,12 +129,12 @@ public sealed class VulkanSemaphorePair : SingleNonblockingDisposable<EmptyStruc
         _context.Api.DestroySemaphore(
             _context.Device,
             ImageAvailableSemaphore,
-            in _context.Callbacks.Handle
+            in _context.Callbacks.Underlying
         );
         _context.Api.DestroySemaphore(
             _context.Device,
             RenderFinishedSemaphore,
-            in _context.Callbacks.Handle
+            in _context.Callbacks.Underlying
         );
     }
 }

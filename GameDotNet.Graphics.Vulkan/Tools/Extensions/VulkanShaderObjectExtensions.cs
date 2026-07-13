@@ -50,7 +50,7 @@ public static class VulkanShaderObjectExtensions
             device.ShaderObjectExt.DestroyShader(
                 device.Underlying,
                 shader,
-                in device.Context.Callbacks.Handle
+                in device.Context.Callbacks.Underlying
             );
         }
 

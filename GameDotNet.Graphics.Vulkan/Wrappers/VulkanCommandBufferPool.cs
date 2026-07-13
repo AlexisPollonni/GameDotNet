@@ -39,7 +39,7 @@ public sealed class VulkanCommandBufferPool
             .Api.CreateCommandPool(
                 context.Device,
                 in commandPoolCreateInfo,
-                in context.Callbacks.Handle,
+                in context.Callbacks.Underlying,
                 out var pool
             )
             .ThrowOnError();
@@ -49,7 +49,7 @@ public sealed class VulkanCommandBufferPool
 
     protected override void Dispose(EmptyStruct context)
     {
-        Context.Api.DestroyCommandPool(Context.Device, Underlying, in Context.Callbacks.Handle);
+        Context.Api.DestroyCommandPool(Context.Device, Underlying, in Context.Callbacks.Underlying);
     }
 
     public void Reset()

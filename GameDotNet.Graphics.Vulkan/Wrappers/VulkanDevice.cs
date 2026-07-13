@@ -22,6 +22,6 @@ public sealed class VulkanDevice : SingleNonblockingDisposable<EmptyStruct>, IVu
 
     protected override void Dispose(EmptyStruct context)
     {
-        Context.Api.DestroyDevice(Underlying, in Context.Callbacks.Handle);
+        Context.Api.DestroyDevice(Underlying, in Context.Callbacks.Underlying);
     }
 }

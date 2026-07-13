@@ -103,11 +103,11 @@ public sealed class DefaultVulkanContext : IVulkanContext
         Allocator = MakeAllocator();
     }
 
-    private static IVulkanAllocCallback MakeAlloc()
+    private IVulkanAllocCallback MakeAlloc()
     {
         return
 #if DEBUG
-        new TrackedMemoryAllocator("Global");
+        new TrackedMemoryAllocator(this, "Global");
 #else
         new NullAllocator();
 #endif

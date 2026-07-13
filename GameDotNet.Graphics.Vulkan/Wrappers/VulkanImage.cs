@@ -265,7 +265,7 @@ public sealed class VulkanImageView : SingleNonblockingDisposable<EmptyStruct>
         _context.Api.CreateImageView(
             _context.Device,
             in info,
-            in _context.Callbacks.Handle,
+            in _context.Callbacks.Underlying,
             out var imageView
         );
         ImageView = imageView;
@@ -273,6 +273,6 @@ public sealed class VulkanImageView : SingleNonblockingDisposable<EmptyStruct>
 
     protected override void Dispose(EmptyStruct context)
     {
-        _context.Api.DestroyImageView(_context.Device, ImageView, in _context.Callbacks.Handle);
+        _context.Api.DestroyImageView(_context.Device, ImageView, in _context.Callbacks.Underlying);
     }
 }

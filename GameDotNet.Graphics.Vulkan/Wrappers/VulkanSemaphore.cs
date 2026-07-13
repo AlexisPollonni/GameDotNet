@@ -26,7 +26,12 @@ public class VulkanSemaphore : SingleDisposable<EmptyStruct>, IVulkanWrapper<Sem
         Context = context;
 
         context
-            .Api.CreateSemaphore(context.Device, in info, in context.Callbacks.Handle, out var sem)
+            .Api.CreateSemaphore(
+                context.Device,
+                in info,
+                in context.Callbacks.Underlying,
+                out var sem
+            )
             .ThrowOnError("Unable to create semaphore");
 
         Underlying = sem;
@@ -36,7 +41,7 @@ public class VulkanSemaphore : SingleDisposable<EmptyStruct>, IVulkanWrapper<Sem
 
     protected sealed override void Dispose(EmptyStruct context)
     {
-        Context.Api.DestroySemaphore(Context.Device, Underlying, in Context.Callbacks.Handle);
+        Context.Api.DestroySemaphore(Context.Device, Underlying, in Context.Callbacks.Underlying);
     }
 }
 

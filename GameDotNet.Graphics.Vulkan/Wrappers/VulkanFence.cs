@@ -24,7 +24,7 @@ public sealed class VulkanFence : IDisposable
         _callbacks = callbacks;
 
         var infos = new FenceCreateInfo(flags: flags);
-        api.CreateFence(device, in infos, in callbacks.Handle, out var fence)
+        api.CreateFence(device, in infos, in callbacks.Underlying, out var fence)
             .ThrowOnError("Couldn't create fence for device");
 
         Handle = fence;
@@ -45,6 +45,6 @@ public sealed class VulkanFence : IDisposable
 
     public void Dispose()
     {
-        _api.DestroyFence(_device, Handle, in _callbacks.Handle);
+        _api.DestroyFence(_device, Handle, in _callbacks.Underlying);
     }
 }

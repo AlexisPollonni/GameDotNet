@@ -13,7 +13,12 @@ public sealed class VulkanRenderPass : IDisposable
     private readonly VulkanDevice _device;
     private readonly IVulkanAllocCallback _callbacks;
 
-    public VulkanRenderPass(Vk api, VulkanDevice device, IVulkanAllocCallback callbacks, in RenderPassCreateInfo info)
+    public VulkanRenderPass(
+        Vk api,
+        VulkanDevice device,
+        IVulkanAllocCallback callbacks,
+        in RenderPassCreateInfo info
+    )
     {
         _api = api;
         _device = device;
@@ -24,8 +29,12 @@ public sealed class VulkanRenderPass : IDisposable
 
     public static implicit operator RenderPass(VulkanRenderPass p) => p.Handle;
 
-    public unsafe void Begin(VulkanCommandBuffer cmd, in Rect2D area, VulkanFramebuffer framebuffer,
-                             ReadOnlySpan<ClearValue> clearValues)
+    public unsafe void Begin(
+        VulkanCommandBuffer cmd,
+        in Rect2D area,
+        VulkanFramebuffer framebuffer,
+        ReadOnlySpan<ClearValue> clearValues
+    )
     {
         fixed (ClearValue* pClear = clearValues)
         {
@@ -36,7 +45,7 @@ public sealed class VulkanRenderPass : IDisposable
                 Framebuffer = framebuffer,
                 RenderArea = area,
                 ClearValueCount = (uint)clearValues.Length,
-                PClearValues = pClear
+                PClearValues = pClear,
             };
             _api.CmdBeginRenderPass(cmd, info, SubpassContents.Inline);
         }
@@ -46,12 +55,12 @@ public sealed class VulkanRenderPass : IDisposable
 
     public void Dispose()
     {
-        _api.DestroyRenderPass(_device, Handle, _callbacks.Handle);
+        _api.DestroyRenderPass(_device, Handle, in _callbacks.Underlying);
     }
 
     private RenderPass CreateRenderPass(in RenderPassCreateInfo info)
     {
-        _api.CreateRenderPass(_device, info, _callbacks.Handle, out var renderPass)
+        _api.CreateRenderPass(_device, info, in _callbacks.Underlying, out var renderPass)
             .ThrowOnError("Failed to create render pass");
 
         return renderPass;

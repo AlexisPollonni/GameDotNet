@@ -108,7 +108,7 @@ public partial class InstanceBuilder(IVulkanContext context)
     public VulkanInstance Build()
     {
         using var d = new DisposableList();
-        ref readonly var alloc = ref AllocCallback.Handle;
+        ref readonly var alloc = ref AllocCallback.Underlying;
 
         var sysInfo = new SystemInfo();
 
