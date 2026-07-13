@@ -9,80 +9,41 @@ using SlangShaderSharp;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public sealed class VulkanShaderObject(
-    IVulkanContext context,
-    IEntryPoint entryPoint,
-    ShaderEXT compiledShader
-) : SingleNonblockingDisposable<EmptyStruct>(default)
+public sealed class VulkanShaderObject
+    : SingleNonblockingDisposable<EmptyStruct>,
+        IVulkanWrapper<ShaderEXT>
 {
-    public ShaderStageFlags ShaderStage => ShaderStageFlags.All; //TODO: get from refl
+    public IVulkanContext Context { get; }
+    public ShaderEXT Underlying { get; }
+    public ShaderStageFlags ShaderStage { get; }
 
-    private readonly IEntryPoint _entryPoint = entryPoint;
-
-    public VertexInputDescription GetVertexDescription()
+    public VulkanShaderObject(
+        IVulkanContext context,
+        ShaderStageFlags stage,
+        string name,
+        Memory<byte> spirv,
+        ShaderCreateFlagsEXT flags = ShaderCreateFlagsEXT.Create64BitIndexingBitExt
+    )
+        : base(default)
     {
-        return new();
-        // if (
-        //     !_reflectModule.ShaderStage.HasFlag(
-        //         Silk.NET.SPIRV.Reflect.ShaderStageFlagBits.VertexBit
-        //     )
-        // )
-        //     throw new InvalidOperationException(
-        //         "Not a vertex shader, can't get vertex description"
-        //     );
-        //
-        // //we will have just 1 vertex buffer binding, with a per-vertex rate
-        // var bindingDesc = new VertexInputBindingDescription(0, 0, VertexInputRate.Vertex);
-        //
-        // var inputs = _reflectModule.EnumerateInputVariables();
-        //
-        // var attrDescList = inputs
-        //     .Select(reflVar => new VertexInputAttributeDescription(
-        //         reflVar.Location,
-        //         bindingDesc.Binding,
-        //         (Format)reflVar.Format,
-        //         0
-        //     ))
-        //     .OrderBy(desc => desc.Location)
-        //     .Select(attribute =>
-        //     {
-        //         var formatSize = FormatSize(attribute.Format);
-        //         var attribute2 = attribute with { Offset = bindingDesc.Stride };
-        //         bindingDesc.Stride += formatSize;
-        //         return attribute2;
-        //     })
-        //     .ToList();
-        //
-        // return new()
-        // {
-        //     Bindings = new() { bindingDesc },
-        //     Attributes = attrDescList,
-        // };
-    }
+        Context = context;
+        ShaderStage = stage;
 
-    public IEnumerable<PushConstantRange> GetPushConstantRanges()
-    {
-        // return _reflectModule
-        //     .EnumeratePushConstants()
-        //     .OrderBy(block => block.Offset)
-        //     .Select(constant => new PushConstantRange(ShaderStage, constant.Offset, constant.Size));
-        return [];
+        Underlying = context.Device.CreateShaderObject(
+            name,
+            spirv.Span,
+            stage,
+            ShaderStageFlags.All,
+            [],
+            [],
+            flags
+        );
     }
 
     protected override void Dispose(EmptyStruct context1)
     {
-        context.Device.DestroyShaderObject(compiledShader);
+        Context.Device.DestroyShaderObject(Underlying);
     }
-
-    private static ShaderStageFlags StageToShaderStageFlags(ShaderStage stage) =>
-        stage.Value switch
-        {
-            Models.ShaderStage.VertexValue => ShaderStageFlags.VertexBit,
-            Models.ShaderStage.GeometryValue => ShaderStageFlags.GeometryBit,
-            Models.ShaderStage.FragmentValue => ShaderStageFlags.FragmentBit,
-            Models.ShaderStage.ComputeValue => ShaderStageFlags.ComputeBit,
-            _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, null),
-        };
 
     /// <summary>
     /// Returns the size in bytes of the provided VkFormat.

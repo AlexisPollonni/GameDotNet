@@ -71,7 +71,8 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
         IVulkanContext context,
         TimeProvider timeProvider,
         SlangShaderService shaderService,
-        [FromKeyedServices(QueueFlags.GraphicsBit)] CommandSubmitter submitter)
+        [FromKeyedServices(QueueFlags.GraphicsBit)] CommandSubmitter submitter
+    )
     {
         _context = context;
         _timeProvider = timeProvider;
@@ -81,12 +82,22 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
         var program = shaderService.Compile(ShaderModuleName, ShaderSource);
 
         _vertShader = context.Device.CreateShaderObject(
-            ShaderStageFlags.VertexBit, "vertMain",
-            program.SpirvPerStage[SlangStage.Vertex]);
+            "vertMain",
+            program.SpirvPerStage[SlangStage.Vertex].Span,
+            ShaderStageFlags.VertexBit,
+            ShaderStageFlags.FragmentBit,
+            [],
+            []
+        );
 
         _fragShader = context.Device.CreateShaderObject(
-            ShaderStageFlags.FragmentBit, "fragMain",
-            program.SpirvPerStage[SlangStage.Fragment]);
+            "fragMain",
+            program.SpirvPerStage[SlangStage.Fragment].Span,
+            ShaderStageFlags.FragmentBit,
+            ShaderStageFlags.None,
+            [],
+            []
+        );
 
         // Build vertex input layout from Slang reflection
         (_vertexBindings, _vertexAttributes) = BuildVertexLayout(program.Reflection);
@@ -94,28 +105,31 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
         // Hard-coded triangle in clip/NDC space
         Vertex[] vertices =
         [
-            new Vertex(new Vector3( 0.0f, -0.5f, 0.5f), Vector3.UnitZ, Color.Red),
-            new Vertex(new Vector3( 0.5f,  0.5f, 0.5f), Vector3.UnitZ, Color.Lime),
-            new Vertex(new Vector3(-0.5f,  0.5f, 0.5f), Vector3.UnitZ, Color.Blue),
+            new Vertex(new Vector3(0.0f, -0.5f, 0.5f), Vector3.UnitZ, Color.Red),
+            new Vertex(new Vector3(0.5f, 0.5f, 0.5f), Vector3.UnitZ, Color.Lime),
+            new Vertex(new Vector3(-0.5f, 0.5f, 0.5f), Vector3.UnitZ, Color.Blue),
         ];
         uint[] indices = [0, 1, 2];
 
         _vertexCount = (uint)vertices.Length;
-        _indexCount  = (uint)indices.Length;
+        _indexCount = (uint)indices.Length;
 
         (_vertexBuffer, _indexBuffer) = UploadMesh(vertices, indices);
     }
 
     // ── Reflection helpers ──────────────────────────────────────────────────
 
-    private static (VertexInputBindingDescription2EXT[], VertexInputAttributeDescription2EXT[])
-        BuildVertexLayout(ShaderReflection reflection)
+    private static (
+        VertexInputBindingDescription2EXT[],
+        VertexInputAttributeDescription2EXT[]
+    ) BuildVertexLayout(ShaderReflection reflection)
     {
         var vertEp = EntryPointReflection.Null;
         for (uint i = 0; i < reflection.EntryPointCount; i++)
         {
             var ep = reflection.GetEntryPointByIndex(i);
-            if (ep.Stage != SlangStage.Vertex) continue;
+            if (ep.Stage != SlangStage.Vertex)
+                continue;
             vertEp = ep;
             break;
         }
@@ -128,30 +142,30 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
         [
             new()
             {
-                SType     = StructureType.VertexInputBindingDescription2Ext,
-                Binding   = 0,
-                Stride    = stride,
+                SType = StructureType.VertexInputBindingDescription2Ext,
+                Binding = 0,
+                Stride = stride,
                 InputRate = VertexInputRate.Vertex,
-                Divisor   = 1,
-            }
+                Divisor = 1,
+            },
         ];
 
         uint paramCount = vertEp.ParameterCount;
         var attributes = new VertexInputAttributeDescription2EXT[paramCount];
         for (uint i = 0; i < paramCount; i++)
         {
-            var param    = vertEp.GetParameterByIndex(i);
-            uint location  = (uint)param.GetOffset(SlangParameterCategory.VaryingInput);
-            var format   = SlangTypeToVkFormat(param.TypeLayout.Type);
-            uint offset  = SemanticToVertexOffset(param.SemanticName);
+            var param = vertEp.GetParameterByIndex(i);
+            uint location = (uint)param.GetOffset(SlangParameterCategory.VaryingInput);
+            var format = SlangTypeToVkFormat(param.TypeLayout.Type);
+            uint offset = SemanticToVertexOffset(param.SemanticName);
 
             attributes[i] = new()
             {
-                SType    = StructureType.VertexInputAttributeDescription2Ext,
+                SType = StructureType.VertexInputAttributeDescription2Ext,
                 Location = location,
-                Binding  = 0,
-                Format   = format,
-                Offset   = offset,
+                Binding = 0,
+                Format = format,
+                Offset = offset,
             };
         }
 
@@ -161,8 +175,8 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
     private static Format SlangTypeToVkFormat(TypeReflection type) =>
         type.Kind switch
         {
-            SlangTypeKind.Scalar when type.ScalarType == SlangScalarType.Float32
-                => Format.R32Sfloat,
+            SlangTypeKind.Scalar when type.ScalarType == SlangScalarType.Float32 =>
+                Format.R32Sfloat,
             SlangTypeKind.Vector => (type.ScalarType, type.ColumnCount) switch
             {
                 (SlangScalarType.Float32, 1) => Format.R32Sfloat,
@@ -170,10 +184,12 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
                 (SlangScalarType.Float32, 3) => Format.R32G32B32Sfloat,
                 (SlangScalarType.Float32, 4) => Format.R32G32B32A32Sfloat,
                 _ => throw new NotSupportedException(
-                    $"Unsupported vector type: {type.ScalarType} x {type.ColumnCount}"),
+                    $"Unsupported vector type: {type.ScalarType} x {type.ColumnCount}"
+                ),
             },
             _ => throw new NotSupportedException(
-                $"Unsupported type kind for vertex attribute: {type.Kind}"),
+                $"Unsupported type kind for vertex attribute: {type.Kind}"
+            ),
         };
 
     /// <summary>Returns the byte offset of a vertex attribute within <see cref="Vertex"/>.</summary>
@@ -181,31 +197,42 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
         semanticName.ToUpperInvariant() switch
         {
             "POSITION" => 0,
-            "NORMAL"   => (uint)Unsafe.SizeOf<Vector3>(),
-            "COLOR"    => (uint)(Unsafe.SizeOf<Vector3>() * 2),
+            "NORMAL" => (uint)Unsafe.SizeOf<Vector3>(),
+            "COLOR" => (uint)(Unsafe.SizeOf<Vector3>() * 2),
             _ => throw new NotSupportedException($"Unknown vertex semantic: '{semanticName}'"),
         };
 
     // ── Mesh upload ─────────────────────────────────────────────────────────
 
-    private unsafe (VulkanBuffer vertex, VulkanBuffer index) UploadMesh(Vertex[] vertices, uint[] indices)
+    private unsafe (VulkanBuffer vertex, VulkanBuffer index) UploadMesh(
+        Vertex[] vertices,
+        uint[] indices
+    )
     {
         var vertSize = (ulong)vertices.Length * (ulong)Unsafe.SizeOf<Vertex>();
-        var idxSize  = (ulong)indices.Length  * sizeof(uint);
+        var idxSize = (ulong)indices.Length * sizeof(uint);
 
         var cpuGpuAlloc = new AllocationCreateInfo(usage: MemoryUsage.CPU_To_GPU);
 
-        var vertBufInfo = new BufferCreateInfo(size: vertSize, usage: BufferUsageFlags.VertexBufferBit);
-        var idxBufInfo  = new BufferCreateInfo(size: idxSize,  usage: BufferUsageFlags.IndexBufferBit);
+        var vertBufInfo = new BufferCreateInfo(
+            size: vertSize,
+            usage: BufferUsageFlags.VertexBufferBit
+        );
+        var idxBufInfo = new BufferCreateInfo(
+            size: idxSize,
+            usage: BufferUsageFlags.IndexBufferBit
+        );
 
         var vertBuf = new VulkanBuffer(_context.Allocator, in vertBufInfo, in cpuGpuAlloc);
-        var idxBuf  = new VulkanBuffer(_context.Allocator, in idxBufInfo,  in cpuGpuAlloc);
+        var idxBuf = new VulkanBuffer(_context.Allocator, in idxBufInfo, in cpuGpuAlloc);
 
         using (var m = vertBuf.Map<Vertex>())
-            if (m.TryGetSpan(out var span)) vertices.AsSpan().CopyTo(span);
+            if (m.TryGetSpan(out var span))
+                vertices.AsSpan().CopyTo(span);
 
         using (var m = idxBuf.Map<uint>())
-            if (m.TryGetSpan(out var span)) indices.AsSpan().CopyTo(span);
+            if (m.TryGetSpan(out var span))
+                indices.AsSpan().CopyTo(span);
 
         return (vertBuf, idxBuf);
     }
@@ -232,62 +259,69 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
         return _timings.ComputeStats();
     }
 
-    private unsafe void RecordDrawCommands(VulkanImage image, VulkanImageView colorView, BatchId batch)
+    private unsafe void RecordDrawCommands(
+        VulkanImage image,
+        VulkanImageView colorView,
+        BatchId batch
+    )
     {
-        uint width  = image.Extent.Width;
+        uint width = image.Extent.Width;
         uint height = image.Extent.Height;
 
         using var recorder = _submitter.CreateRecorder(batch);
         var cmd = recorder.Buffer;
 
-        image.TransitionLayout(cmd,
+        image.TransitionLayout(
+            cmd,
             ImageLayout.ColorAttachmentOptimal,
-            AccessFlags.ColorAttachmentWriteBit);
+            AccessFlags.ColorAttachmentWriteBit
+        );
 
         var clearValue = new ClearValue(color: new ClearColorValue(0f, 0f, 0f, 1f));
         var colorAttachment = new RenderingAttachmentInfo
         {
-            SType       = StructureType.RenderingAttachmentInfo,
-            ImageView   = colorView.ImageView,
+            SType = StructureType.RenderingAttachmentInfo,
+            ImageView = colorView.ImageView,
             ImageLayout = ImageLayout.ColorAttachmentOptimal,
-            LoadOp      = AttachmentLoadOp.Clear,
-            StoreOp     = AttachmentStoreOp.Store,
-            ClearValue  = clearValue,
+            LoadOp = AttachmentLoadOp.Clear,
+            StoreOp = AttachmentStoreOp.Store,
+            ClearValue = clearValue,
         };
 
         var renderArea = new Rect2D(extent: new Extent2D(width, height));
         var renderInfo = new RenderingInfo
         {
-            SType                = StructureType.RenderingInfo,
-            RenderArea           = renderArea,
-            LayerCount           = 1,
+            SType = StructureType.RenderingInfo,
+            RenderArea = renderArea,
+            LayerCount = 1,
             ColorAttachmentCount = 1,
-            PColorAttachments    = &colorAttachment,
+            PColorAttachments = &colorAttachment,
         };
         _context.Api.CmdBeginRendering(cmd, in renderInfo);
 
         // Bind vertex + fragment shaders
         cmd.BindShaders(
             [ShaderStageFlags.VertexBit, ShaderStageFlags.FragmentBit],
-            [_vertShader, _fragShader]);
+            [_vertShader, _fragShader]
+        );
 
         // Vertex input from reflection
         cmd.SetVertexInput(_vertexBindings, _vertexAttributes);
 
         // Viewport / scissor
         cmd.Viewports = [new Viewport(0, 0, width, height, 0, 1)];
-        cmd.Scissors  = [renderArea];
+        cmd.Scissors = [renderArea];
 
         // Input assembly
-        cmd.PrimitiveTopology      = PrimitiveTopology.TriangleList;
+        cmd.PrimitiveTopology = PrimitiveTopology.TriangleList;
         cmd.PrimitiveRestartEnable = false;
 
         // Rasterization
         cmd.RasterizerDiscardEnable = false;
-        cmd.CullMode     = CullModeFlags.None;
-        cmd.FrontFace    = FrontFace.CounterClockwise;
-        cmd.PolygonMode  = PolygonMode.Fill;
-        cmd.DepthBiasEnable  = false;
+        cmd.CullMode = CullModeFlags.None;
+        cmd.FrontFace = FrontFace.CounterClockwise;
+        cmd.PolygonMode = PolygonMode.Fill;
+        cmd.DepthBiasEnable = false;
         cmd.DepthClampEnable = false;
 
         // Multisample
@@ -295,27 +329,33 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
         uint sampleMask = ~0u;
         cmd.SetSampleMask(SampleCountFlags.Count1Bit, in sampleMask);
         cmd.AlphaToCoverageEnable = false;
-        cmd.AlphaToOneEnable      = false;
+        cmd.AlphaToOneEnable = false;
 
         // Depth / stencil (all disabled)
-        cmd.DepthTestEnable       = false;
-        cmd.DepthWriteEnable      = false;
-        cmd.DepthCompareOp        = CompareOp.LessOrEqual;
+        cmd.DepthTestEnable = false;
+        cmd.DepthWriteEnable = false;
+        cmd.DepthCompareOp = CompareOp.LessOrEqual;
         cmd.DepthBoundsTestEnable = false;
-        cmd.StencilTestEnable     = false;
+        cmd.StencilTestEnable = false;
 
         // Color blend (disabled)
         cmd.LogicOpEnable = false;
         cmd.SetColorBlendEnable(0, [(Bool32)false]);
-        cmd.SetColorWriteMask(0,
-            [ColorComponentFlags.RBit | ColorComponentFlags.GBit |
-             ColorComponentFlags.BBit | ColorComponentFlags.ABit]);
+        cmd.SetColorWriteMask(
+            0,
+            [
+                ColorComponentFlags.RBit
+                    | ColorComponentFlags.GBit
+                    | ColorComponentFlags.BBit
+                    | ColorComponentFlags.ABit,
+            ]
+        );
 
         // Bind vertex and index buffers
-        var vkVertBuf  = _vertexBuffer.Buffer;
-        var vkIdxBuf   = _indexBuffer.Buffer;
-        ulong zero       = 0;
-        ulong vertBytes  = _vertexCount * (ulong)Unsafe.SizeOf<Vertex>();
+        var vkVertBuf = _vertexBuffer.Buffer;
+        var vkIdxBuf = _indexBuffer.Buffer;
+        ulong zero = 0;
+        ulong vertBytes = _vertexCount * (ulong)Unsafe.SizeOf<Vertex>();
         ulong vertStride = (ulong)Unsafe.SizeOf<Vertex>();
         cmd.BindVertexBuffers2(0, [vkVertBuf], [zero], [vertBytes], [vertStride]);
         _context.Api.CmdBindIndexBuffer(cmd, vkIdxBuf, 0, IndexType.Uint32);
@@ -324,14 +364,13 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
 
         _context.Api.CmdEndRendering(cmd);
 
-        image.TransitionLayout(cmd,
-            ImageLayout.ShaderReadOnlyOptimal,
-            AccessFlags.ShaderReadBit);
+        image.TransitionLayout(cmd, ImageLayout.ShaderReadOnlyOptimal, AccessFlags.ShaderReadBit);
     }
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+            return;
         _disposed = true;
 
         _vertexBuffer.Dispose();

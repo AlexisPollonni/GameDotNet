@@ -13,35 +13,46 @@ public static class VulkanShaderObjectExtensions
         where TDevice : IVulkanWrapper<Device>
     {
         public unsafe ShaderEXT CreateShaderObject(
-            ShaderStageFlags stage,
             string name,
-            ReadOnlyMemory<byte> spirvCode,
+            ReadOnlySpan<byte> spirvCode,
+            ShaderStageFlags stage,
+            ShaderStageFlags nextStage,
+            ReadOnlySpan<PushConstantRange> pushConstants,
+            ReadOnlySpan<DescriptorSetLayout> descriptorSetLayouts,
             ShaderCreateFlagsEXT flags = ShaderCreateFlagsEXT.None
         )
         {
-            using var pCode = spirvCode.Pin();
             Span<ShaderEXT> outShaders = [default];
-            using var nameMem = name.ToGlobalMemory();
-            var createInfo = new ShaderCreateInfoEXT
+            fixed (void* pCode = spirvCode)
+            fixed (PushConstantRange* pPushConstants = pushConstants)
+            fixed (DescriptorSetLayout* pSetLayouts = descriptorSetLayouts)
             {
-                CodeType = ShaderCodeTypeEXT.SpirvExt,
-                Stage = stage,
-                Flags = flags,
-                CodeSize = (uint)spirvCode.Length,
-                PCode = pCode.Pointer,
-                PName = (byte*)nameMem.Handle,
-                //TODO: descriptor set and push constant
-                //TODO: pnext
-            };
-            device
-                .ShaderObjectExt.CreateShaders(
-                    device.Underlying,
-                    1u,
-                    [createInfo],
-                    [device.Context.Callbacks.Handle],
-                    outShaders
-                )
-                .ThrowOnError();
+                using var nameMem = name.ToGlobalMemory();
+                var createInfo = new ShaderCreateInfoEXT(
+                    codeType: ShaderCodeTypeEXT.SpirvExt,
+                    stage: stage,
+                    nextStage: nextStage,
+                    flags: flags,
+                    codeSize: (nuint)spirvCode.Length,
+                    pCode: pCode,
+                    pName: (byte*)nameMem.Handle,
+                    pPushConstantRanges: pPushConstants,
+                    pushConstantRangeCount: (uint)pushConstants.Length,
+                    pSetLayouts: pSetLayouts,
+                    setLayoutCount: (uint)descriptorSetLayouts.Length
+                ); //TODO: PNext, specializations?
+
+                device
+                    .ShaderObjectExt.CreateShaders(
+                        device.Underlying,
+                        1u,
+                        [createInfo],
+                        [device.Context.Callbacks.Underlying],
+                        outShaders
+                    )
+                    .ThrowOnError();
+            }
+
             return outShaders[0];
         }
 
@@ -72,9 +83,11 @@ public static class VulkanShaderObjectExtensions
                     )
                     .ThrowOnError();
             }
+
             return data;
         }
     }
+
     extension<TCommandBuffer>(TCommandBuffer commandBuffer)
         where TCommandBuffer : IVulkanWrapper<CommandBuffer>
     {
@@ -127,6 +140,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool PrimitiveRestartEnable
         {
             set =>
@@ -145,6 +159,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public TessellationDomainOrigin TessellationDomainOrigin
         {
             set =>
@@ -178,14 +193,17 @@ public static class VulkanShaderObjectExtensions
         {
             set => commandBuffer.ShaderObjectExt.CmdSetCullMode(commandBuffer.Underlying, value);
         }
+
         public FrontFace FrontFace
         {
             set => commandBuffer.ShaderObjectExt.CmdSetFrontFace(commandBuffer.Underlying, value);
         }
+
         public PolygonMode PolygonMode
         {
             set => commandBuffer.ShaderObjectExt.CmdSetPolygonMode(commandBuffer.Underlying, value);
         }
+
         public bool RasterizerDiscardEnable
         {
             set =>
@@ -194,6 +212,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool DepthBiasEnable
         {
             set =>
@@ -202,6 +221,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool DepthClampEnable
         {
             set =>
@@ -228,6 +248,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool DepthClipNegativeOneToOne
         {
             set =>
@@ -236,6 +257,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public ProvokingVertexModeEXT ProvokingVertexMode
         {
             set =>
@@ -244,6 +266,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public uint RasterizationStream
         {
             set =>
@@ -252,6 +275,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public ConservativeRasterizationModeEXT ConservativeRasterizationMode
         {
             set =>
@@ -260,6 +284,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public float ExtraPrimitiveOverestimationSize
         {
             set =>
@@ -278,6 +303,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool LineStippleEnable
         {
             set =>
@@ -314,6 +340,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool AlphaToOneEnable
         {
             set =>
@@ -322,6 +349,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool SampleLocationsEnable
         {
             set =>
@@ -340,6 +368,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool DepthWriteEnable
         {
             set =>
@@ -348,11 +377,13 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public CompareOp DepthCompareOp
         {
             set =>
                 commandBuffer.ShaderObjectExt.CmdSetDepthCompareOp(commandBuffer.Underlying, value);
         }
+
         public bool DepthBoundsTestEnable
         {
             set =>
@@ -361,6 +392,7 @@ public static class VulkanShaderObjectExtensions
                     value
                 );
         }
+
         public bool StencilTestEnable
         {
             set =>
@@ -439,6 +471,7 @@ public static class VulkanShaderObjectExtensions
             set =>
                 commandBuffer.ShaderObjectExt.CmdSetLogicOpEnable(commandBuffer.Underlying, value);
         }
+
         public LogicOp LogicOp
         {
             set => commandBuffer.ShaderObjectExt.CmdSetLogicOp(commandBuffer.Underlying, value);

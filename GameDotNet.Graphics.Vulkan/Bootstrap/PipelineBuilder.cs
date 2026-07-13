@@ -89,22 +89,6 @@ public class PipelineBuilder(VulkanInstance instance, VulkanDevice device)
         return null; //TODO replace with just layout, will use dynamic rendering ext to replace that
     }
 
-    private static unsafe PipelineLayoutCreateInfo CreatePipelineLayoutInfo(
-        IEnumerable<VulkanShaderObject> stages,
-        ICompositeDisposable d
-    )
-    {
-        var ranges = stages.SelectMany(shader => shader.GetPushConstantRanges()).ToList();
-
-        return new(
-            flags: 0,
-            setLayoutCount: 0,
-            pSetLayouts: null,
-            pushConstantRangeCount: (uint)ranges.Count,
-            pPushConstantRanges: ranges.ToPtr(d)
-        );
-    }
-
     private static unsafe PipelineVertexInputStateCreateInfo CreateVertexInputStageInfo(
         VertexInputDescription d
     )
