@@ -2,6 +2,7 @@ using Avalonia;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
+using GameDotNet.Graphics.Vulkan.Tools.Extensions;
 using GameDotNet.Graphics.Vulkan.Wrappers;
 using Nito.Disposables;
 using Silk.NET.Vulkan;
@@ -9,12 +10,21 @@ using SkiaSharp;
 
 namespace GameDotNet.Editor.Views;
 
-internal class SkiaSwapchainImage : SingleDisposable<EmptyStruct>
+internal class SkiaSwapchainImage(IVulkanContext context, PixelSize size)
+    : SingleDisposable<EmptyStruct>(default)
 {
-    internal VulkanImage Image { get; }
+    internal VulkanImage Image { get; } =
+        new Vulkan2DImage(
+            context,
+            Format.B8G8R8A8Unorm,
+            new(size.Width, size.Height),
+            ImageUsageFlags.ColorAttachmentBit
+                | ImageUsageFlags.TransferSrcBit
+                | ImageUsageFlags.TransferDstBit
+                | ImageUsageFlags.SampledBit
+        );
 
-    public PixelSize Size { get; }
-    public Task? LastPresent { get; private set; }
+    public PixelSize Size { get; } = size;
 
     public GRVkImageInfo ImageInfo =>
         new()
@@ -36,26 +46,6 @@ internal class SkiaSwapchainImage : SingleDisposable<EmptyStruct>
             SharingMode = (uint)Image.CreateInfo.SharingMode,
             CurrentQueueFamily = 0,
         };
-
-    public SkiaSwapchainImage(IVulkanContext context, PixelSize size)
-        : base(default)
-    {
-        Size = size;
-
-        // Normal image — no external memory flags needed
-        var createInfo = VulkanImage.GetImageCreateInfo(
-            Format.R8G8B8A8Unorm,
-            ImageUsageFlags.ColorAttachmentBit
-                | ImageUsageFlags.TransferSrcBit
-                | ImageUsageFlags.TransferDstBit
-                | ImageUsageFlags.SampledBit,
-            new((uint)size.Width, (uint)size.Height, 1)
-        );
-
-        var allocInfo = new AllocationCreateInfo { Usage = MemoryUsage.GPU_Only };
-
-        Image = new(context, in createInfo, in allocInfo);
-    }
 
     protected override void Dispose(EmptyStruct context)
     {
