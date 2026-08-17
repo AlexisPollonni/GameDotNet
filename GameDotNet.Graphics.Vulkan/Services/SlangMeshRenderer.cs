@@ -271,8 +271,8 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
         using var recorder = _submitter.CreateRecorder(batch);
         var cmd = recorder.Buffer;
 
-        image.TransitionLayout(
-            cmd,
+        cmd.TransitionLayout(
+            image,
             ImageLayout.ColorAttachmentOptimal,
             AccessFlags.ColorAttachmentWriteBit
         );
@@ -364,7 +364,7 @@ public sealed class SlangMeshRenderer : IEntityRenderer, IDisposable
 
         _context.Api.CmdEndRendering(cmd);
 
-        image.TransitionLayout(cmd, ImageLayout.ShaderReadOnlyOptimal, AccessFlags.ShaderReadBit);
+        cmd.TransitionLayout(image, ImageLayout.ShaderReadOnlyOptimal, AccessFlags.ShaderReadBit);
     }
 
     public void Dispose()

@@ -1,3 +1,5 @@
+using System.Drawing;
+using ByteSizeLib;
 using GameDotNet.Core.Tooling;
 using GameDotNet.Graphics.Abstractions;
 using GameDotNet.Graphics.Vulkan.Abstractions;
@@ -9,20 +11,36 @@ using Silk.NET.Vulkan.Extensions.KHR;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public sealed class VulkanImage : SingleNonblockingDisposable<EmptyStruct>, IDeviceTexture
+public interface IVulkanImage : IVulkanWrapper<Image>, IVulkanCreateFromInfo<ImageCreateInfo>
 {
-    public ImageCreateInfo CreateInfo => _info;
-    public Image Image { get; }
-    public Allocation Allocation { get; }
+    Format Format { get; }
+    Extent3D Extent { get; }
+    AccessFlags CurrentAccessFlags { get; internal set; }
+    ImageLayout CurrentLayout { get; internal set; }
+    ByteSize Size { get; }
+}
 
-    public Format Format => _info.Format;
-    public Extent3D Extent => _info.Extent;
+public abstract class VulkanImage : SingleDisposable<EmptyStruct>, IDeviceTexture, IVulkanImage
+{
+    public IVulkanContext Context { get; }
+
+    public Image Underlying => _lazyImage.Value.Item3;
+    public IChain<ImageCreateInfo> InfoChain => _lazyImage.Value.Item1;
+    public Allocation Allocation => _lazyImage.Value.Item2;
+
+    public Format Format => this.CreateInfo.Format;
+    public Extent3D Extent => this.CreateInfo.Extent;
+
+    public AccessFlags CurrentAccessFlags { get; set; }
+    public ImageLayout CurrentLayout { get; set; }
+    public ByteSize Size => ByteSize.FromBytes(Allocation.Size);
+
     public TextureDescription Description =>
         new()
         {
             PixelSize = new((int)Extent.Width, (int)Extent.Height),
-            Size = new(Allocation.Size),
-            SampleCount = _info.Samples switch
+            Size = Size,
+            SampleCount = this.CreateInfo.Samples switch
             {
                 SampleCountFlags.None => 0,
                 SampleCountFlags.Count1Bit => 1,
@@ -36,205 +54,52 @@ public sealed class VulkanImage : SingleNonblockingDisposable<EmptyStruct>, IDev
             },
         };
 
-    private readonly IVulkanContext _context;
+    public virtual AllocationCreateInfo CreateAllocInfo() => new(usage: MemoryUsage.GPU_Only);
 
-    private ImageCreateInfo _info;
-    private AccessFlags _currentAccessFlags;
+    public abstract IChain<ImageCreateInfo> CreateVulkanInfo();
 
-    public VulkanImage(
-        IVulkanContext context,
-        ref readonly ImageCreateInfo info,
-        ref readonly AllocationCreateInfo allocInfo
-    )
+    private readonly Lazy<(IChain<ImageCreateInfo>, Allocation, Image)> _lazyImage;
+
+    protected VulkanImage(IVulkanContext context)
         : base(default)
     {
-        _context = context;
-        _info = info;
+        Context = context;
 
-        Image = context.Allocator.CreateImage(info, allocInfo, out var alloc);
-        Allocation = alloc;
+        _lazyImage = new(ImageFactory, false);
     }
 
-    public static implicit operator Image(VulkanImage img) => img.Image;
+    private (IChain<ImageCreateInfo>, Allocation, Image) ImageFactory()
+    {
+        var allocInfo = CreateAllocInfo();
+        var infoChain = CreateVulkanInfo();
+
+        var image = Context.Allocator.CreateImage(
+            in infoChain.HeadRef,
+            in allocInfo,
+            out var alloc
+        );
+
+        return (infoChain, alloc, image);
+    }
+
+    public static implicit operator Image(VulkanImage img) => img.Underlying;
 
     public VulkanImageView GetImageView(ref readonly ImageViewCreateInfo info) =>
-        new(_context, in info);
+        new(Context, in info);
 
     public VulkanImageView GetImageView(Format format, ImageAspectFlags aspectFlags)
     {
-        var createInfo = GetImageViewCreateInfo(format, Image, aspectFlags);
+        var createInfo = GetImageViewCreateInfo(format, Underlying, aspectFlags);
 
         return GetImageView(in createInfo);
     }
 
-    public void TransitionLayout(
-        CommandBuffer commandBuffer,
-        ImageLayout fromLayout,
-        AccessFlags fromAccessFlags,
-        ImageLayout destinationLayout,
-        AccessFlags destinationAccessFlags
-    )
-    {
-        TransitionLayout(
-            _context.Api,
-            commandBuffer,
-            Image,
-            fromLayout,
-            fromAccessFlags,
-            destinationLayout,
-            destinationAccessFlags,
-            _info.MipLevels
-        );
-
-        _info.InitialLayout = destinationLayout;
-
-        _currentAccessFlags = destinationAccessFlags;
-    }
-
-    public void TransitionLayout(
-        CommandBuffer commandBuffer,
-        ImageLayout destinationLayout,
-        AccessFlags destinationAccessFlags
-    ) =>
-        TransitionLayout(
-            commandBuffer,
-            _info.InitialLayout,
-            _currentAccessFlags,
-            destinationLayout,
-            destinationAccessFlags
-        );
-
     protected override void Dispose(EmptyStruct context)
     {
+        if (!_lazyImage.IsValueCreated)
+            return;
         Allocation.Dispose();
-    }
-
-    public static VulkanImage CreateExportableImage(
-        VulkanDevice device,
-        Format format,
-        ImageUsageFlags usageFlags,
-        Extent3D extent,
-        ExternalMemoryHandleTypeFlags handleType
-    )
-    {
-        var createInfo = GetImageCreateInfo(format, usageFlags, extent);
-
-        //TODO: handle metal with ExportMetalObjectCreateInfoEXT
-        createInfo.AddNext(out ExternalMemoryImageCreateInfo next);
-        next.HandleTypes = handleType;
-
-        var exportInfo = new ExportMemoryAllocateInfo { HandleTypes = handleType };
-        using var chain = Chain.Create<MemoryAllocateInfo>().Add(exportInfo);
-
-        var allocInfo = new AllocationCreateInfo
-        {
-            Flags = AllocationCreateFlags.DedicatedMemory,
-            Usage = MemoryUsage.GPU_Only,
-            MemoryAllocateNext = chain,
-        };
-
-        return new(device.Context, in createInfo, in allocInfo);
-    }
-
-    public nint ExportPlatformHandLe()
-    {
-        if (OperatingSystem.IsLinux())
-        {
-            var fdExt = _context.GetExtension<KhrExternalMemoryFd>();
-
-            var info = new MemoryGetFdInfoKHR
-            {
-                SType = StructureType.MemoryGetFDInfoKhr,
-                Memory = Allocation.DeviceMemory,
-                HandleType = ExternalMemoryHandleTypeFlags.OpaqueFDBit,
-            };
-            fdExt.GetMemoryF(_context.Device, in info, out var fd).ThrowOnError();
-            return fd;
-        }
-
-        if (OperatingSystem.IsWindows())
-        {
-            var win32Ext = _context.GetExtension<KhrExternalMemoryWin32>();
-
-            var info = new MemoryGetWin32HandleInfoKHR
-            {
-                SType = StructureType.MemoryGetWin32HandleInfoKhr,
-                Memory = Allocation.DeviceMemory,
-                HandleType = ExternalMemoryHandleTypeFlags.OpaqueWin32Bit,
-            };
-            win32Ext.GetMemoryWin32Handle(_context.Device, in info, out var handle).ThrowOnError();
-            return handle;
-        }
-
-        throw new PlatformNotSupportedException(
-            "External memory export is not supported on this platform."
-        );
-    }
-
-    public static unsafe ImageCreateInfo GetImageCreateInfo(
-        Format format,
-        ImageUsageFlags usageFlags,
-        Extent3D extent
-    )
-    {
-        return new(
-            imageType: ImageType.Type2D,
-            format: format,
-            extent: extent,
-            mipLevels: 1,
-            arrayLayers: 1,
-            samples: SampleCountFlags.Count1Bit,
-            tiling: ImageTiling.Optimal,
-            usage: usageFlags,
-            sharingMode: SharingMode.Exclusive,
-            initialLayout: ImageLayout.Undefined
-        );
-    }
-
-    private static unsafe void TransitionLayout(
-        Vk api,
-        CommandBuffer commandBuffer,
-        Image image,
-        ImageLayout sourceLayout,
-        AccessFlags sourceAccessMask,
-        ImageLayout destinationLayout,
-        AccessFlags destinationAccessMask,
-        uint mipLevels
-    )
-    {
-        var subresourceRange = new ImageSubresourceRange(
-            ImageAspectFlags.ColorBit,
-            0,
-            mipLevels,
-            0,
-            1
-        );
-
-        var barrier = new ImageMemoryBarrier
-        {
-            SType = StructureType.ImageMemoryBarrier,
-            SrcAccessMask = sourceAccessMask,
-            DstAccessMask = destinationAccessMask,
-            OldLayout = sourceLayout,
-            NewLayout = destinationLayout,
-            SrcQueueFamilyIndex = Vk.QueueFamilyIgnored,
-            DstQueueFamilyIndex = Vk.QueueFamilyIgnored,
-            Image = image,
-            SubresourceRange = subresourceRange,
-        };
-
-        api.CmdPipelineBarrier(
-            commandBuffer,
-            PipelineStageFlags.AllCommandsBit,
-            PipelineStageFlags.AllCommandsBit,
-            0,
-            0,
-            null,
-            0,
-            null,
-            1,
-            in barrier
-        );
+        Context.Api.DestroyImage(Context.Device, Underlying, in Context.Callbacks.Underlying);
     }
 
     private static unsafe ImageViewCreateInfo GetImageViewCreateInfo(
@@ -250,6 +115,30 @@ public sealed class VulkanImage : SingleNonblockingDisposable<EmptyStruct>, IDev
             subresourceRange: new(aspectFlags, 0, 1, 0, 1)
         );
     }
+}
+
+public sealed class Vulkan2DImage(
+    IVulkanContext context,
+    Format format,
+    Size size,
+    ImageUsageFlags usageFlags = ImageUsageFlags.ColorAttachmentBit
+) : VulkanImage(context)
+{
+    public override unsafe IChain<ImageCreateInfo> CreateVulkanInfo() =>
+        Chain.Create<ImageCreateInfo>(
+            new(
+                imageType: ImageType.Type2D,
+                format: format,
+                extent: new((uint)size.Width, (uint)size.Height, 1),
+                mipLevels: 1,
+                arrayLayers: 1,
+                samples: SampleCountFlags.Count1Bit,
+                tiling: ImageTiling.Optimal,
+                usage: usageFlags,
+                sharingMode: SharingMode.Exclusive,
+                initialLayout: ImageLayout.Undefined
+            )
+        );
 }
 
 public sealed class VulkanImageView : SingleNonblockingDisposable<EmptyStruct>

@@ -1,36 +1,37 @@
+using GameDotNet.Graphics.Vulkan.Abstractions;
 using GameDotNet.Graphics.Vulkan.MemoryAllocation;
 using Silk.NET.Vulkan;
 using Buffer = Silk.NET.Vulkan.Buffer;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public class VulkanBuffer : IDisposable
+public class VulkanBuffer : IDisposable, IVulkanWrapper<Buffer> //TODO: refactor with new wrapper interface pattern
 {
+    public IVulkanContext Context { get; } //TODO
+    public Buffer Underlying => Buffer;
     public Buffer Buffer { get; }
     public Allocation Allocation { get; }
 
-
+    public BufferCreateInfo CreateInfo { get; }
     private readonly VulkanMemoryAllocator _allocator;
 
-    public VulkanBuffer(VulkanMemoryAllocator allocator, in BufferCreateInfo buffInfo,
-                        in AllocationCreateInfo allocInfo)
+    public VulkanBuffer(
+        VulkanMemoryAllocator allocator,
+        in BufferCreateInfo buffInfo,
+        in AllocationCreateInfo allocInfo
+    )
     {
         _allocator = allocator;
 
         Buffer = _allocator.CreateBuffer(buffInfo, allocInfo, out var alloc);
         Allocation = alloc;
-    }
-
-    public VulkanBuffer(VulkanMemoryAllocator allocator, Buffer buffer, Allocation allocation)
-    {
-        _allocator = allocator;
-        Buffer = buffer;
-        Allocation = allocation;
+        CreateInfo = buffInfo;
     }
 
     public static implicit operator Buffer(VulkanBuffer buff) => buff.Buffer;
 
-    public BufferDisposableMapping<T> Map<T>() where T : unmanaged => new(_allocator, Allocation);
+    public BufferDisposableMapping<T> Map<T>()
+        where T : unmanaged => new(_allocator, Allocation);
 
     public void Dispose()
     {
@@ -39,8 +40,8 @@ public class VulkanBuffer : IDisposable
         GC.SuppressFinalize(this);
     }
 
-
-    public sealed class BufferDisposableMapping<T> : IDisposable where T : unmanaged
+    public sealed class BufferDisposableMapping<T> : IDisposable
+        where T : unmanaged
     {
         public bool IsMapped => _allocation.MappedData != IntPtr.Zero;
 
@@ -57,14 +58,20 @@ public class VulkanBuffer : IDisposable
 
         public bool TryGetSpan(out Span<T> span)
         {
-            if (!IsMapped) throw new InvalidOperationException("Can't access buffer memory without it being mapped");
+            if (!IsMapped)
+                throw new InvalidOperationException(
+                    "Can't access buffer memory without it being mapped"
+                );
 
             return _allocation.TryGetSpan(out span);
         }
 
         public bool TryGetMemory(out Memory<T> memory)
         {
-            if (!IsMapped) throw new InvalidOperationException("Can't access buffer memory without it being mapped");
+            if (!IsMapped)
+                throw new InvalidOperationException(
+                    "Can't access buffer memory without it being mapped"
+                );
 
             return _allocation.TryGetMemory(out memory);
         }

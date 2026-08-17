@@ -25,7 +25,7 @@ internal class SkiaSwapchainImage : SingleDisposable<EmptyStruct>
                 Size = (ulong)Image.Allocation.Size,
                 Memory = Image.Allocation.DeviceMemory.Handle,
             },
-            Image = Image.Image.Handle,
+            Image = Image.Underlying.Handle,
             ImageTiling = (uint)Image.CreateInfo.Tiling,
             ImageLayout = (uint)ImageLayout.ShaderReadOnlyOptimal,
             Format = (uint)Image.Format,

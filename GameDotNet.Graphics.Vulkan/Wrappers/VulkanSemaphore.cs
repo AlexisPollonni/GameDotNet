@@ -9,61 +9,61 @@ using Semaphore = Silk.NET.Vulkan.Semaphore;
 
 namespace GameDotNet.Graphics.Vulkan.Wrappers;
 
-public class VulkanSemaphore : SingleDisposable<EmptyStruct>, IVulkanWrapper<Semaphore>
+public class VulkanSemaphore
+    : SingleDisposable<IVulkanContext>,
+        IVulkanWrapper<Semaphore>,
+        IVulkanCreateFromInfo<SemaphoreCreateInfo>
 {
     public IVulkanContext Context { get; }
-    public Semaphore Underlying { get; }
+    public Semaphore Underlying => _lazySemaphore.Value.Item2;
+    public IChain<SemaphoreCreateInfo> InfoChain => _lazySemaphore.Value.Item1;
+
+    private readonly Lazy<(IChain<SemaphoreCreateInfo>, Semaphore)> _lazySemaphore;
 
     public VulkanSemaphore(IVulkanContext context)
-        : this(
-            context,
-            new() { SType = StructureType.SemaphoreCreateInfo, Flags = SemaphoreCreateFlags.None }
-        ) { }
-
-    public VulkanSemaphore(IVulkanContext context, in SemaphoreCreateInfo info)
-        : base(default)
+        : base(context)
     {
         Context = context;
 
-        context
+        _lazySemaphore = new(SemaphoreFactory, false);
+    }
+
+    private (IChain<SemaphoreCreateInfo>, Semaphore) SemaphoreFactory()
+    {
+        var infoChain = CreateVulkanInfo();
+        Context
             .Api.CreateSemaphore(
-                context.Device,
-                in info,
-                in context.Callbacks.Underlying,
-                out var sem
+                Context.Device,
+                in infoChain.HeadRef,
+                in Context.Callbacks.Underlying,
+                out var createdSem
             )
             .ThrowOnError("Unable to create semaphore");
 
-        Underlying = sem;
+        return (infoChain, createdSem);
     }
+
+    public virtual unsafe IChain<SemaphoreCreateInfo> CreateVulkanInfo() =>
+        Chain.Create(new SemaphoreCreateInfo(flags: SemaphoreCreateFlags.None));
 
     public static implicit operator Semaphore(VulkanSemaphore s) => s.Underlying;
 
-    protected sealed override void Dispose(EmptyStruct context)
+    protected sealed override void Dispose(IVulkanContext context)
     {
-        Context.Api.DestroySemaphore(Context.Device, Underlying, in Context.Callbacks.Underlying);
+        if (!_lazySemaphore.IsValueCreated)
+            return;
+        InfoChain.Dispose();
+        Context.Api.DestroySemaphore(context.Device, Underlying, in context.Callbacks.Underlying);
     }
 }
 
-public class VulkanTimelineSemaphore : VulkanSemaphore
+public class VulkanTimelineSemaphore(IVulkanContext context) : VulkanSemaphore(context)
 {
-    public VulkanTimelineSemaphore(IVulkanContext context)
-        : base(context, CreateInfo(out var createChain))
-    {
-        createChain.Dispose();
-    }
-
-    private static unsafe SemaphoreCreateInfo CreateInfo(
-        out Chain<SemaphoreCreateInfo, SemaphoreTypeCreateInfo> chain
-    )
-    {
-        chain = Chain.Create(
+    public override unsafe IChain<SemaphoreCreateInfo> CreateVulkanInfo() =>
+        Chain.Create(
             new SemaphoreCreateInfo(flags: SemaphoreCreateFlags.None),
             new SemaphoreTypeCreateInfo(initialValue: 0, semaphoreType: SemaphoreType.Timeline)
         );
-
-        return chain.Head;
-    }
 
     public ulong CurrentValue
     {
@@ -138,4 +138,17 @@ public class VulkanTimelineSemaphore : VulkanSemaphore
             );
         }
     }
+}
+
+public sealed class ExportableVulkanTimelineSemaphore(
+    IVulkanContext context,
+    ExternalSemaphoreHandleTypeFlags handleTypes
+) : VulkanTimelineSemaphore(context)
+{
+    public override unsafe IChain<SemaphoreCreateInfo> CreateVulkanInfo() =>
+        Chain.Create(
+            new SemaphoreCreateInfo(flags: SemaphoreCreateFlags.None),
+            new SemaphoreTypeCreateInfo(initialValue: 0, semaphoreType: SemaphoreType.Timeline),
+            new ExportSemaphoreCreateInfo(handleTypes: handleTypes)
+        );
 }

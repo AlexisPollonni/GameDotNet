@@ -40,8 +40,8 @@ public sealed class VulkanRenderer(
             var cmd = recorder.Buffer;
 
             // Transition image to transfer destination for the clear operation
-            image.TransitionLayout(
-                cmd,
+            recorder.TransitionLayout(
+                image,
                 ImageLayout.TransferDstOptimal,
                 AccessFlags.TransferWriteBit
             );
@@ -57,8 +57,8 @@ public sealed class VulkanRenderer(
                 [range]
             );
             // Transition to shader for external sharing / composition
-            image.TransitionLayout(
-                cmd,
+            recorder.TransitionLayout(
+                image,
                 ImageLayout.ShaderReadOnlyOptimal,
                 AccessFlags.ShaderReadBit
             );

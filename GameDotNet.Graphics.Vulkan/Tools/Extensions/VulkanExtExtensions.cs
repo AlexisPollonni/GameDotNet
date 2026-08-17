@@ -21,7 +21,7 @@ public static class VulkanExtExtensions
         }
     }
 
-    internal static T GetExtension<T>(this IVulkanContext context)
+    public static T GetExtension<T>(this IVulkanContext context)
         where T : NativeExtension<Vk>
     {
         if (
