@@ -95,8 +95,8 @@ public class RenderThreadAnimationControl(
             }
             finally
             {
-                if (frame is not null)
-                    presentedChannel.Writer.TryWrite(frame);
+                if (frame is not null && !presentedChannel.Writer.TryWrite(frame))
+                    frame.Dispose(); //if a frame was presented and the channel completed at the same time, dispose the frame so it is not leaked
                 RegisterForNextAnimationFrameUpdate();
                 Invalidate();
             }
@@ -196,6 +196,17 @@ public class RenderThreadAnimationControl(
             // expected
         }
 
+        // we drain the channels and dispose the remaining hanging frames
+        while (_presentedFrameChannel.Reader.TryRead(out var presentFrame))
+        {
+            presentFrame.Dispose();
+        }
+
+        while (_renderedFrameChannel.Reader.TryRead(out var renderedFrame))
+        {
+            renderedFrame.Dispose();
+        }
+
         _customVisual = null;
         _handler = null;
 
@@ -215,7 +226,6 @@ public class RenderThreadAnimationControl(
 
             while (!token.IsCancellationRequested)
             {
-                // Render a frame
                 await RenderFrame(token).ConfigureAwait(false);
             }
         }
@@ -254,6 +264,29 @@ public class RenderThreadAnimationControl(
         Dispatcher.UIThread.Invoke(() => RenderStats = presentResponse.RenderStats);
         await _renderedFrameChannel.Writer.WriteAsync(presentImage, token).ConfigureAwait(false);
     }
+
+    protected override async ValueTask DisposeAsyncCore()
+    {
+        _renderedFrameChannel.Writer.Complete();
+        _presentedFrameChannel.Writer.Complete();
+
+        await _cts.CancelAsync();
+        _cts.Dispose();
+
+        await foreach (var frame in _renderedFrameChannel.Reader.ReadAllAsync())
+        {
+            frame.Dispose();
+        }
+
+        await foreach (var frame in _presentedFrameChannel.Reader.ReadAllAsync())
+        {
+            frame.Dispose();
+        }
+
+        await base.DisposeAsyncCore();
+    }
+}
+
 internal static class SkiaExtensions
 {
     extension(Format vkFormat)

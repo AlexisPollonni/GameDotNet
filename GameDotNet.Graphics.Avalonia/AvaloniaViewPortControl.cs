@@ -46,12 +46,6 @@ public abstract class AvaloniaViewPortControl(
     private readonly List<Key> _keysPressed = [];
     private readonly List<MouseButton> _buttonsPressed = [];
 
-    public async ValueTask DisposeAsync()
-    {
-        await _cts.CancelAsync();
-        _cts.Dispose();
-    }
-
     public bool IsKeyDown(Key key)
     {
         return _keysPressed.Contains(key);
@@ -229,7 +223,7 @@ public abstract class AvaloniaViewPortControl(
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
-        if (e.Root is Window topLevel)
+        if (TopLevel.GetTopLevel(this) is Window topLevel)
             topLevel.Closing -= TopLevelOnClosing;
 
         base.OnDetachedFromVisualTree(e);
@@ -278,5 +272,17 @@ public abstract class AvaloniaViewPortControl(
         var pxS = PixelSize.FromSize(size, scaling);
 
         return new(pxS.Width, pxS.Height);
+    }
+
+    protected virtual async ValueTask DisposeAsyncCore()
+    {
+        await _cts.CancelAsync();
+        _cts.Dispose();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisposeAsyncCore();
+        GC.SuppressFinalize(this);
     }
 }
