@@ -8,12 +8,20 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
         internal DeviceMemory memory;
         internal IntPtr mappedData;
 
-        public DedicatedAllocation(VulkanMemoryAllocator allocator, int memTypeIndex, DeviceMemory memory,
-                                   SuballocationType suballocType, IntPtr mappedData, long size) : base(allocator, 0)
+        public DedicatedAllocation(
+            VulkanMemoryAllocator allocator,
+            int memTypeIndex,
+            DeviceMemory memory,
+            SuballocationType suballocType,
+            IntPtr mappedData,
+            long size
+        )
+            : base(allocator, 0)
         {
             this.memory = memory;
             this.mappedData = mappedData;
             memoryTypeIndex = memTypeIndex;
+            this.size = size;
         }
 
         public override DeviceMemory DeviceMemory => memory;
@@ -33,7 +41,9 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             if (mapCount != 0)
             {
                 if ((mapCount & int.MaxValue) >= int.MaxValue)
-                    throw new InvalidOperationException("Dedicated allocation mapped too many times simultaneously");
+                    throw new InvalidOperationException(
+                        "Dedicated allocation mapped too many times simultaneously"
+                    );
                 Debug.Assert(mappedData != default);
 
                 pData = mappedData;
@@ -62,13 +72,16 @@ namespace GameDotNet.Graphics.Vulkan.MemoryAllocation
             {
                 mapCount -= 1;
 
-                if (mapCount != 0) return;
+                if (mapCount != 0)
+                    return;
                 mappedData = default;
                 VkApi.UnmapMemory(Allocator.Device, memory);
             }
             else
             {
-                throw new InvalidOperationException("Unmapping dedicated allocation not previously mapped");
+                throw new InvalidOperationException(
+                    "Unmapping dedicated allocation not previously mapped"
+                );
             }
         }
 
