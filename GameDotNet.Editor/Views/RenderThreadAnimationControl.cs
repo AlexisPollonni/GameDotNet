@@ -68,15 +68,19 @@ public class RenderThreadAnimationControl(
             {
                 frame = _previousImage;
             }
+            else if (
+                _previousImage is not null
+                && !presentedChannel.Writer.TryWrite(_previousImage)
+            )
+                _previousImage.Dispose(); //if a frame was presented and the channel completed at the same time, dispose the frame so it is not leaked
 
             var feature = drawingContext.TryGetFeature<ISkiaSharpApiLeaseFeature>();
             if (feature is null)
                 return;
 
-            using var lease = feature.Lease();
-
             try
             {
+                using var lease = feature.Lease();
                 if (frame is null)
                     return;
 
@@ -95,8 +99,6 @@ public class RenderThreadAnimationControl(
             }
             finally
             {
-                if (frame is not null && !presentedChannel.Writer.TryWrite(frame))
-                    frame.Dispose(); //if a frame was presented and the channel completed at the same time, dispose the frame so it is not leaked
                 RegisterForNextAnimationFrameUpdate();
                 Invalidate();
             }
@@ -117,6 +119,13 @@ public class RenderThreadAnimationControl(
                 vkImageInfo
             );
 
+            // Hardening to avoid FromTexture to SegFault the app if the image was disposed. Should never throw.
+            if (image.IsDisposeStarted || image.Image.IsDisposeStarted)
+            {
+                throw new ObjectDisposedException(
+                    $"{image} was disposed before it could be rendered by skia"
+                );
+            }
             using var skImage = SKImage.FromTexture(
                 context,
                 backendTexture,
