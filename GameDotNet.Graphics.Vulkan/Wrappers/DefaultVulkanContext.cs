@@ -184,7 +184,14 @@ public sealed class DefaultVulkanContext : IVulkanContext
 
     public void Dispose()
     {
-        Allocator.Dispose();
+        try
+        {
+            Allocator.Dispose();
+        }
+        catch (Exception e)
+        {
+            _logger.LogError(e, "Failed to dispose allocator");
+        }
         Device.Dispose();
         Surface?.Dispose();
         Instance.Dispose();
