@@ -11,6 +11,7 @@ using GameDotNet.Editor.Services;
 using GameDotNet.Editor.Tools;
 using GameDotNet.Editor.ViewModels;
 using GameDotNet.Editor.Views;
+using GameDotNet.Graphics.ILGPU.Tools;
 using GameDotNet.Graphics.Vulkan.Tools;
 using GameDotNet.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -62,7 +63,8 @@ class Program
             )
             .AddTransient<ViewLocator>()
             .AddGameDotNetGraphicsAvalonia()
-            .AddVulkanRenderer()
+            .AddVulkanBackend()
+            .AddIlGpuRenderer()
             .AddGameDotNetEditor()
             .AddEditorViews()
             .AddViewerLogging();

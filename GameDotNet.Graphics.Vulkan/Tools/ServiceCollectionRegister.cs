@@ -21,7 +21,7 @@ namespace GameDotNet.Graphics.Vulkan.Tools;
 
 public static class ServiceCollectionRegister
 {
-    public static unsafe IServiceCollection AddVulkanRenderer(this IServiceCollection services)
+    public static unsafe IServiceCollection AddVulkanBackend(this IServiceCollection services)
     {
         return services
             .AddSingleton<IVulkanContext, DefaultVulkanContext>(provider =>
@@ -90,9 +90,8 @@ public static class ServiceCollectionRegister
             })
             .AddSingleton<GpuCompletionMonitor>()
             .AddKeyedSingleton<CommandSubmitter>(QueueFlags.GraphicsBit)
-            .AddSingleton<SlangShaderService>()
-            .AddSingleton<IEntityRenderer, SlangMeshRenderer>()
             .AddSingleton<IVulkanDevice, AvaloniaVulkanDeviceWrapper>()
+            .AddSingleton<VulkanInteropExporter>()
             .AddAutoFactories();
     }
 }

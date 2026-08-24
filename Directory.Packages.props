@@ -20,9 +20,12 @@
     <PackageVersion Include="CommunityToolkit.HighPerformance" Version="8.4.0" />
     <PackageVersion Include="DependencyPropertyGenerator" Version="1.5.0" />
     <PackageVersion Include="dotVariant" Version="0.5.3" />
-    <PackageVersion Include="FluentAvaloniaUI" Version="3.0.0-preview1" />
+    <PackageVersion Include="DynamicData" Version="9.4.33" />
+    <PackageVersion Include="FluentAvaloniaUI" Version="3.0.2" />
+    <PackageVersion Include="ILGPU.Algorithms" Version="1.5.3" />
     <PackageVersion Include="Injectio" Version="5.1.0" />
     <PackageVersion Include="Intellenum" Version="1.0.6" />
+    <PackageVersion Include="ManagedCuda-13" Version="13.0.64" />
     <PackageVersion Include="MessagePipe" Version="1.8.1" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
@@ -68,6 +71,7 @@
     <PackageVersion Include="shaderc.net" Version="0.1.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Silk.NET.Input.Common" Version="2.22.0" />
+    <PackageVersion Include="Silk.NET.OpenCL.Extensions.KHR" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.EXT" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.Vulkan.Extensions.KHR" Version="2.23.0" />
     <PackageVersion Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.22.0" />

@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DefineConstants>$(DefineConstants);VOGEN_NO_VALIDATION</DefineConstants> 
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ILGPU.Algorithms" />
+    <PackageReference Include="ManagedCuda-13" />
+    <PackageReference Include="Silk.NET.OpenCL.Extensions.KHR" />
+    <PackageReference Include="Vogen" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GameDotNet.Graphics.Vulkan\GameDotNet.Graphics.Vulkan.csproj" />
+  </ItemGroup>
+</Project>

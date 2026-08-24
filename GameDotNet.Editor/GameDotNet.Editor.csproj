@@ -44,6 +44,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GameDotNet.Graphics.Avalonia\GameDotNet.Graphics.Avalonia.csproj" />
+    <ProjectReference Include="..\GameDotNet.Graphics.ILGPU\GameDotNet.Graphics.ILGPU.csproj" />
     <ProjectReference Include="..\GameDotNet.Graphics.Vulkan\GameDotNet.Graphics.Vulkan.csproj" />
     <ProjectReference Include="..\GameDotNet.Hosting\GameDotNet.Hosting.csproj" />
   </ItemGroup>
